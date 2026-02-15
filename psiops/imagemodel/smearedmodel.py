@@ -1,0 +1,66 @@
+##########################################################################################
+# image_ops/imagemodel/smearedmodel.py
+##########################################################################################
+
+import numpy as np
+
+from image_ops.mean       import mean as ops_mean
+from image_ops.imagemodel import ImageModel
+
+
+class SmearedModel(ImageModel):
+    """An ImageModel defined by smearing another ImageModel."""
+
+    def __init__(self, model, smear, maxstep=0.5):
+        """Constructor for a SmearedModel.
+
+        The new model will be centered on the same coordinates as the original model.
+
+        Parameters:
+            model (ImageModel): The model to be smeared.
+            smear (array-like): (dx,dy) coordinates defining the full smear of the model.
+            maxstep (scalar): The largest pixel offset allowed between evaluated positions
+                of the original model.
+        """
+
+        self._model = model
+
+        distance = np.sqrt(smear[0]**2 + smear[1]**2)
+        nsteps = int(np.ceil(distance/maxstep))
+
+        self._nsteps = nsteps
+        self._offsets = smear/nsteps * np.arange(-nsteps/2 + 0.5, nsteps/2)[:,np.newaxis]
+
+    def transform(self, shape, center, expand=1., rotate=0.):
+        """This SmearedModel re-sampled for a particular grid of pixels while preserving
+        its integral.
+
+        Parameters:
+            shape (array-like): Two integers defining the shape of the returned array.
+            center (array-like): Two floating-point coordinates defining the model's
+                origin coordinates within the returned image array. Note that integers
+                refer to the corners between pixels and half-integers refer to pixel
+                centers. In other words, (0,0) is the lower corner of the image array and
+                (0.5,0.5) is the center of the first pixel.
+            expand (scalar): An expansion (zoom) factor to apply to the ImageModel. Values
+                greater than one increase the size of the ImageModel in both directions,
+                but leave the center location unchanged. Note that the model's amplitude
+                scales with 1/expand**2 in order to preserve the integral.
+            rotate (scalar): The angle in radians by which to rotate the ImageModel.
+                Rotations are counterclockwise and are applied about the center of the
+                ImageModel after it has been expanded.
+
+        Returns:
+            (array): A 2-D array of the specified shape, containing the ImageModel as
+                centered, expanded, and rotated.
+        """
+
+        center = np.array(center)
+
+        images = np.empty((self.nsteps,) + shape)
+        for k, offset in enumerate(self.offsets):
+            images[k] = self._model.transform(shape, center + offset, expand, rotate)
+
+        return np.mean(image, axis=0)
+
+##########################################################################################
