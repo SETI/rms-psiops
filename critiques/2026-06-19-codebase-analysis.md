@@ -186,12 +186,13 @@ infrastructure, and a handful of medium/low structural items.
 
 ## 6. Maintainability and extensibility
 
-- **Finding (high)**: The `returns` string mini-DSL (`'i'`, `'im'`, `'iw'`, `'imw'`, plus
+- ~~**Finding (high)**: The `returns` string mini-DSL (`'i'`, `'im'`, `'iw'`, `'imw'`, plus
   optional trailing char) is used as the central mechanism for controlling what every public
   function returns. It appears in every public function signature but is effectively
   undiscoverable without reading `_utils.py`. Consider replacing with a typed `enum` or
   explicit keyword arguments (e.g. `return_mask=False, return_weights=False`). **Evidence**:
-  Every public function.
+  Every public function.~~ ✗ **Won't fix.** The `returns` DSL is a deliberate design choice
+  and will be retained as-is.
 
 - ~~**Finding (medium)**: `fft.py` contains `from gaussian_filter import gaussian_filter`
   (bare module name, missing the `psiops.` package prefix). This will fail on import. The
