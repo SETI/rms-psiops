@@ -1,22 +1,24 @@
 ##########################################################################################
-# image_ops/circle.py
+# psiops/circle.py
 ##########################################################################################
 
 import numpy as np
 
 
-def circle(radius):
+def circle(
+    radius: float,
+) -> np.ndarray:
     """A circular footprint (boolean array) of the specified radius.
 
     The shape is always odd to ensure that using it in a filter does not contribute an
     offset to the image geometry.
 
     Parameters:
-        radius (scalar): The radius in pixels.
+        radius: The radius in pixels.
 
     Returns:
-        (array): A 2-D boolean array containing True wherever the distance from the
-            footprint center to the center of a pixel is less than the given `radius`.
+        A 2-D boolean array containing True wherever the distance from the footprint
+        center to the center of a pixel is less than the given `radius`.
     """
 
     halfsize = int(radius)

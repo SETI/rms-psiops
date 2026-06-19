@@ -3,25 +3,32 @@
 ##########################################################################################
 
 import numpy as np
+import numpy.typing as npt
+
 from psiops.resample import resample
-from psiops._utils import _check_tuple, _check_image, _check_return, _merge_weights
+from psiops._utils import _check_tuple, _merge_weights
+from psiops._validation import _check_image, _check_return
 
 HALFPI = np.pi/2.
 TWOPI = np.pi * 2.
 
-# For unit testing
-TESTING = False
 
-def _set_rotate_testing_flag(flag):
-    """Adds a few items to the return value of rotate(); used for testing."""
-
-    global TESTING
-    TESTING = flag
-
-
-def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
-           origin=None, center=None, shape=None, minweight=1.e-6, eps=1.e-12,
-           returns=None):
+def rotate(
+    image: npt.ArrayLike,
+    angle: float,
+    mask: np.ndarray | None = None,
+    *,
+    maskval: float | None = None,
+    weights: np.ndarray | None = None,
+    nans: bool = False,
+    origin: tuple[float, float] | None = None,
+    center: tuple[float, float] | None = None,
+    shape: tuple[int, int] | None = None,
+    minweight: float = 1.e-6,
+    eps: float = 1.e-12,
+    returns: str | None = None,
+    _debug: dict | None = None,
+) -> np.ndarray | list[np.ndarray]:
     """Rotate this image while retaining photometric precision.
 
     This function calculates the area of overlap between each pixel (assumed square) of
@@ -31,76 +38,78 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
     content of the input is preserved, albeit at a slightly reduced spatial resolution.
 
     Parameters:
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-            This can be a MaskedArray.
-        angle (float): The rotation angle in radians. If we regard the spatial coordinates
-            as (x,y), where the x-axis points rightward and the y-axis points upward, then
+        image: Image array, in which the last two axes are the spatial dimensions. This
+            can be a MaskedArray.
+        angle: The rotation angle in radians. If we regard the spatial coordinates as
+            (x,y), where the x-axis points rightward and the y-axis points upward, then
             the rotation is counterclockwise.
-        mask (array, optional): Boolean mask array, equal to True where the values in
-            `image` are to be ignored. It is broadcasted to the shape of `image` if
-            necessary.
-        maskval (scalar, optional): A value that should be masked wherever it appears in
-            `image`. This can be used used instead of or in addition to the `mask`.
-        weights (array, optional): Weight array specifying the possibly unequal weights
-            associated with the pixels in `image`. A weight of zero is equivalent to a
-            `mask` value of True. This can be provided in addition to or instead of the
-            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
-            Values should never be negative.
-        nans (bool, optional): True to check `image` for NaNs and interpret them as masked
-            values.
-        origin (tuple, list, or array, optional): Two coordinates defining the center
-            location within the image array around which the rottion is performed. If not
-            specified, the midpoint of `image` is used. Note that integer coordinates
-            refer to the corners between pixels and half-integers refer to pixel centers.
-            In other words, (0,0) is the lower corner of the image array and (0.5,0.5) is
-            the center of the first pixel.
-        center (tuple, list, or array, optional): Two coordinates defining the transformed
-            location of the origin in the returned image array. If not specified, the
-            center will be determined to align (0,0) in the input `image` to (0,0) in the
-            returned image. Note that integer coordinates refer to the corners between
-            pixels and half-integers refer to pixel centers.
-        shape (tuple, list, or array, optional): The shape of the returned image. If not
-            specified, the resampled image is large enough to encompass the entire content
-            of the input `image`.
-        minweight (float, optional): The minimum weight within a pixel in the returned
-            image that is treated as significant. If the total weight (fraction of a
-            source pixel) in a new pixel is less than this value, it will be treated as
-            masked.
-        eps (float, optional): The positional error tolerance in units of pixels when
-            determining the overlap between the original pixels of `image` and the new,
-            rotated pixels.
-        returns (str, optional): Used to override the default quantity or quantities to
-            return, one of "i" (image only), "im" (image and mask), "iw" (image and weight
-            array), or "imw" (image, mask, and weight array). Append "c" to include the
-            new center coordinates of the returned image.
+        mask: Boolean mask array, equal to True where the values in `image` are to be
+            ignored. It is broadcasted to the shape of `image` if necessary.
+        maskval: A value that should be masked wherever it appears in `image`. This can be
+            used instead of or in addition to the `mask`.
+        weights: Weight array specifying the possibly unequal weights associated with the
+            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
+            This can be provided in addition to or instead of the `mask` or `maskval`. It
+            is broadcasted to the shape of `image` if necessary. Values should never be
+            negative.
+        nans: True to check `image` for NaNs and interpret them as masked values.
+        origin: Two coordinates defining the center location within the image array around
+            which the rotation is performed. If not specified, the midpoint of `image` is
+            used. Note that integer coordinates refer to the corners between pixels and
+            half-integers refer to pixel centers. In other words, (0,0) is the lower
+            corner of the image array and (0.5,0.5) is the center of the first pixel.
+        center: Two coordinates defining the transformed location of the origin in the
+            returned image array. If not specified, the center will be determined to align
+            (0,0) in the input `image` to (0,0) in the returned image. Note that integer
+            coordinates refer to the corners between pixels and half-integers refer to
+            pixel centers.
+        shape: The shape of the returned image. If not specified, the resampled image is
+            large enough to encompass the entire content of the input `image`.
+        minweight: The minimum weight within a pixel in the returned image that is treated
+            as significant. If the total weight (fraction of a source pixel) in a new
+            pixel is less than this value, it will be treated as masked.
+        eps: The positional error tolerance in units of pixels when determining the
+            overlap between the original pixels of `image` and the new, rotated pixels.
+        returns: Used to override the default quantity or quantities to return, one of
+            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
+            "imw" (image, mask, and weight array). Append "c" to include the new center
+            coordinates of the returned image.
+        _debug: If provided, this dict is populated with internal state after the call,
+            useful for testing and debugging. Keys: 'area_list', 'imod_list', 'jmod_list'
+            (parallel lists of per-pixel overlap areas and source row/column indices from
+            the inner loop, or None when the angle is an exact multiple of π/2),
+            'new_center', 'new_mask', and 'new_weights'.
 
     Returns:
-        (array or tuple): `rotated` or
-            (`rotated`[, `new_mask`][, `new_weights`][, `new_center`]):
+        `rotated` or (`rotated`[, `new_mask`][, `new_weights`][, `new_center`]):
 
-        * `rotated` (array): The floating-point, rotated image array. If `image` is a
-          MaskedArray, this will also be a MaskedArray. If `maskval` was specified, any
-          masked elements in this array will be filled with this value. Otherwise, if
-          `nans` is True, masked pixels will be filled with NaN.
-        * `new_mask` (array): The new mask array, True wherever all the pixels contibuting
-          to the image are masked. By default, this is returned if `mask` is provided; use
+        * `rotated`: The floating-point, rotated image array. If `image` is a MaskedArray,
+          this will also be a MaskedArray. If `maskval` was specified, any masked elements
+          in this array will be filled with this value. Otherwise, if `nans` is True,
+          masked pixels will be filled with NaN.
+        * `new_mask`: The new mask array, True wherever all the pixels contributing to the
+          image are masked. By default, this is returned if `mask` is provided; use
           `returns` to override the default behavior.
-        * `new_weights` (array): The weight array, equal to the sum of the weights of the
-          elements that contributed to each pixel in `rotated`. By default, this is
-          returned if `weights` is provided; use the `returns` to override this default
-          behavior. If `weights` is not provided, this is the number of unmasked pixels
-          that contributed to each new pixel's value.
-        * `new_center` (tuple): The two coordinates of the center of `rotated`,
-          corresponding to the `origin` in the input image. By default, this is included
-          unless `center` was specified as input (in which case `new_center` is equal to
-          `center`); use `returns` to override this default.
-    """
+        * `new_weights`: The weight array, equal to the sum of the weights of the elements
+          that contributed to each pixel in `rotated`. By default, this is returned if
+          `weights` is provided; use the `returns` to override this default behavior. If
+          `weights` is not provided, this is the number of unmasked pixels that
+          contributed to each new pixel's value.
+        * `new_center`: The two coordinates of the center of `rotated`, corresponding to
+          the `origin` in the input image. By default, this is included unless `center`
+          was specified as input (in which case `new_center` is equal to `center`); use
+          `returns` to override this default.
 
-    global TESTING
+    Raises:
+        ValueError: If any inputs are invalid.
+        TypeError: If `image` dtype is not numeric.
+        ZeroDivisionError: If the rotation angle is exactly a multiple of π/2 but differs
+            from the nearest multiple by more than `eps`.
+    """
 
     # Intepret array and mask
     image, mask, weights, info = _check_image(image, mask, maskval, weights, nans=nans,
-                                              comps=True, three=True, returns=returns,
+                                              comps=True, returns=returns,
                                               extra_char='c',
                                               extra_by_default=(center is None))
 
@@ -156,8 +165,8 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
             new_center[j] += mod_diff
 
             # Identify unused space and shift the new_center by integer steps to use it
-            unused_below = new_xy_min[j]
-            unused_above = new_xy_shape[j] - new_xy_max[j]
+            unused_below = new_center[j] + new_xy_min[j]
+            unused_above = new_xy_shape[j] - new_center[j] - new_xy_max[j]
             if unused_below > 0 and unused_above < 0:
                 new_center[j] -= np.floor(min(unused_below, -unused_above) + 0.5)
             elif unused_below < 0 and unused_above > 0:
@@ -195,9 +204,9 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
     old_imin = np.floor(np.min(old_corners[..., 0], axis=-1)).astype(np.int_)
     old_jmin = np.floor(np.min(old_corners[..., 1], axis=-1)).astype(np.int_)
 
-    # Initialize the buffers
-    sum1 = np.zeros(image.shape[:-2] + new_xy_shape, dtype=image.dtype)
-    sum0 = np.zeros(image.shape[:-2] + new_xy_shape, dtype=image.dtype)
+    # Initialize the buffers; always float64 since _intersection produces float64 areas
+    sum1 = np.zeros(image.shape[:-2] + new_xy_shape, dtype=np.float64)
+    sum0 = np.zeros(image.shape[:-2] + new_xy_shape, dtype=np.float64)
 
     # Below, _intersection raises a ZeroDivisionError if the rotation angle is too close
     # to a multiple of pi/2. In this case, we need to catch this exception and use a
@@ -206,9 +215,10 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
 
         # Loop through the potentially overlapping pairs of pixels
         grid = np.empty(new_xy_shape + (4, 2), dtype=np.int_)
-        area_list = []
-        imod_list = []
-        jmod_list = []
+        if _debug is not None:
+            area_list = []
+            imod_list = []
+            jmod_list = []
         for di in range(3):
             i = old_imin + di
             imod = i % old_xy_shape[0]
@@ -238,14 +248,21 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
                 sum1 += areas * weights[..., imod, jmod] * image[..., imod, jmod]
                 sum0 += areas * weights[..., imod, jmod]
 
-                area_list.append(areas)
-                imod_list.append(imod)
-                jmod_list.append(jmod)
+                if _debug is not None:
+                    area_list.append(areas)
+                    imod_list.append(imod)
+                    jmod_list.append(jmod)
 
         new_weights = sum0
         new_mask = (sum0 < minweight)
         new_weights[new_mask] = 0
-        rotated = sum1 / new_weights
+        rotated = np.divide(sum1, new_weights, out=np.zeros_like(sum1),
+                            where=~new_mask)
+
+        if _debug is not None:
+            _debug['area_list'] = area_list
+            _debug['imod_list'] = imod_list
+            _debug['jmod_list'] = jmod_list
 
     # Angle is too close to a multiple of pi/2
     except ZeroDivisionError as err:
@@ -276,39 +293,46 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
                                                   weights=weights, origin=origin,
                                                   center=new_center, shape=new_xy_shape,
                                                   minweight=minweight, returns='imw')
-        if TESTING:
-            area_list = None
-            imod_list = None
-            jmod_list = None
 
-    if TESTING:
-        return (rotated, new_mask, new_weights, new_center, area_list, imod_list,
-                jmod_list)
+        if _debug is not None:
+            _debug['area_list'] = None
+            _debug['imod_list'] = None
+            _debug['jmod_list'] = None
+
+    if _debug is not None:
+        _debug['new_center'] = new_center
+        _debug['new_mask'] = new_mask
+        _debug['new_weights'] = new_weights
 
     return _check_return(rotated, new_mask, new_weights, info, extra=new_center)
 
 
-def _intersection(grid, corners, eps):
+def _intersection(
+    grid: np.ndarray,
+    corners: np.ndarray,
+    eps: float,
+) -> np.ndarray:
     """The intersection areas of two grids of unit squares.
 
     The input arrays have shape (...,4,2), where the second-to-last axis identifies
     corners of the square indexed 0-3, and the last coordinate is 0 for x, 1 for y.
 
     Parameters:
-        grid (np.ndarray):
-            The (x,y) coordinates of the corners of unit squares. These squares must be
-            oriented with sides parallel to the coordinate system.
-        corners (np.ndarray):
-            The (x,y) coordinates of the corners of a second set of unit squares. These
-            can be oriented arbitrarily but must all have the same orientation.
-        eps (float, optional):
-            The positional error tolerance in units of pixels when determining the overlap
-            between the original pixels of `image` and the new, rotated pixels.
+        grid: The (x,y) coordinates of the corners of unit squares. These squares must be
+            oriented with sides parallel to the coordinate system. Shape is (..., 4, 2).
+        corners: The (x,y) coordinates of the corners of a second set of unit squares.
+            These can be oriented arbitrarily but must all have the same orientation.
+            Shape is (..., 4, 2).
+        eps: The positional error tolerance in units of pixels when determining the
+            overlap between the original pixels of `image` and the new, rotated pixels.
 
     Returns:
-        overlap (np.ndarray):
-            The area of overlap of each square in the first grid with its
-                    counterpart in the second grid.
+        The area of overlap of each square in the first grid with its counterpart in the
+        second grid.
+
+    Raises:
+        ZeroDivisionError: If any edge is parallel to the coordinate axes (angle is a
+            multiple of π/2).
     """
 
     grid, corners = np.broadcast_arrays(grid, corners)
@@ -331,9 +355,9 @@ def _intersection(grid, corners, eps):
                   - edge_points[..., np.newaxis, :, :])**2, axis=-1)
     close = np.any(dsq <= 2*eps, axis=-1)
     mask = close[..., 0] & np.logical_not(close[..., 1])
-    inside_points[mask, 0] == inside_points[mask, 1]
+    inside_points[mask, 0] = inside_points[mask, 1]
     mask = close[..., 1] & np.logical_not(close[..., 0])
-    inside_points[mask, 1] == inside_points[mask, 0]
+    inside_points[mask, 1] = inside_points[mask, 0]
     inside_count[np.any(close, axis=-1)] -= 1
 
     # Merge the lists of edge points and inside points
@@ -361,21 +385,26 @@ def _intersection(grid, corners, eps):
     return area
 
 
-def _edge_points(grid, corners, eps):
-    """Ordered array of crossing points where the grid square intersects the rotateed
+def _edge_points(
+    grid: np.ndarray,
+    corners: np.ndarray,
+    eps: float,
+) -> np.ndarray:
+    """Ordered array of crossing points where the grid square intersects the rotated
     square.
 
-    Args:
-        grid:       The corners of unit squares aligned with the (x,y) coordinate grid.
-                    Shape is (...,4,2).
-        corners:    The corners of unit square that have arbitrary rotation. Shape is
-                    (...,4,2), with the same leading dimensions as grid.
+    Parameters:
+        grid: The corners of unit squares aligned with the (x,y) coordinate grid. Shape
+            is (..., 4, 2).
+        corners: The corners of unit squares that have arbitrary rotation. Shape is
+            (..., 4, 2), with the same leading dimensions as `grid`.
+        eps: Positional tolerance in pixel units.
 
     Returns:
-        points:     Intersection (x,y) coordinates in an array of shape (...,8,2). The
-                    first intersection point is repeated to reach the dimensioned limit of
-                    eight. It is also guaranteed that this first point is a crossing from
-                    outside the rotated square to inside the rotated square.
+        Intersection (x,y) coordinates in an array of shape (..., 8, 2). The first
+        intersection point is repeated to reach the dimensioned limit of eight. It is also
+        guaranteed that this first point is a crossing from outside the rotated square to
+        inside the rotated square.
     """
 
     i = np.arange(4)
@@ -433,7 +462,8 @@ def _edge_points(grid, corners, eps):
     # Count the number of intersections, then truncate the list to the first eight
     invalid_distance_mask = (distance == 5)
     count = 20 - np.sum(invalid_distance_mask, axis=-1)
-    assert np.all(count <= 8), 'impossible number of unique intersections'
+    if not np.all(count <= 8):
+        raise RuntimeError('impossible number of unique intersections')
     distance = distance[..., :8]
     invalid_distance_mask = invalid_distance_mask[..., :8]
 
@@ -473,7 +503,23 @@ def _edge_points(grid, corners, eps):
     return points
 
 
-def _grid_outside_corner_mask(grid, corners, eps):
+def _grid_outside_corner_mask(
+    grid: np.ndarray,
+    corners: np.ndarray,
+    eps: float,
+) -> np.ndarray:
+    """Mask of grid corners that are outside the rotated square defined by `corners`.
+
+    Parameters:
+        grid: The corners of unit squares aligned with the coordinate axes. Shape is
+            (..., 4, 2).
+        corners: The corners of arbitrarily oriented unit squares. Shape is (..., 4, 2).
+        eps: Positional tolerance in pixel units.
+
+    Returns:
+        Boolean array of shape (..., 4) that is True where a grid corner lies outside the
+        rotated square.
+    """
 
     # Define the grid point and two edges relative to corners[1]
     grid1 = grid - corners[..., 1:2, :]
@@ -488,7 +534,27 @@ def _grid_outside_corner_mask(grid, corners, eps):
     return (u < -eps) | (u > 1+eps) | (v < -eps) | (v > 1+eps)
 
 
-def _inside_points(grid, corners, eps):
+def _inside_points(
+    grid: np.ndarray,
+    corners: np.ndarray,
+    eps: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Corners of the rotated square that lie inside the axis-aligned grid square.
+
+    Parameters:
+        grid: The corners of unit squares aligned with the coordinate axes. Shape is
+            (..., 4, 2).
+        corners: The corners of the rotated unit squares. Shape is (..., 4, 2).
+        eps: Positional tolerance in pixel units.
+
+    Returns:
+        A tuple (`points`, `count`):
+
+        * `points`: Array of shape (..., 2, 2) containing up to two inside points.
+          If there is only one inside point, it is duplicated as the second.
+        * `count`: Integer array of shape (...) containing the number of inside points
+          (0, 1, or 2).
+    """
 
     # Define mask of points inside. There could be up to two.
     xmin = grid[..., 0].min(axis=-1)[..., np.newaxis] - eps

@@ -1,5 +1,5 @@
 ##########################################################################################
-# image_ops/tests/test_utils.py
+# tests/test_utils.py
 ##########################################################################################
 
 import numpy as np
@@ -7,9 +7,8 @@ import scipy.ndimage
 import unittest
 
 from psiops.maximum import maximum_filter
+from psiops._filter import _apply_op_as_filter_info, _image_to_4d, _usable_bytes
 from psiops._utils  import _check_tuple, _check_axis
-from psiops._utils  import _image_to_4d, _apply_op_as_filter_info
-from psiops._utils  import _usable_bytes
 
 
 class Test_check_tuple(unittest.TestCase):

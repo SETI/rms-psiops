@@ -1,5 +1,5 @@
 ##########################################################################################
-# image_ops/tests/test_shift.py
+# tests/test_shift.py
 ##########################################################################################
 
 import numpy as np
@@ -7,7 +7,7 @@ import re
 import unittest
 from psiops.ishift import ishift
 from psiops.shift  import shift
-from psiops._utils import _use_shortcuts
+from psiops._filter import _use_shortcuts
 
 PRINT_ANSWERS = False   # change to True to print out this value of `ANSWERS`
 

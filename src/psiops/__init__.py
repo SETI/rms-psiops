@@ -45,6 +45,31 @@ if not sys.warnoptions:
     warnings.simplefilter('ignore', category=RuntimeWarning)
     os.environ['PYTHONWARNINGS'] = 'ignore::RuntimeWarning'  # also affect subprocesses
 
+__all__ = [
+    # Spatial transforms
+    'ishift',
+    'resample',
+    'reshape',
+    'rotate',
+    'shift',
+    'unzoom',
+    'zoom',
+    # Stack operations and spatial filters
+    'gaussian_filter',
+    'maximum',
+    'maximum_filter',
+    'mean',
+    'mean_filter',
+    'median',
+    'median_filter',
+    'minimum',
+    'minimum_filter',
+    'stdev',
+    'stdev_filter',
+    'variance',
+    'variance_filter',
+]
+
 # Spatial transforms
 from psiops.ishift   import ishift
 from psiops.resample import resample

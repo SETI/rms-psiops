@@ -3,22 +3,28 @@
 ##########################################################################################
 
 import numpy as np
+import numpy.typing as npt
 from scipy import fftpack
 
-from gaussian_filter import gaussian_filter
+from psiops.gaussian_filter import gaussian_filter
 
 
-def fft(image, *, retile=False, real=False):
+def fft(
+    image: npt.ArrayLike,
+    *,
+    retile: bool = False,
+    real: bool = False,
+) -> np.ndarray:
     """The FFT of an image. This is a wrapper of scipy.fftpack.fft2().
 
     Parameters:
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-        retile (bool, optional): True to re-tile the returned image. This places the
-            constant (0,0) position at the center of the image rather than at the corner.
-        real (bool, optional): True to return only the real component.
+        image: Image array, in which the last two axes are the spatial dimensions.
+        retile: True to re-tile the returned image. This places the constant (0,0)
+            position at the center of the image rather than at the corner.
+        real: True to return only the real component.
 
     Returns:
-        (array): The FFT of `image`.
+        The FFT of `image`.
     """
 
     if image.ndim == 2:
@@ -31,17 +37,22 @@ def fft(image, *, retile=False, real=False):
     return dest
 
 
-def ifft(image, *, retile=False, real=False):
+def ifft(
+    image: npt.ArrayLike,
+    *,
+    retile: bool = False,
+    real: bool = False,
+) -> np.ndarray:
     """The inverse FFT of an image. This is a wrapper of scipy.fftpack.ifft2().
 
     Parameters:
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-        retile (bool, optional): True to re-tile the returned image. This places the
-            constant (0,0) position at the center of the image rather than at the corner.
-        real (bool, optional): True to return only the real component.
+        image: Image array, in which the last two axes are the spatial dimensions.
+        retile: True to re-tile the returned image. This places the constant (0,0)
+            position at the center of the image rather than at the corner.
+        real: True to return only the real component.
 
     Returns:
-        (array): The inverse FFT of `image`.
+        The inverse FFT of `image`.
     """
 
     if image.ndim == 2:
@@ -54,16 +65,19 @@ def ifft(image, *, retile=False, real=False):
     return dest
 
 
-def fft_power(image, retile=False):
+def fft_power(
+    image: npt.ArrayLike,
+    retile: bool = False,
+) -> np.ndarray:
     """FFT power of an image.
 
     Parameters:
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-        retile (bool, optional): True to re-tile the returned image. This places the
-            constant (0,0) position at the center of the image rather than at the corner.
+        image: Image array, in which the last two axes are the spatial dimensions.
+        retile: True to re-tile the returned image. This places the constant (0,0)
+            position at the center of the image rather than at the corner.
 
     Returns:
-        (array): The FFT power in `image`.
+        The FFT power in `image`.
     """
 
     image = np.asarray(image)
@@ -71,20 +85,25 @@ def fft_power(image, retile=False):
     return _retile(image_fft * np.conj(image_fft), retile=retile, real=True)
 
 
-def correlate(image, reference, *, normalize=False, retile=False):
+def correlate(
+    image: npt.ArrayLike,
+    reference: npt.ArrayLike,
+    *,
+    normalize: bool = False,
+    retile: bool = False,
+) -> np.ndarray:
     """2-D correlation function between an image and a reference image.
 
     Parameters:
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-        reference (array): The reference image.
-        normalize (bool, optional): True to normalize the correlation values to the range
-            -1 to 1.
-        retile (bool, optional): True to re-tile the returned image. This places the
-            constant (0,0) position at the center of the image rather than at the corner.
+        image: Image array, in which the last two axes are the spatial dimensions.
+        reference: The reference image.
+        normalize: True to normalize the correlation values to the range -1 to 1.
+        retile: True to re-tile the returned image. This places the constant (0,0)
+            position at the center of the image rather than at the corner.
 
     Returns:
-        (array): The real correlation array. The returned shape is the result of
-            broadcasting the shapes of the input image and reference.
+        The real correlation array. The returned shape is the result of broadcasting
+        the shapes of the input image and reference.
     """
 
     image = np.asarray(image)
@@ -100,16 +119,19 @@ def correlate(image, reference, *, normalize=False, retile=False):
     return corr
 
 
-def autocorrelate(image, retile=False):
+def autocorrelate(
+    image: npt.ArrayLike,
+    retile: bool = False,
+) -> np.ndarray:
     """2-D autocorrelation function for an image.
 
     Parameters:
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-        retile (bool, optional): True to re-tile the returned image. This places the
-            constant (0,0) position at the center of the image rather than at the corner.
+        image: Image array, in which the last two axes are the spatial dimensions.
+        retile: True to re-tile the returned image. This places the constant (0,0)
+            position at the center of the image rather than at the corner.
 
     Returns:
-        (array): The real autocorrelation array.
+        The real autocorrelation array.
     """
 
     image_fft = fftpack.fft2(image)
@@ -119,19 +141,22 @@ def autocorrelate(image, retile=False):
     return _retile(corr, retile=retile)
 
 
-def ialign(image, reference, sigma):
+def ialign(
+    image: npt.ArrayLike,
+    reference: npt.ArrayLike,
+    sigma: float,
+) -> tuple[int, int]:
     """Integer offset required to align two images, based on the location of maximum
     correlation.
 
     Parameters:
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-        reference (array): The reference image.
-        sigma (scalar): The sigma to use for unsharp masking each image prior to the
-            alignment.
+        image: Image array, in which the last two axes are the spatial dimensions.
+        reference: The reference image.
+        sigma: The sigma to use for unsharp masking each image prior to the alignment.
 
     Returns:
-        tuple: Two integers such that `ishift(image, offset, mode='wrap')` provides the
-            best match to the reference image.
+        Two integers such that `ishift(image, offset, mode='wrap')` provides the best
+        match to the reference image.
     """
 
     if sigma:
@@ -167,9 +192,23 @@ def ialign(image, reference, sigma):
     return (di, dj)
 
 
-def _retile(image, retile=False, real=False, dest=None):
+def _retile(
+    image: np.ndarray,
+    retile: bool = False,
+    real: bool = False,
+    dest: np.ndarray | None = None,
+) -> np.ndarray:
     """Re-tile if necessary; convert to real if necessary; write to destination if
     provided.
+
+    Parameters:
+        image: Array to process.
+        retile: If True, shift the zero-frequency component to the center of the array.
+        real: If True, return only the real component.
+        dest: Destination array to write into, or None to return a new array.
+
+    Returns:
+        The (possibly re-tiled, possibly real-only) result array.
     """
 
     if real and image.dtype.kind == 'c':

@@ -1,12 +1,12 @@
 ##########################################################################################
-# image_ops/tests/test_rotate.py
+# tests/test_rotate.py
 ##########################################################################################
 
 import numpy as np
 import unittest
 from psiops.resample import resample
-from psiops.rotate   import rotate, _set_rotate_testing_flag
-from psiops._utils   import _use_shortcuts
+from psiops.rotate   import rotate
+from psiops._filter  import _use_shortcuts
 
 
 class Test_rotate(unittest.TestCase):
@@ -18,12 +18,13 @@ class Test_rotate(unittest.TestCase):
     for status in (False, True):
         _use_shortcuts(status)
 
-        # Force functions to return additional info
-        _set_rotate_testing_flag(True)
-
         #### Square, rotation by 45 degrees
         image = np.arange(10) + np.arange(10)[:,np.newaxis]
-        rotated, rmask, center, weight, alist, ilist, jlist = rotate(image, np.pi/4)
+        debug = {}
+        result = rotate(image, np.pi/4, _debug=debug)
+        rotated = result[0]
+        center = debug['new_center']
+        weight = debug['new_weights']
         self.assertEqual(rotated.shape, (16,16))
         self.assertEqual(center, (8,8))
         self.assertLess(np.max(np.abs(weight[2:14, 7:9] - 1)), 1.e-8)
@@ -34,9 +35,9 @@ class Test_rotate(unittest.TestCase):
         self.assertLess(np.max(np.abs(weight[7: 9,2:14] - 1)), 1.e-8)
 
         # Make sure every original pixel was fully weighted
-        alist = np.array(alist)
-        ilist = np.array(ilist)
-        jlist = np.array(jlist)
+        alist = np.array(debug['area_list'])
+        ilist = np.array(debug['imod_list'])
+        jlist = np.array(debug['jmod_list'])
         for i in range(image.shape[0]):
             for j in range(image.shape[1]):
                 ijmask = (ilist == i) & (jlist == j)
@@ -44,14 +45,18 @@ class Test_rotate(unittest.TestCase):
 
         #### Not square, rotation by 60 degrees
         image = np.arange(10) + 3 * np.arange(20)[:,np.newaxis]
-        rotated, rmask, center, weight, alist, ilist, jlist = rotate(image, np.pi/3)
+        debug = {}
+        result = rotate(image, np.pi/3, _debug=debug)
+        rotated = result[0]
+        center = debug['new_center']
+        weight = debug['new_weights']
         self.assertEqual(rotated.shape, (20,24))
         self.assertEqual(center, (10,12))
         self.assertEqual(np.sum(weight > 0.99), 166)
 
-        alist = np.array(alist)
-        ilist = np.array(ilist)
-        jlist = np.array(jlist)
+        alist = np.array(debug['area_list'])
+        ilist = np.array(debug['imod_list'])
+        jlist = np.array(debug['jmod_list'])
         for i in range(image.shape[0]):
             for j in range(image.shape[1]):
                 ijmask = (ilist == i) & (jlist == j)
@@ -61,11 +66,13 @@ class Test_rotate(unittest.TestCase):
         image = np.arange(10) + 2 * np.arange(20)[:,np.newaxis]
         for k in range(300):
             angle = 2 * np.pi * np.random.rand()
-            rotated, rmask, center, weight, alist, ilist, jlist = rotate(image,angle)
-
-            alist = np.array(alist)
-            ilist = np.array(ilist)
-            jlist = np.array(jlist)
+            debug = {}
+            rotate(image, angle, _debug=debug)
+            if debug['area_list'] is None:
+                continue  # exact pi/2 multiple: area list not available
+            alist = np.array(debug['area_list'])
+            ilist = np.array(debug['imod_list'])
+            jlist = np.array(debug['jmod_list'])
             max_error = 0.
             for i in range(image.shape[0]):
                 for j in range(image.shape[1]):
@@ -76,24 +83,38 @@ class Test_rotate(unittest.TestCase):
 
         #### Square, rotation by 45 degrees, isolated masked pixels
         image = np.arange(10) + 2 * np.arange(10)[:,np.newaxis]
-        rotated0, rmask0, center, weight, _, _, _ = rotate(image, np.pi/4)
+        debug0 = {}
+        result0 = rotate(image, np.pi/4, _debug=debug0)
+        rotated0 = result0[0]
+        rmask0 = debug0['new_mask']
 
         mask = np.zeros(image.shape, dtype='bool')
         mask[3,3] = mask[5,5] = mask[7,7] = True
         image[mask] = -999
 
-        rotated, rmask, center, weight, _, _, _ = rotate(image, np.pi/4, mask)
+        debug = {}
+        result = rotate(image, np.pi/4, mask, _debug=debug)
+        rotated = result[0]
+        rmask = debug['new_mask']
+        weight = debug['new_weights']
         self.assertTrue(np.all(rmask0 == rmask))
         self.assertLess(np.max(np.abs(rotated - rotated0)), 1)
         self.assertAlmostEqual(np.sum(weight), np.sum(~mask), 8)
 
         #### Many masked pixels, prove masked pixels are unweighted
         image = np.arange(10) + np.arange(10)[:,np.newaxis]
-        rotated0, rmask0, center, weight, _, _, _ = rotate(image, np.pi/5)
+        debug0 = {}
+        result0 = rotate(image, np.pi/5, _debug=debug0)
+        rotated0 = result0[0]
+        rmask0 = debug0['new_mask']
 
         mask = np.random.rand(10,10) < 0.8
         image[mask] = -9999
-        rotated, rmask, center, weight, _, _, _ = rotate(image, np.pi/5, mask)
+        debug = {}
+        result = rotate(image, np.pi/5, mask, _debug=debug)
+        rotated = result[0]
+        rmask = debug['new_mask']
+        weight = debug['new_weights']
         self.assertLess(np.max(np.abs(rotated[~rmask] - rotated0[~rmask])), 2)
         self.assertAlmostEqual(np.sum(weight), np.sum(~mask), 8)
 
@@ -105,27 +126,31 @@ class Test_rotate(unittest.TestCase):
 
         #### Rotation by 0 degrees, three layers, random mask
         mask = np.random.rand(*image.shape[-2:]) < 0.3
-        rotated, rmask, center, weight, _, _, _ = rotate(image, 0., mask)
+        result = rotate(image, 0., mask)
+        rotated, rmask = result[0], result[1]
         self.assertTrue(np.all(mask == rmask))
         self.assertLess(np.max(np.abs(image[~rmask] - rotated[~rmask])), 1.e-7)
 
         #### Rotation by 90 degrees, three layers, random mask
         mask = np.random.rand(*image.shape) < 0.3
-        rotated, rmask, center, weight, _, _, _ = rotate(image, np.pi/2, mask)
+        result = rotate(image, np.pi/2, mask)
+        rotated, rmask = result[0], result[1]
 
         test = image.swapaxes(-2,-1)[:,::-1]
         mtest = mask.swapaxes(-2,-1)[:,::-1]
         self.assertTrue(np.all(rmask == mtest))
         self.assertLess(np.max(np.abs(test[~rmask] - rotated[~rmask])), 1.e-7)
 
-        rotated, rmask, center, weight, _, _, _ = rotate(image, np.pi/2 * (1 - 1.e-16), mask)
+        result = rotate(image, np.pi/2 * (1 - 1.e-16), mask)
+        rotated, rmask = result[0], result[1]
         self.assertTrue(np.all(rmask == mtest))
         self.assertLess(np.max(np.abs(test[~rmask] - rotated[~rmask])), 1.e-7)
 
         #### Rotation by 180 degrees, random mask
         image = np.arange(10) + 3 * np.arange(20)[:,np.newaxis]
         mask = np.random.rand(*image.shape) < 0.3
-        rotated, rmask, center, weight, _, _, _ = rotate(image, np.pi, mask)
+        result = rotate(image, np.pi, mask)
+        rotated, rmask = result[0], result[1]
 
         test = image[::-1,::-1]
         mtest = mask[::-1,::-1]
@@ -133,15 +158,13 @@ class Test_rotate(unittest.TestCase):
         self.assertLess(np.max(np.abs(test[~rmask] - rotated[~rmask])), 1.e-7)
 
         #### Rotation by 270 degrees, random mask
-        rotated, rmask, center, weight, _, _, _ = rotate(image, 1.5*np.pi, mask)
+        result = rotate(image, 1.5*np.pi, mask)
+        rotated, rmask = result[0], result[1]
 
         test = image.swapaxes(-2,-1)[:,::-1]
         mtest = mask.swapaxes(-2,-1)[:,::-1]
         self.assertTrue(np.all(rmask == mtest))
         self.assertLess(np.max(np.abs(test[~rmask] - rotated[~rmask])), 1.e-7)
-
-        # Restore default behavior
-        _set_rotate_testing_flag(False)
 
         # Make sure dtype float32 is preserved
         array = np.arange(10)
@@ -151,17 +174,17 @@ class Test_rotate(unittest.TestCase):
 
         # Half-integer center
         image = np.random.rand(10,10)
-        rotated, _, new_center = rotate(image, 0.3, origin=(3.5,3.5))
+        rotated, new_center = rotate(image, 0.3, origin=(3.5,3.5))
         self.assertEqual(new_center[0] % 1, 0.5)
         self.assertEqual(new_center[1] % 1, 0.5)
 
-        rotated, _, new_center = rotate(image, 0.4, origin=(3.,4.))
+        rotated, new_center = rotate(image, 0.4, origin=(3.,4.))
         self.assertEqual(new_center[0] % 1, 0.)
         self.assertEqual(new_center[1] % 1, 0.)
 
         # New shape but not new center
         image = np.random.rand(10,10)
-        rotated, _, new_center = rotate(image, 0.3, shape=(20,20))
+        rotated, new_center = rotate(image, 0.3, shape=(20,20))
         self.assertEqual(new_center, (10,10))
         self.assertEqual(rotated.shape, (20,20))
 

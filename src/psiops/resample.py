@@ -3,78 +3,91 @@
 ##########################################################################################
 
 import numpy as np
-from psiops.shift  import shift
-from psiops._utils import (_check_tuple, _check_image, _check_return, _merge_weights,
-                           _use_shortcuts)
+import numpy.typing as npt
+
+from psiops._filter import _use_shortcuts
+from psiops._utils import _check_tuple, _merge_weights
+from psiops._validation import _check_image, _check_return
+from psiops.shift import shift
 
 
-def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
-             origin=None, center=None, shape=None, minweight=1.e-6, returns=None):
+def resample(
+    image: npt.ArrayLike,
+    zoom_: float | tuple[float, float],
+    mask: np.ndarray | None = None,
+    *,
+    maskval: float | None = None,
+    weights: np.ndarray | None = None,
+    nans: bool = False,
+    origin: tuple[float, float] | None = None,
+    center: tuple[float, float] | None = None,
+    shape: tuple[int, int] | None = None,
+    minweight: float = 1.e-6,
+    returns: str | None = None,
+) -> np.ndarray | list[np.ndarray]:
     """General function for integer or non-integer zoom and shift.
 
     This function is more efficient and somewhat more precise than combining separate
     zoom()/unzoom() and shift() operations. It also supports non-integer zoom factors.
 
     Parameters:
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-            This can be a MaskedArray.
-        zoom_ (int or tuple): The positive integer zoom factor or tuple of two integer
-            zoom factors. Values > 1 expand the image, while values < 1 shrink the image.
-        mask (array, optional): Boolean mask array, equal to True where the values in
-            `image` are to be ignored. It is broadcasted to the shape of `image` if
-            necessary.
-        maskval (scalar, optional): A value that should be masked wherever it appears in
-            `image`. This can be used used instead of or in addition to the `mask`.
-        weights (array, optional): Weight array specifying the possibly unequal weights
-            associated with the pixels in `image`. A weight of zero is equivalent to a
-            `mask` value of True. This can be provided in addition to or instead of the
-            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
-            Values should never be negative.
-        nans (bool, optional): True to check `image` for NaNs and interpret them as masked
-            values.
-        origin (array-like, optional): Two coordinates defining the center location within
-            the image array around which the resampling is performed. If not specified,
-            the midpoint of `image` is used. Note that integer coordinates refer to the
-            corners between pixels and half-integers refer to pixel centers. In other
-            words, (0.,0.) is the lower corner of the image array and (0.5,0.5) is the
-            center of the first pixel.
-        center (array-like, optional): Two coordinates defining the transformed location
-            of the origin in the returned image array. If not specified, the center will
-            be determined to align (0,0) in the input `image` to (0,0) in the returned
-            image. Note that integer coordinates refer to the corners between pixels and
-            half-integers refer to pixel centers.
-        shape (tuple, optional): The shape of the returned image. If not specified, the
-            resampled image is large enough to encompass the entire content of the input
-            `image`.
-        minweight (float, optional): The minimum weight within a pixel in the returned
-            image that is treated as significant. If the total weight (fraction of a
-            source pixel) in a new pixel is less than this value, it will be treated as
-            masked.
-        returns (str, optional): Used to override the default quantity or quantities to
-            return, one of "i" (image only), "im" (image and mask), "iw" (image and weight
-            array), or "imw" (image, mask, and weight array). Append "c" to include the
-            new center coordinates of the returned image.
+        image: Image array, in which the last two axes are the spatial dimensions. This
+            can be a MaskedArray.
+        zoom_: The zoom factor or tuple of two zoom factors. Values > 1 expand the image,
+            while values < 1 shrink the image.
+        mask: Boolean mask array, equal to True where the values in `image` are to be
+            ignored. It is broadcasted to the shape of `image` if necessary.
+        maskval: A value that should be masked wherever it appears in `image`. This can
+            be used instead of or in addition to the `mask`.
+        weights: Weight array specifying the possibly unequal weights associated with the
+            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
+            This can be provided in addition to or instead of the `mask` or `maskval`. It
+            is broadcasted to the shape of `image` if necessary. Values should never be
+            negative.
+        nans: True to check `image` for NaNs and interpret them as masked values.
+        origin: Two coordinates defining the center location within the image array around
+            which the resampling is performed. If not specified, the midpoint of `image`
+            is used. Note that integer coordinates refer to the corners between pixels and
+            half-integers refer to pixel centers. In other words, (0.,0.) is the lower
+            corner of the image array and (0.5,0.5) is the center of the first pixel.
+        center: Two coordinates defining the transformed location of the origin in the
+            returned image array. If not specified, the center will be determined to align
+            (0,0) in the input `image` to (0,0) in the returned image. Note that integer
+            coordinates refer to the corners between pixels and half-integers refer to
+            pixel centers.
+        shape: The shape of the returned image. If not specified, the resampled image is
+            large enough to encompass the entire content of the input `image`.
+        minweight: The minimum weight within a pixel in the returned image that is treated
+            as significant. If the total weight (fraction of a source pixel) in a new
+            pixel is less than this value, it will be treated as masked.
+        returns: Used to override the default quantity or quantities to return, one of
+            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
+            "imw" (image, mask, and weight array). Append "c" to include the new center
+            coordinates of the returned image.
 
     Returns:
-        (array or tuple): `resampled` or
-            (`resampled`[, `new_mask`][, `new_weights`][, `new_center`]):
+        `resampled` or (`resampled`[, `new_mask`][, `new_weights`][, `new_center`]):
 
-        * `resampled` (array): The floating-point, resampled image array. If `image` is a
+        * `resampled`: The floating-point, resampled image array. If `image` is a
           MaskedArray, this will also be a MaskedArray. If `maskval` was specified, any
           masked elements in this array will be filled with this value. Otherwise, if
           `nans` is True, masked pixels will be filled with NaN.
-        * `new_mask` (array): The new mask array, True wherever all the pixels contibuting
-          to the image are masked. By default, this is returned if `mask` is provided; use
+        * `new_mask`: The new mask array, True wherever all the pixels contributing to the
+          image are masked. By default, this is returned if `mask` is provided; use
           `returns` to override the default behavior.
-        * `new_weights` (array): The weight array, equal to the sum of the weights of the
-          elements that contributed to each pixel in `resampled`. By default, this is
-          returned if `weights` is provided; use the `returns` to override this default
-          behavior. If `weights` is not provided, this is the number of unmasked pixels
-          that contributed to each new pixel's value.
-        * `new_center` (tuple): The two coordinates of the center of `resampled`,
-          corresponding to the `origin` in the input image. By default, this is included
-          unless `center` was specified as input (in which case `new_center` is equal to
-          `center`); use `returns` to override this default.
+        * `new_weights`: The weight array, equal to the sum of the weights of the elements
+          that contributed to each pixel in `resampled`. By default, this is returned if
+          `weights` is provided; use `returns` to override this default behavior. If
+          `weights` is not provided, this is the number of unmasked pixels that
+          contributed to each new pixel's value.
+        * `new_center`: The two coordinates of the center of `resampled`, corresponding
+          to the `origin` in the input image. By default, this is included unless `center`
+          was specified as input (in which case `new_center` is equal to `center`); use
+          `returns` to override this default.
+
+    Raises:
+        ValueError: If any inputs are invalid or incompatible.
+        TypeError: If `image` dtype is not numeric.
     """
 
     # Interpret the image and mask
@@ -115,7 +128,7 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
 
     # Use shift() if there's no zoom, because it's much faster. Note that zoom_==1 can be
     # a common occurrence.
-    if zoom_ == (1,1) and _use_shortcuts():
+    if zoom_ == (1, 1) and _use_shortcuts():
         offset = np.array(new_center) - np.array(origin)
 
         # Start by copying the image into the new output array within one pixel of its
@@ -128,7 +141,7 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
         temp_xy_shape = tuple(temp_xy_shape)
 
         # Define the boundaries of the original array in new coordinates
-        old_ijmin = np.array((0,0))
+        old_ijmin = np.array((0, 0))
         old_ijmax = old_ijmin + old_xy_shape
         new_ijmin = ioffset
         new_ijmax = ioffset + old_xy_shape
@@ -178,7 +191,7 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
 
     # Define index arrays in old and new coordinates
     axis_info = []
-    for axis in (0,1):
+    for axis in (0, 1):
         if zoom_[axis] >= 1:
 
             # Define the maximum number of new pixels that might overlap an original pixel
@@ -191,11 +204,11 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
 
             # Create the sequence of weights to apply
             axis_weights = np.ones((old_xy_shape[axis], max_pixels))
-            axis_weights[:,-1] = 0.
+            axis_weights[:, -1] = 0.
 
             # Weight of the first pixel
             w0 = 1. - (new_coord - new_index)
-            axis_weights[:,0] = w0
+            axis_weights[:, 0] = w0
 
             # Total weight in subsequent new pixels
             remainder = zoom_[axis] - w0
@@ -226,11 +239,11 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
             # Create the sequence of weights to apply, starting from the first.
             # The total of all these weights will equal 1./zoom_[axis].
             axis_weights = np.ones((new_xy_shape[axis], max_pixels))
-            axis_weights[:,-1] = 0.
+            axis_weights[:, -1] = 0.
 
             # Weight of the first pixel
             w0 = 1. - (old_coord - old_index)
-            axis_weights[:,0] = w0
+            axis_weights[:, 0] = w0
 
             # Total weight in subsequent new pixels
             remainder = zoom_inv - w0
@@ -264,10 +277,10 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
         new_mask = np.ones(new_xy_shape, dtype=np.bool_)
         count = 1
     else:
-        arrays = np.empty((2,) + image.shape, dtype=image.dtype)
+        arrays = np.empty((2, *image.shape), dtype=image.dtype)
         arrays[1] = weights
         arrays[0] = image * weights
-        buffer = np.zeros((2,) + new_shape, dtype=image.dtype)
+        buffer = np.zeros((2, *new_shape), dtype=image.dtype)
         count = 2
 
     # We need to avoid repeated indices below, so these sets are useful
@@ -280,7 +293,7 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
     for i in range(xweight.shape[1]):
         ox = old_x + i * old_dx
         nx = new_x + i * new_dx
-        wx = xweight[:,i].copy()
+        wx = xweight[:, i].copy()
 
         # Every index along the longer image axis must be unique and in range
         if old_dx == 0:
@@ -297,7 +310,7 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
         for j in range(yweight.shape[1]):
             oy = old_y + j * old_dy
             ny = new_y + j * new_dy
-            wy = yweight[:,j].copy()
+            wy = yweight[:, j].copy()
 
             # Every index along the longer image axis must be unique and in range
             if old_dy == 0:
@@ -311,12 +324,12 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
                 unweighted = np.array(list(old_yset - set(oy)))
                 oy[ymask] = unweighted[:ymask.sum()]
 
-            wxy = wx[:,np.newaxis] * wy
-            buffer[..., nx[:,np.newaxis], ny] += wxy * arrays[..., ox[:,np.newaxis], oy]
+            wxy = wx[:, np.newaxis] * wy
+            buffer[..., nx[:, np.newaxis], ny] += wxy * arrays[..., ox[:, np.newaxis], oy]
 
             if count == 1:
                 # Set the mask to False anywhere the weight is nonzero
-                new_mask[nx[:,np.newaxis], ny] &= (wxy == 0.)
+                new_mask[nx[:, np.newaxis], ny] &= (wxy == 0.)
 
     if count == 1:
         resampled = buffer

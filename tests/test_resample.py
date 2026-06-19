@@ -1,5 +1,5 @@
 ##########################################################################################
-# image_ops/tests/test_resample.py
+# tests/test_resample.py
 ##########################################################################################
 
 import numpy as np
@@ -7,7 +7,7 @@ import unittest
 from psiops.resample import resample
 from psiops.unzoom   import unzoom
 from psiops.zoom     import zoom
-from psiops._utils   import _use_shortcuts
+from psiops._filter  import _use_shortcuts
 
 from tests.resize import resize # removed from image_ops but retained for cross-testing
 

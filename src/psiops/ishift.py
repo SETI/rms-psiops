@@ -2,64 +2,86 @@
 # psiops/ishift.py
 ##########################################################################################
 
+from collections.abc import Sequence
+
 import numpy as np
-from psiops._utils import _check_image, _check_tuple, _check_return, _use_shortcuts
+import numpy.typing as npt
+
+from psiops._filter import _use_shortcuts
+from psiops._utils import _check_tuple
+from psiops._validation import _check_image, _check_return
 
 
-def ishift(image, offset, mask=None, *, maskval=None, weights=None, nans=False,
-           mode='masked', cval=0, returns=None):
+def ishift(
+    image: npt.ArrayLike,
+    offset: int | Sequence[int],
+    mask: np.ndarray | None = None,
+    *,
+    maskval: float | None = None,
+    weights: np.ndarray | None = None,
+    nans: bool = False,
+    mode: str = 'masked',
+    cval: float = 0,
+    returns: str | None = None,
+) -> np.ndarray | list[np.ndarray]:
     """Apply an integer shift to an image.
 
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-            This can be a MaskedArray.
-        offset (tuple, list, or array): Two offsets to apply along the last two axes.
-        mask (array, optional): Boolean mask array, equal to True where the values in
-            `image` are to be ignored. It is broadcasted to the shape of `image` if
-            necessary.
-        maskval (scalar, optional): A value that should be masked wherever it appears in
-            `image`. This can be used used instead of or in addition to the `mask`.
-        weights (array, optional): Weight array specifying the possibly unequal weights
-            associated with the pixels in `image`. A weight of zero is equivalent to a
-            `mask` value of True. This can be provided in addition to or instead of the
-            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
-            Values should never be negative.
-        nans (bool, optional): True to check `image` for NaNs and interpret them as masked
-            values.
-        mode (str, optional): The method for handling locations outside the boundary of
-            `image`, one of:
+    Parameters:
+        image: Image array, in which the last two axes are the spatial dimensions. This
+            can be a MaskedArray.
+        offset: Two offsets to apply along the last two axes.
+        mask: Boolean mask array, equal to True where the values in `image` are to be
+            ignored. It is broadcasted to the shape of `image` if necessary.
+        maskval: A value that should be masked wherever it appears in `image`. This can
+            be used instead of or in addition to the `mask`.
+        weights: Weight array specifying the possibly unequal weights associated with the
+            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
+            This can be provided in addition to or instead of the `mask` or `maskval`. It
+            is broadcasted to the shape of `image` if necessary. Values should never be
+            negative.
+        nans: True to check `image` for NaNs and interpret them as masked values.
+        mode: The method for handling locations outside the boundary of `image`, one of:
 
             * "masked": Values outside the boundary are masked.
-            * "constant" (`k k k k | a b c d | k k k k`): Assume all exterior values equal
-              a constant defined by `cval`.
+            * "constant" (`k k k k | a b c d | k k k k`): Assume all exterior values
+              equal a constant defined by `cval`.
             * "nearest" (`a a a a | a b c d | d d d d`): Duplicate the nearest edge
               values.
             * "wrap" (`a b c d | a b c d | a b c d`): Wrap values from one edge of the
               image to the other.
-            * "reflect" (`d c b a | a b c d | d c b a`): Reflect pixels near each edge of
-              the image, where pixels at the edge appear twice ("whole-sample symmetric").
-            * "mirror" (`c d c b | a b c d | c b a b`): Reflect pixels near each edge of
-              the image, where pixels at the edge appear only once ("half-sample
+            * "reflect" (`d c b a | a b c d | d c b a`): Reflect pixels near each edge
+              of the image, where pixels at the edge appear twice ("whole-sample
               symmetric").
-        cval (scalar, optional): If mode is "constant", the numeric value to fill in for
-            areas outside the boundaries of the input array.
-        returns (str, optional): Used to override the default quantity or quantities to
-            return, one of "i" (image only), "im" (image and mask), "iw" (image and weight
-            array), or "imw" (image, mask, and weight array).
+            * "mirror" (`c d c b | a b c d | c b a b`): Reflect pixels near each edge
+              of the image, where pixels at the edge appear only once ("half-sample
+              symmetric").
+        cval: If mode is "constant", the numeric value to fill in for areas outside the
+            boundaries of the input array.
+        returns: Used to override the default quantity or quantities to return, one of
+            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
+            "imw" (image, mask, and weight array).
 
     Returns:
-        (array or tuple): `shifted` or (`shifted`[, `new_mask`][, `new_weights`]):
+        `shifted` or (`shifted`[, `new_mask`][, `new_weights`]):
 
-        * `shifted` (array): The shifted image array with the same shape and dtype as
-          `image`. If `image` is a MaskedArray, this will also be a MaskedArray. If
-          `maskval` was specified, any masked pixels in the shifted array will be filled
-          with this value. Otherwise, if `nans` is True, masked pixels will be filled with
-          NaN.
-        * `new_mask` (array): The shifted boolean mask array. By default, this is returned
-          if `mask` is provided or if `mode` is "masked". Use `returns` to override this
+        * `shifted`: The shifted image array with the same shape and dtype as `image`. If
+          `image` is a MaskedArray, this will also be a MaskedArray. If `maskval` was
+          specified, any masked pixels in the shifted array will be filled with this
+          value. Otherwise, if `nans` is True, masked pixels will be filled with NaN.
+        * `new_mask`: The shifted boolean mask array. By default, this is returned if
+          `mask` is provided or if `mode` is "masked". Use `returns` to override this
           default behavior.
-        * `new_weights` (array): The shifted floating-point weight array. By default, this
-          is returned if `weights` is provided. Use `returns` to override this default
+        * `new_weights`: The shifted floating-point weight array. By default, this is
+          returned if `weights` is provided. Use `returns` to override this default
           behavior.
+
+    Raises:
+        ValueError: If `mode` is not one of the valid options.
+        ValueError: If `image` has fewer than two dimensions.
+        ValueError: If `mask` or `weights` have shapes incompatible with `image`.
+        ValueError: If `returns` is not a valid option.
+        TypeError: If `image` dtype is not numeric.
+        TypeError: If `offset` values are not integers.
     """
 
     if mode not in {'masked', 'constant', 'nearest', 'wrap', 'reflect', 'mirror'}:
@@ -118,23 +140,74 @@ def ishift(image, offset, mask=None, *, maskval=None, weights=None, nans=False,
     return _check_return(shifted_image, new_mask, new_weights, info)
 
 
-def _ishift_array(image, offset, *, mode, cval):
-    """Perform integer shifts of an image."""
+def _ishift_array(
+    image: np.ndarray,
+    offset: tuple[int, int],
+    *,
+    mode: str,
+    cval: float | int,
+) -> np.ndarray:
+    """Perform integer shifts of an image along both spatial axes.
+
+    Parameters:
+        image: Array to shift.
+        offset: Offsets along the last two axes.
+        mode: Boundary handling mode.
+        cval: Fill value for "constant" mode.
+
+    Returns:
+        Shifted copy of `image`.
+    """
 
     image = _ishift_axis0(image, offset[0], mode=mode, cval=cval)
     image = _ishift_axis1(image, offset[1], mode=mode, cval=cval)
     return image
 
 
-def _ishift_axis0(image, offset, *, mode, cval):
-    """Apply an integer shift along the second-to-last axis."""
+def _ishift_axis0(
+    image: np.ndarray,
+    offset: int,
+    *,
+    mode: str,
+    cval: float | int,
+) -> np.ndarray:
+    """Apply an integer shift along the second-to-last axis.
 
-    swapped = image.swapaxes(-2,-1)
-    return _ishift_axis1(swapped, offset, mode=mode, cval=cval).swapaxes(-2,-1)
+    Parameters:
+        image: Array to shift.
+        offset: Offset along the second-to-last axis.
+        mode: Boundary handling mode.
+        cval: Fill value for "constant" mode.
+
+    Returns:
+        Shifted copy of `image`.
+    """
+
+    swapped = image.swapaxes(-2, -1)
+    return _ishift_axis1(swapped, offset, mode=mode, cval=cval).swapaxes(-2, -1)
 
 
-def _ishift_axis1(image, offset, *, mode, cval):
-    """Apply an integer shift along the last axis."""
+def _ishift_axis1(
+    image: np.ndarray,
+    offset: int,
+    *,
+    mode: str,
+    cval: float | int,
+) -> np.ndarray:
+    """Apply an integer shift along the last axis.
+
+    Parameters:
+        image: Array to shift.
+        offset: Offset along the last axis.
+        mode: Boundary handling mode.
+        cval: Fill value for "constant" mode.
+
+    Returns:
+        Shifted copy of `image`.
+
+    Raises:
+        ValueError: If `mode` is not recognized.
+    """
 
     if offset == 0:
         return image.copy()

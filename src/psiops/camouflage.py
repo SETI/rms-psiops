@@ -3,6 +3,7 @@
 ##########################################################################################
 
 import numpy as np
+import numpy.typing as npt
 import scipy.ndimage
 
 from ._utils import _check_image, _check_return, _merge_weights
@@ -11,8 +12,16 @@ from .gaussian_filter import gaussian_filter
 _EPS = 1.e-8
 
 
-def camouflage(image, mask=None, *, maskval=None, weights=None, nans=False, size=30,
-               returns='i'):
+def camouflage(
+    image: npt.ArrayLike,
+    mask: np.ndarray | None = None,
+    *,
+    maskval: float | None = None,
+    weights: np.ndarray | None = None,
+    nans: bool = False,
+    size: float = 30,
+    returns: str = 'i',
+) -> np.ndarray | list[np.ndarray]:
     """Replace the masked pixels of an image based on the the nearby, unmasked pixels.
 
     Replacement values are obtained by Gaussian-filtering the unmasked pixels of the
@@ -20,56 +29,58 @@ def camouflage(image, mask=None, *, maskval=None, weights=None, nans=False, size
     filled, which helps the replaced pixels to blend in with their surroundings.
 
     Parameters:
-        image (array): Image array, in which the last two axes are the spatial dimensions.
-            This can be a MaskedArray.
-        mask (array, optional): Boolean mask array, equal to True where the values in
-            `image` are to be ignored. It is broadcasted to the shape of `image` if
-            necessary.
-        maskval (scalar, optional): A value that should be masked wherever it appears in
-            `image`. This can be used used instead of or in addition to the `mask`.
-        weights (array, optional): Weight array specifying the possibly unequal weights
-            associated with the pixels in `image`. A weight of zero is equivalent to a
-            `mask` value of True. This can be provided in addition to or instead of the
-            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
-            Values should never be negative.
-        nans (bool, optional): True to check `image` for NaNs and interpret them as masked
-            values.
-        size (scalar): The approximate upper limit on the size in pixels of the masked
-            areas to be camouflged. Areas that are somewhat larger will still be filled,
-            but with less accuracy. Areas that are much larger could remain masked due to
-            the underflow of the Gaussian. Note that camouflaging very large areas (larger
-            than 50-100 pixels) is time-consuming and does not always yield satisfactory
-            results.
-        returns (str, optional): Used to override the default quantity or quantities to
-            return, one of "i" (image only), "im" (image and mask), "iw" (image and weight
-            array), or "imw" (image, mask, and weight array). Default is "i".
+        image: Image array, in which the last two axes are the spatial dimensions. This
+            can be a MaskedArray.
+        mask: Boolean mask array, equal to True where the values in `image` are to be
+            ignored. It is broadcasted to the shape of `image` if necessary.
+        maskval: A value that should be masked wherever it appears in `image`. This can
+            be used instead of or in addition to the `mask`.
+        weights: Weight array specifying the possibly unequal weights associated with
+            the pixels in `image`. A weight of zero is equivalent to a `mask` value of
+            True. This can be provided in addition to or instead of the `mask` or
+            `maskval`. It is broadcasted to the shape of `image` if necessary. Values
+            should never be negative.
+        nans: True to check `image` for NaNs and interpret them as masked values.
+        size: The approximate upper limit on the size in pixels of the masked areas to
+            be camouflaged. Areas that are somewhat larger will still be filled, but
+            with less accuracy. Areas that are much larger could remain masked due to
+            the underflow of the Gaussian. Note that camouflaging very large areas
+            (larger than 50-100 pixels) is time-consuming and does not always yield
+            satisfactory results.
+        returns: Used to override the default quantity or quantities to return, one of
+            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
+            "imw" (image, mask, and weight array). Default is "i".
 
     Returns:
-        (array or tuple): `filled` or (`filled`[, `new_mask`][, `new_weights`]):
+        `filled` or (`filled`[, `new_mask`][, `new_weights`]):
 
-        * `filled` (array): The floating-point, filled image array. If `image` is a
-          MaskedArray, this will also be a MaskedArray. If `maskval` was specified, any
-          remaining unmasked elements in this array will be filled with this value.
-          Otherwise, if `nans` is True, masked pixels will be filled with NaN.
-        * `new_mask` (array): The new mask array, True where underflow of the Gaussian
-          has caused some pixels to still be masked.
-        * `new_weights` (array): The weight array, equal to the original weights where
-          `image` is unmasked, and equal to the weight of the Gaussian-filtered image at
-          locations where masked values have been filled.
+        * `filled`: The floating-point, filled image array. If `image` is a MaskedArray,
+          this will also be a MaskedArray. If `maskval` was specified, any remaining
+          unmasked elements in this array will be filled with this value. Otherwise, if
+          `nans` is True, masked pixels will be filled with NaN.
+        * `new_mask`: The new mask array, True where underflow of the Gaussian has caused
+          some pixels to still be masked.
+        * `new_weights`: The weight array, equal to the original weights where `image` is
+          unmasked, and equal to the weight of the Gaussian-filtered image at locations
+          where masked values have been filled.
+
+    Raises:
+        ValueError: If any inputs are invalid or incompatible.
+        TypeError: If `image` dtype is not numeric.
 
     Notes:
         This function categorizes each "hole" of masked pixels in the image by its
         approximate size. It then replaces the pixels in each hole with values from a
-        Gaussian-filtered version of the nearby, unmasked pixels. It scales the "sigma" of
-        the Gaussian filter to the size of the hole, so larger holes receive contributions
-        from more distant unmasked pixels. This ensures that each hole is filled with
-        new pixels that vary smoothly on the scale of that hole, so that all filled holes
-        blend in well with their surroundings.
+        Gaussian-filtered version of the nearby, unmasked pixels. It scales the "sigma"
+        of the Gaussian filter to the size of the hole, so larger holes receive
+        contributions from more distant unmasked pixels. This ensures that each hole is
+        filled with new pixels that vary smoothly on the scale of that hole, so that all
+        filled holes blend in well with their surroundings.
 
-        Note that, if `image` contains a masked area that is significantly larger than the
-        specified `size`, it is possible for pixels in the middle of that area to remain
-        masked. This is due to underflow of the Gaussian filter, which is based on the
-        nearest unmasked pixels of `image`.
+        Note that, if `image` contains a masked area that is significantly larger than
+        the specified `size`, it is possible for pixels in the middle of that area to
+        remain masked. This is due to underflow of the Gaussian filter, which is based
+        on the nearest unmasked pixels of `image`.
     """
 
     # Interpret the image inputs
@@ -119,7 +130,7 @@ def camouflage(image, mask=None, *, maskval=None, weights=None, nans=False, size
 
     # Replace every non-negative value with the largest value within the same hole
     antimask = np.logical_not(mask)
-    for iter_ in range(radii):
+    for _iter in range(radii):
         new_holes = scipy.ndimage.maximum_filter(holes, footprint=footprints[0],
                                                  mode='constant', cval=0)
         new_holes[antimask] = -1
@@ -144,4 +155,3 @@ def camouflage(image, mask=None, *, maskval=None, weights=None, nans=False, size
     return _check_return(image, None, new_weights, info)
 
 ##########################################################################################
-
