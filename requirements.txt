@@ -1,3 +1,5 @@
-numpy >= 1.23.1
-psutil >= 5.9.1
-scipy >= 1.9.0
+# Install the package in editable mode. For development (tests, lint, type-check, docs) use:
+#   pip install -e ".[dev]"
+# For documentation build only:
+#   pip install -e ".[docs]"
+-e .
