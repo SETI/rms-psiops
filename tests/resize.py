@@ -7,7 +7,7 @@
 ##########################################################################################
 
 import numpy as np
-from image_ops._utils import _check_tuple
+from psiops._utils import _check_tuple
 
 
 def resize(image, shape, mask=None):
