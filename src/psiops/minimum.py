@@ -108,10 +108,16 @@ def _minimum(
         `new_weights` may each be None depending on the requested return type.
     """
 
-    # Handle the unmasked case
-    if mask is None:
+    # Handle the fully unmasked, unweighted case
+    if mask is None and weights is None:
         new_image = np.min(image, axis=axis)
         return (new_image, None, None)
+
+    # A weights array with no explicit mask (e.g. from the filter path) implies a mask
+    # wherever the weight is zero.
+    if mask is None:
+        assert weights is not None
+        mask = np.asarray(weights == 0)
 
     # Define an `ignore` value greater than the maximum in the image array
     original_dtype = image.dtype
@@ -122,15 +128,21 @@ def _minimum(
         ignore = np.inf
     else:
         maxval = image[..., ~mask].max()
-        ignore = maxval + 1
+        # If the maximum is at (or above) the type's fill value, `maxval + 1` would
+        # overflow. Promote to int64 first when possible; otherwise fall back to using
+        # `maxval` itself as the flag.
         if maxval >= np.ma.minimum_fill_value(image):
             if image.dtype.itemsize < 8:
                 image = image.astype(np.int64)
+                ignore = int(maxval) + 1
             else:
                 ignore = maxval         # calculation might be impossible; use best option
+        else:
+            ignore = maxval + 1
 
     mask = np.broadcast_to(mask, image.shape)
-    weights = weights and np.broadcast_to(weights, image.shape)
+    if weights is not None:
+        weights = np.broadcast_to(weights, image.shape)
 
     # Replace all unweighted values with the `ignore` flag
     if not info.image_is_copy:

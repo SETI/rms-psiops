@@ -113,16 +113,18 @@ def _apply_op_as_filter(
     image = np.reshape(image, (-1,) + shape)    # collapse front axes to one
     filtered = np.empty(image.shape, dtype=image.dtype)
 
+    # The auxiliary outputs (`new_mask` and `new_weights`) are allocated lazily from the
+    # first computed slice, so their dtype always matches what `op` actually returns. They
+    # remain None when `op` produces no mask or weights (e.g. the fully unmasked case).
+    new_mask: np.ndarray | None = None
+    new_weights: np.ndarray | None = None
+
     if weights is not None:
         weights = np.broadcast_to(weights, old_shape)
         weights = np.reshape(weights, image.shape)
-        new_weights = np.empty(image.shape, dtype=np.bool_)
-        new_mask = None
     elif mask is not None:
         mask = np.broadcast_to(mask, old_shape)
         mask = np.reshape(mask, image.shape)
-        new_mask = np.empty(image.shape, dtype=np.bool_)
-        new_weights = None
 
     # If the layers are sufficiently small, handle them in sequence
     layer_bytes = needed_bytes // image.shape[0]
@@ -137,9 +139,13 @@ def _apply_op_as_filter(
              temp_weights) = _apply_op(op, image[l0:l1], footprint, mask=mslice,
                                        weights=wslice, info=info, **kwargs)
             filtered[l0:l1] = temp_image
-            if new_mask is not None:
+            if temp_mask is not None:
+                if new_mask is None:
+                    new_mask = np.empty(image.shape, dtype=temp_mask.dtype)
                 new_mask[l0:l1] = temp_mask
-            elif new_weights is not None:
+            if temp_weights is not None:
+                if new_weights is None:
+                    new_weights = np.empty(image.shape, dtype=temp_weights.dtype)
                 new_weights[l0:l1] = temp_weights
 
             l0 += lstep
@@ -147,10 +153,10 @@ def _apply_op_as_filter(
             _LAYERS_USED += 1
 
         _TILES_USED = 1
-        if mask is None or isinstance(filtered, np.ma.MaskedArray):
-            return filtered.reshape(old_shape)
-        else:
-            return (filtered.reshape(old_shape), new_mask.reshape(old_shape))
+        filtered = filtered.reshape(old_shape)
+        new_mask = None if new_mask is None else new_mask.reshape(old_shape)
+        new_weights = None if new_weights is None else new_weights.reshape(old_shape)
+        return (filtered, new_mask, new_weights)
 
     # Otherwise, we have to break down the images into smaller tiles too
     _LAYERS_USED = image.shape[0]
@@ -172,9 +178,13 @@ def _apply_op_as_filter(
              temp_weights) = _apply_op(op, image[l,i0:i1], footprint, mask=mslice,
                                        weights=wslice, info=info, **kwargs)
             filtered[l,imin:imax] = temp_image[imin-i0:imax-i0]
-            if new_mask is not None:
+            if temp_mask is not None:
+                if new_mask is None:
+                    new_mask = np.empty(image.shape, dtype=temp_mask.dtype)
                 new_mask[l,imin:imax] = temp_mask[imin-i0:imax-i0]
-            elif new_weights is not None:
+            if temp_weights is not None:
+                if new_weights is None:
+                    new_weights = np.empty(image.shape, dtype=temp_weights.dtype)
                 new_weights[l,imin:imax] = temp_weights[imin-i0:imax-i0]
 
         imin += istep

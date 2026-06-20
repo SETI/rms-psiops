@@ -145,14 +145,28 @@ def _median(
                 warnings.simplefilter('ignore', RuntimeWarning)
                 median_image = np.nanmedian(image, axis=axis)
             new_weights = info.pixel_area - np.sum(mask, axis=axis)
-            return (median_image, None, new_weights)
+            # Report the per-pixel count as weights when requested; otherwise report a
+            # mask that is True wherever every contributing pixel was masked, so that
+            # fully masked pixels are flagged in the result (e.g. a returned MaskedArray).
+            if 'w' in info.returns:
+                return (median_image, None, new_weights)
+            return (median_image, new_weights == 0, None)
 
-    # Combine weights and factors
+    # Combine weights and factors. This is None only when there is no mask, no weights,
+    # and no factors, in which case every pixel carries an implicit unit weight.
     weights = _merge_weights(mask, weights, factors)
-    weights = np.broadcast_to(weights, image.shape)
+    if weights is not None:
+        weights = np.broadcast_to(weights, image.shape)
+        weights = _flatten_axes(weights, axis, shape=image.shape)
+
+    # Broadcast and flatten the mask the same way as the image, so it always aligns with
+    # the flattened image even when it has fewer leading axes (e.g. a footprint-boundary
+    # mask supplied by the filter path).
+    if mask is not None:
+        mask = np.broadcast_to(mask, image.shape)
+        mask = _flatten_axes(mask, axis, shape=image.shape)
 
     # Move the selected axes to the front, then flatten them
-    weights = _flatten_axes(weights, axis, shape=image.shape)
     image = _flatten_axes(image, axis)
 
     # Replace all masked pixels using a flag value that is out of range, above or below
@@ -160,7 +174,7 @@ def _median(
         ignore = -np.inf if omit < 0 else np.inf
         if not info.image_is_copy:
             image = image.copy()
-        image[..., mask] = ignore
+        image[mask] = ignore
 
     # Sort the image pixels and associated weights
     if weights is None:
@@ -171,10 +185,16 @@ def _median(
         sorted_image = np.take_along_axis(image, args, axis=0)
         sorted_weights = np.take_along_axis(weights, args, axis=0)
 
-    # Locate the midpoint
+    # Locate the midpoint. When `omit` is nonzero, trim that many weight units from one
+    # end of the sorted distribution before taking the (weighted) median: a positive value
+    # trims the lower end, a negative value trims the upper end. Masked pixels already
+    # carry zero weight, so they never count toward the trimmed total.
     cumweights = np.cumsum(sorted_weights, axis=0)
-    new_weights = cumweights[-1]
-    midweight = new_weights / 2.
+    total = cumweights[-1]
+    lo = max(omit, 0)
+    hi = total + min(omit, 0)
+    new_weights = np.maximum(hi - lo, 0)
+    midweight = (lo + hi) / 2.
     index_below = np.sum(cumweights <  midweight, axis=0)   # noqa
     index_above = np.sum(cumweights <= midweight, axis=0)
     index_above = np.minimum(index_above, image.shape[0] - 1)
