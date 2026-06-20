@@ -365,4 +365,27 @@ def test_mean_filter_mask_irregular_footprint() -> None:
             assert not amask[i,j]
             assert np.abs(a[i,j] - np.mean(values)) < 1.e-14
 
+
+def test_mean_filter_weights(shortcuts) -> None:
+    # A weighted mean filter must apply the weight values (regression: the shortcut
+    # path used to ignore them and return the unweighted mean). Checked on both code
+    # paths via the `shortcuts` fixture.
+    rng = np.random.default_rng(909)
+    image = rng.random((20, 20))
+    weights = rng.random((20, 20)) + 0.5
+
+    a, aw = mean_filter(image, 3, weights=weights)
+    assert a.shape == (20, 20)
+
+    # Manual weighted mean over the 3x3 window at an interior pixel
+    i = j = 10
+    win = image[i-1:i+2, j-1:j+2]
+    ww = weights[i-1:i+2, j-1:j+2]
+    assert np.isclose(a[i, j], np.sum(win * ww) / np.sum(ww))
+    assert np.isclose(aw[i, j], ww.sum())
+
+    # The weighted result genuinely differs from the unweighted filter
+    plain = mean_filter(image, 3)
+    assert not np.isclose(a[i, j], plain[i, j])
+
 ##########################################################################################

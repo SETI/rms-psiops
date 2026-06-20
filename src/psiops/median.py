@@ -131,7 +131,7 @@ def _median(
 
     # Handle the case without leading factors
     if factors is None and omit == 0 and _use_shortcuts():
-        if mask is None:
+        if mask is None and weights is None:
             median_image = np.median(image, axis=axis)
             return (median_image, None, None)
 

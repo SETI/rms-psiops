@@ -152,7 +152,7 @@ def _variance(
     if factors is None and _use_shortcuts():
         ddof = 0 if vartype == 'biased' else 1
 
-        if mask is None:
+        if mask is None and weights is None:
             var_image = np.var(image, axis=axis, ddof=ddof)
             return (var_image, None, None)
 

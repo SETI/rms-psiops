@@ -121,7 +121,7 @@ def _mean(
 
     # Handle the unweighted cases
     if factors is None and _use_shortcuts():
-        if mask is None:
+        if mask is None and weights is None:
             mean_image = np.mean(image, axis=axis)
             return (mean_image, None, None)
 

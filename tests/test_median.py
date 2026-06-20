@@ -387,4 +387,35 @@ def test_median_filter_omit(shortcuts) -> None:
     assert a.shape == image.shape
     assert np.all(np.isfinite(a))
 
+
+def test_median_filter_weights(shortcuts) -> None:
+    # A weighted median filter must apply the weight values (regression: the shortcut
+    # path used to ignore them and return the unweighted median). Checked on both code
+    # paths via the `shortcuts` fixture.
+    rng = np.random.default_rng(77)
+    image = rng.random((20, 20))
+    weights = rng.random((20, 20)) + 0.5
+
+    a, aw = median_filter(image, 3, weights=weights)
+    assert a.shape == (20, 20)
+
+    # Replicate the weighted-median algorithm over the 3x3 window at an interior pixel
+    i = j = 10
+    win = image[i-1:i+2, j-1:j+2].ravel()
+    ww = weights[i-1:i+2, j-1:j+2].ravel()
+    order = np.argsort(win)
+    svals, sw = win[order], ww[order]
+    cum = np.cumsum(sw)
+    mid = cum[-1] / 2.
+    below = int(np.sum(cum < mid))
+    above = min(int(np.sum(cum <= mid)), len(svals) - 1)
+    expect = 0.5 * (svals[below] + svals[above])
+    assert np.isclose(a[i, j], expect)
+    assert np.isclose(aw[i, j], ww.sum())
+
+    # The weighted result genuinely differs from the unweighted filter. The median is
+    # robust, so individual pixels may coincide; check that weights change some pixels.
+    plain = median_filter(image, 3)
+    assert not np.allclose(a, plain)
+
 ##########################################################################################

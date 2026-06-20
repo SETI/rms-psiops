@@ -305,16 +305,32 @@ def test_variance_filter_biased() -> None:
             assert np.abs(a[:, i, j] - expect).max() < 1.e-13
 
 
-def test_variance_filter_weights_returns_structure() -> None:
-    # A weighted filter returns both the variance image and a weight array. (Note: the
-    # shared filter machinery currently does not apply the weight values, so only the
-    # return structure and finiteness of interior pixels are checked here.)
+def test_variance_filter_weights(shortcuts) -> None:
+    # A weighted filter must apply the weight values (regression: the shortcut path
+    # used to ignore them and return the unweighted variance). Checked on both the
+    # shortcut and general code paths via the `shortcuts` fixture.
     rng = np.random.default_rng(5)
-    image = rng.random((20,20))
-    weights = rng.random((20,20)) + 0.5
+    image = rng.random((20, 20))
+    weights = rng.random((20, 20)) + 0.5
+
     a, aw = variance_filter(image, 3, weights=weights)
-    assert a.shape == (20,20)
-    assert np.isfinite(a[1:19, 1:19]).all()
+    assert a.shape == (20, 20)
+    assert aw.shape == (20, 20)
+
+    # Manual reliability-weighted variance over the 3x3 window at an interior pixel
+    i = j = 10
+    win = image[i-1:i+2, j-1:j+2].ravel()
+    ww = weights[i-1:i+2, j-1:j+2].ravel()
+    sw = ww.sum()
+    mean = np.sum(ww * win) / sw
+    denom = sw - np.sum(ww**2) / sw
+    expect = np.sum(ww * (win - mean)**2) / denom
+    assert np.isclose(a[i, j], expect)
+    assert np.isclose(aw[i, j], sw)
+
+    # The weighted result genuinely differs from the unweighted filter
+    plain = variance_filter(image, 3, returns='i')
+    assert not np.isclose(a[i, j], plain[i, j])
 
 
 def test_variance_filter_mask_irregular_footprint() -> None:
