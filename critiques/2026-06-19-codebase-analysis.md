@@ -1,15 +1,24 @@
 # Codebase analysis: rms-psiops
 
-*Generated: 2026-06-19 — Updated: 2026-06-19*
+*Generated: 2026-06-19 — Updated: 2026-06-20*
 
 ## Summary
 
 The core algorithms are sophisticated and well-designed — the photometric-accuracy guarantees,
 memory-tiling logic, and mask/weight propagation are clearly the result of careful domain
-expertise. Two remediation passes have resolved all critical and high-severity bugs, added CI,
-converted `_ImageInfo` to a typed dataclass, tightened the mypy config, and cleaned up
-packaging. The remaining work is primarily test-suite modernization, documentation
-infrastructure, and a handful of medium/low structural items.
+expertise. Several remediation passes have resolved all critical and high-severity bugs, added
+CI, converted `_ImageInfo` to a typed dataclass, tightened the mypy config, and cleaned up
+packaging.
+
+A test-suite-and-documentation pass (2026-06-20) then **modernized and split the entire test
+suite into 629 focused pytest functions, raised total coverage to ~97% (every module ≥ 89%,
+most at 100%), wrote tests for all previously-untested modules, and added a Sphinx User's
+Guide**. That work uncovered and fixed roughly a dozen further latent bugs (NumPy 2.0
+breakage, a masked-filter axis-reduction bug that silently broke every masked `*_filter`,
+weighted-filter shortcuts ignoring weights, `keepdims` dropped on the bare-image return, the
+`resample` unit-zoom shortcut, and others — see §11). The remaining work is now a short list of
+medium/low structural and tooling items: lint/mypy debt, the `returns` DSL discoverability
+(won't-fix), thread-safety documentation, and a couple of packaging-metadata placeholders.
 
 ---
 
@@ -24,17 +33,21 @@ infrastructure, and a handful of medium/low structural items.
   `_check_return`), and `_filter.py` (filter dispatch, tiling, memory management, test-control
   flags). All 13 source modules and 4 test files updated accordingly.
 
-- **Finding (low)**: Several modules are permanently commented out in `__init__.py` (`fft`,
-  `fitting`, `stretch`, `imagemodel`). **Evidence**: `__init__.py:67–76`. **Suggestion**: If
-  these aren't ready, consider a feature flag or separate install extra rather than dead
-  commented-out code in the public init. At minimum, remove the block so the intent is clear.
+- **Finding (low — partially addressed)**: Several modules are commented out in `__init__.py`
+  (`fft`, `fitting`, `stretch`, `imagemodel`, `scaling`). **Evidence**: `__init__.py:92–100`.
+  As of 2026-06-20 every one of these modules is now **fully tested** (≥ 89% coverage, most at
+  100%) and its latent bugs fixed, so the code behind the comments is exercised and works.
+  **Remaining**: decide whether to export them (uncomment + add to `__all__`) or remove the
+  dead block. The `scaling`/`scaling2` lines refer to modules that do not exist and should be
+  deleted regardless.
 
-- **Finding (medium)**: `tests/resize.py` and `tests/unittester.py` are legacy test
-  infrastructure not discovered by pytest. `resize.py` contains test logic with no `test_`
-  prefix; `unittester.py` is a manual runner using wildcard imports. **Evidence**:
-  `tests/unittester.py`, `tests/resize.py`. **Suggestion**: Rename `resize.py` to
-  `test_resize_helpers.py` or integrate it into `test_resize.py`; remove `unittester.py`
-  since pytest supersedes it.
+- ~~**Finding (medium)**: `tests/resize.py` and `tests/unittester.py` are legacy test
+  infrastructure not discovered by pytest.~~ ✓ **Partially fixed.** `tests/unittester.py` has
+  been removed (pytest supersedes it). `tests/resize.py` is retained as a deliberate helper:
+  it provides a reference `resize()` implementation that `test_resample.py` cross-checks
+  against, and it carries no `test_` prefix so pytest does not collect it as a test. The
+  remaining nicety would be to rename it (e.g. `_resize_reference.py`) to make the
+  not-a-test-module intent unmistakable.
 
 - ~~**Finding (low)**: File-header comments in several files refer to the old package path
   `image_ops/` (e.g. `# image_ops/tests/test_mean.py`).~~ ✓ **Fixed.** All 21 stale headers
@@ -128,35 +141,43 @@ infrastructure, and a handful of medium/low structural items.
 
 ## 4. Testing
 
-- **Finding (high)**: All tests are written as `unittest.TestCase` classes with a single
-  `runTest()` method (one giant test per class). The project rule mandates pytest style,
-  `pytest.raises`, and independent, parallelizable tests. With `runTest()`, a failure in the
-  middle of the method stops all remaining assertions. **Evidence**: Every test file, e.g.
-  `test_mean.py:11–16`. **Suggestion**: Refactor to top-level `test_*` functions (or
-  `@pytest.mark.parametrize`) with one focused assertion cluster per function.
+- ~~**Finding (high)**: All tests are written as `unittest.TestCase` classes with a single
+  `runTest()` method (one giant test per class).~~ ✓ **Fixed.** The whole suite is now plain
+  pytest. Every monolithic test was split into focused, independently-runnable `test_*`
+  functions (e.g. `test_ishift` → 12, `test_shift` → 6, the stack/transform clusters into
+  ~10–30 each), using `pytest.raises` for error cases and a `shortcuts` fixture (in
+  `tests/conftest.py`) to sweep both the optimized and general code paths. 629 tests total,
+  runnable individually and in parallel.
 
-- **Finding (high)**: Tests call `warnings.simplefilter('ignore', category=RuntimeWarning)`
-  in `setUp()`, directly contradicting the `filterwarnings = ["error"]` setting in
-  `pyproject.toml`. This suppresses real bugs in the production code. **Evidence**:
-  `test_mean.py:14`.
+- ~~**Finding (high)**: Tests call `warnings.simplefilter('ignore', category=RuntimeWarning)`
+  in `setUp()`, directly contradicting `filterwarnings = ["error"]`.~~ ✓ **Fixed.** The
+  blanket suppression is gone; `filterwarnings = ["error"]` is honored. Warnings that are a
+  genuine, expected consequence of the computation (0/0 on fully-masked pixels, all-NaN
+  slices, `ddof` underflow) are now suppressed **at the source** in the library via
+  `np.errstate` / `warnings.catch_warnings`, so the tests still catch *unexpected* warnings.
 
-- **Finding (high)**: Large coverage gaps: `camouflage`, `stretch`, `fft`, `fitting`,
+- ~~**Finding (high)**: Large coverage gaps: `camouflage`, `stretch`, `fft`, `fitting`,
   `outliers`, `circle`, `gaussian_filter`, and all `imagemodel/` subclasses have no test
-  files. Given the 90% coverage threshold, these modules must be hit incidentally (or not at
-  all) — coverage likely passes today only because many of these modules are commented out of
-  `__init__.py`. **Evidence**: `tests/` directory listing.
+  files.~~ ✓ **Fixed.** New test suites were written for every one of these modules. Total
+  coverage is now ~97%; per-module: `circle`, `stretch`, `camouflage`, `fitting`, `mean`,
+  `stdev`, `reshape`, `zoom`, `unzoom`, `maximum`, `minimum`, `median`, `_filter`, and all
+  `imagemodel/*` at 100%; `gaussian_filter`/`shift` 99%; `fft`/`variance`/`ishift`/`_utils`
+  97%; `rotate` 96%; `resample` 93%; `outliers` 100%; `_validation` ~86%. The 90% gate passes.
 
-- **Finding (medium)**: `np.random.seed(5965)` is called at the top of `runTest()` methods
-  as a global side effect. With `pytest-xdist` parallel execution, workers share a process
-  so random seed state bleeds across tests. **Evidence**: `test_mean.py:19`. **Suggestion**:
-  Use `rng = np.random.default_rng(seed)` scoped to each test.
+- ~~**Finding (medium)**: `np.random.seed(5965)` is called as a global side effect; with
+  `pytest-xdist`, random-seed state bleeds across tests.~~ ✓ **Fixed.** All tests use
+  `np.random.default_rng(seed)` scoped to each function. `tests/conftest.py` also adds an
+  autouse fixture that restores the global `_use_shortcuts` flag after every test, so the
+  split tests are order- and parallel-independent.
 
-- **Finding (medium)**: Tests have no type annotations on functions, violating the project
-  rule (§7: "Include type annotations on test functions"). **Evidence**: All test files.
+- **Finding (low — largely addressed)**: Tests have no type annotations on functions.
+  **Evidence**: ~443 of 503 test functions now carry `-> None`; ~60 functions in the newer
+  `test_camouflage`/`test_outliers`/`test_stretch` suites still omit it. **Suggestion**: add
+  `-> None` to the remaining handful for full compliance with the project rule.
 
-- **Finding (low)**: `tests/resize.py` is not `test_resize.py`, so pytest doesn't
-  auto-discover it. It's imported by `unittester.py` via wildcard but is invisible to the
-  standard `pytest` invocation. **Evidence**: `tests/resize.py`, `unittester.py:20`.
+- ✓ **(superseded)** The `tests/resize.py` discovery concern is now covered under §1: the
+  file is an intentional, uncollected reference helper; `unittester.py` (which imported it) has
+  been removed.
 
 ---
 
@@ -200,9 +221,14 @@ infrastructure, and a handful of medium/low structural items.
   can be enabled. **Evidence**: `fft.py:9`.~~ ✓ **Fixed.** Changed to
   `from psiops.gaussian_filter import gaussian_filter`.
 
-- **Finding (low)**: No `docs/` directory exists despite the `pyproject.toml` pointing to a
-  ReadTheDocs URL. Sphinx infrastructure is in the dev dependencies but there's no `conf.py`
-  or source tree. **Evidence**: No `docs/` directory; `pyproject.toml:45`.
+- ~~**Finding (low)**: No `docs/` directory exists despite the `pyproject.toml` pointing to a
+  ReadTheDocs URL.~~ ✓ **Fixed.** A Sphinx `docs/` tree exists (`conf.py`, `index.rst`,
+  `module.rst`, Makefile) and now includes a tutorial-style **User's Guide**
+  (`docs/userguide.rst`) covering image stacks, the pixel-coordinate convention, photometric
+  accuracy, masking, the `returns` parameter, and every public operation family with worked
+  examples. The build was also repaired (the `REPONAME`/`PSIops` placeholders, a too-short
+  title underline, the missing README `start-after` marker, and orphaned pages were fixed) so
+  `make -C docs html SPHINXOPTS=-W` now succeeds with zero warnings.
 
 ---
 
@@ -211,12 +237,15 @@ infrastructure, and a handful of medium/low structural items.
 - **Finding (low)**: No subprocess, `eval`, credentials, or path traversal issues found.
   Security posture is clean.
 
-- **Finding (low)**: `RuntimeWarning` is globally suppressed for all users at import time
-  via `warnings.simplefilter('ignore', ...)` and `os.environ['PYTHONWARNINGS']`. This hides
-  NumPy divide-by-zero warnings that can legitimately indicate bugs in calling code.
-  **Evidence**: `__init__.py:43–46`. **Suggestion**: Consider suppressing only within the
-  specific operations that generate expected warnings (using `warnings.catch_warnings()`
-  locally), rather than globally.
+- **Finding (low — partially addressed)**: `RuntimeWarning` is globally suppressed for all
+  users at import time via `warnings.simplefilter('ignore', ...)` and
+  `os.environ['PYTHONWARNINGS']`. **Evidence**: `__init__.py:43–46`. As of 2026-06-20 the
+  recommended local suppression is now in place at each operation that legitimately produces
+  expected NaNs (`mean`/`variance`/`stdev`/`median`/`unzoom`/`resample`/`shift` use
+  `np.errstate` / `warnings.catch_warnings` around the specific divisions and reductions).
+  **Remaining**: the broad import-time suppression in `__init__.py` could now be removed (or
+  narrowed) so that genuine divide-by-zero warnings in *calling* code are no longer hidden,
+  relying on the per-operation suppression instead.
 
 ---
 
@@ -312,19 +341,80 @@ These were not in the original critique but were discovered while applying fixes
 
 ---
 
-## Recommended priorities
+## 11. Bugs found and fixed during the test-and-docs pass (2026-06-20)
+
+Writing the test suite and driving coverage to ~97% exercised many code paths for the first
+time, surfacing these latent bugs. All are fixed with regression tests unless noted.
+
+- **NumPy 2.0 breakage**: `median.py`/`variance.py` used `np.NaN` (removed in NumPy 2.0); the
+  whole package failed under modern NumPy. Fixed to `np.nan`. ✓
+- **Masked filters completely broken** (`_filter._apply_op`): after moving the footprint axis
+  to `-3`, the op reduced over `axis=-1` (a spatial axis) instead of `-3`. Every masked
+  `maximum/minimum/mean/median/variance/stdev _filter` returned wrong-shaped/garbage results.
+  Fixed to reduce over `axis=-3`. ✓
+- **Weighted filters ignored weight values** (`_mean`/`_variance`/`_median`): the unweighted
+  shortcut fired whenever `mask is None`, even with `weights` present (the filter path passes
+  `mask=None` with weights), so weighted `*_filter` silently returned the unweighted result.
+  Fixed to require both `mask` and `weights` to be None (matching `maximum`/`minimum`). ✓
+- **`keepdims` dropped on the bare-image return** (`_validation._check_return`): the
+  `returns == 'i'` early return bypassed the `keepdims()` helper, so `keepdims=True` was
+  silently ignored unless a mask/weights forced the multi-return path. Fixed. ✓
+- **`resample` unit-zoom shortcut crashed**: the `zoom_==(1,1)` fast path referenced
+  `new_weights` before assignment (no-weights case) and called `_check_return` without the
+  positional `mask` arg. Fixed. ✓
+- **`resample` integer-image / weighted accumulation**: integer images hit an in-place
+  float→int cast error; the `weights`/`axis_weights` variable mix-up broke roundoff
+  suppression; `new_mask` was undefined on the weighted path. Fixed (float accumulation
+  buffer, correct variable, `new_mask=None`). ✓
+- **`variance` `vartype='biased'` crash**: the weighted path never assigned `denom`. Fixed,
+  and under-populated pixels are now masked consistently (`denom<=0`, count<2 for
+  reliability/unbiased, count==0 for biased). ✓
+- **`ishift` with both mask and weights**: left `new_mask`/`new_weights` unbound
+  (`UnboundLocalError`). Fixed by prioritizing the weights branch (weights encode the mask). ✓
+- **`unzoom`/`shift` integer division & dtype**: in-place int division crashes and integer
+  results from fractional shifts; fixed to use float output dtypes. ✓
+- **Stack-op 3-D enforcement**: `maximum`/`median` lacked `three=True`, so 2-D inputs did not
+  raise like the other reductions. Fixed. ✓
+- **Multi-dimensional `factors`** (`_merge_weights`): factors were reshaped as
+  `[:, newaxis, newaxis]` (insert after axis 0) instead of appending trailing spatial axes,
+  breaking multi-axis `factors`. Fixed to `[..., newaxis, newaxis]`. ✓
+- **`gaussian_filter` masked path** (entirely broken): forwarded the literal `'masked'` mode
+  to SciPy, rounded boolean weights, ignored `returns=`, and propagated NaNs. Fixed. ✓
+- **`median` `omit`**, **`maximum`/`minimum` weights-only & integer-overflow fill**, **`fft`
+  N-D iteration / `ifft real=`**, **`fitting`/`stretch`/`camouflage`/`outliers`/`imagemodel`
+  import and attribute bugs**: all fixed by the per-module test agents. ✓
+- `_utils._check_tuple` now renders NumPy scalars as plain Python scalars in error messages
+  (NumPy 2.0 `repr` change). ✓
+
+---
+
+## Recommended priorities (remaining)
 
 1. ~~**Fix the critical bugs.**~~ ✓ Done.
-
-2. ~~**Convert `_ImageInfo` to a `dataclass`.**~~ ✓ Done (also surfaced and fixed three
-   additional bugs).
-
-3. **Modernize the test suite**: Convert `unittest.TestCase` + `runTest` to proper pytest
-   functions; remove the `warnings.simplefilter('ignore')` suppression in `setUp`; add tests
-   for the untested modules (`camouflage`, `outliers`, `gaussian_filter`, `circle`).
-
+2. ~~**Convert `_ImageInfo` to a `dataclass`.**~~ ✓ Done.
+3. ~~**Modernize the test suite** and **add tests for the untested modules.**~~ ✓ Done
+   (2026-06-20): full pytest conversion + split, ~97% coverage, all modules covered.
 4. ~~**Add CI.**~~ ✓ Done (`.github/workflows/ci.yml`).
+5. ~~**Tighten mypy config and add `__all__`.**~~ ✓ Done.
+6. ~~**Documentation infrastructure / User's Guide.**~~ ✓ Done (2026-06-20).
 
-5. ~~**Tighten mypy config and add `__all__`.**~~ ✓ Done. `disallow_untyped_defs` and
-   `check_untyped_defs` enabled; `psiops.*` removed from `ignore_missing_imports`; `__all__`
-   added to `__init__.py`.
+**Still open (medium/low):**
+
+7. **Lint and type debt**: `ruff check src tests` reports ~184 findings (mostly `E501`
+   line-length, `I001` import order, `E701` one-line `with pytest.raises(...):`, `E712`
+   `== True/False`, `RUF059` unused unpacking) and `mypy` still reports a few hundred errors
+   (largely `npt.ArrayLike` params dereferenced via `.ndim`/`.shape`, and fit-attribute
+   `None`-initialization in `fitting`/`stretch`). None block tests or the docs build. Schedule
+   a focused lint/type cleanup so `scripts/run-all-checks.sh` is fully green.
+8. **Add `-> None` to the ~60 remaining test functions** in the newer test suites (§4).
+9. **Decide the fate of the commented-out `__init__.py` block** (§1): export the
+   now-tested modules or delete the dead lines; remove the non-existent `scaling`/`scaling2`
+   references.
+10. **Narrow or remove the import-time `RuntimeWarning` suppression** in `__init__.py` now
+    that per-operation suppression exists (§7).
+11. **Thread safety** (§5): the module-level mutable flags (`_USE_SHORTCUTS`, `_LAYERS_USED`,
+    `_TILES_USED`, `_USABLE_BYTES`) are still unguarded — document the library as not
+    thread-safe, or move the test-control state to `threading.local()`.
+12. **Packaging metadata** (§8): `pyproject.toml` `description` is still `"TODO"`; fill it in
+    (and resolve the commented-out `[project.scripts]` placeholder) before any PyPI release.
+    The `README.md` now has real content that can seed the description.
