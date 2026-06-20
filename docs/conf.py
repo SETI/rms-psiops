@@ -17,13 +17,13 @@ if not os.path.exists(os.path.abspath('../src')):
 
 # -- Project information -----------------------------------------------------
 
-project = 'REPONAME'
+project = 'PSIops'
 copyright = '2025, SETI Institute'
 author = 'SETI Institute'
 
 # The full version, including alpha/beta/rc tags
 try:
-    release = importlib.metadata.version('REPONAME')
+    release = importlib.metadata.version('PSIops')
 except importlib.metadata.PackageNotFoundError:
     release = '1.0.0'  # fallback for development
 

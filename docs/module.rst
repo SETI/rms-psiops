@@ -1,7 +1,7 @@
-``PSIops`` Module
-=====================
+``psiops`` API Reference
+========================
 
-.. automodule:: PSIops
+.. automodule:: psiops
     :member-order: bysource
     :members:
     :undoc-members:
