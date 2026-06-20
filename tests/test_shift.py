@@ -352,4 +352,19 @@ def test_shift_dtype_preserved() -> None:
     shifted, _ = shift(image, (1,1))
     assert image.dtype == shifted.dtype
 
+
+def test_shift_with_weights() -> None:
+
+    for status in (False, True):
+        _use_shortcuts(status)
+
+        image, _ = _diag_setup()
+        weights = np.full(image.shape, 3.0)
+
+        # Uniform weights: a half-pixel shift of a unit-slope ramp interpolates to
+        # value - 0.5 on the interior, and fully weighted pixels keep their weight.
+        shifted, new_weights = shift(image, (0,0.5), weights=weights)
+        assert np.allclose(shifted[...,1:], image[...,1:] - 0.5)
+        assert np.allclose(new_weights[...,1:], 3.0)
+
 ##########################################################################################
