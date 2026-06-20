@@ -168,6 +168,7 @@ def resample(
             resampled[..., new_ijmin[0]:new_ijmax[0], new_ijmin[1]:new_ijmax[1]] = \
                 image[..., old_ijmin[0]:old_ijmax[0], old_ijmin[1]:old_ijmax[1]]
 
+        new_weights = None
         if weights is not None:
             new_weights = np.zeros(resampled.shape, dtype=image.dtype)
             if overlap:
@@ -175,7 +176,8 @@ def resample(
                     weights[..., old_ijmin[0]:old_ijmax[0], old_ijmin[1]:old_ijmax[1]]
 
         # At this point our arrays have the required integer shift and possibly one extra
-        # row or column. Apply the fractional shift as needed.
+        # row or column. Apply the fractional shift as needed. The masked-mode shift
+        # derives weights from the boundary mask even when no input weights were given.
         resampled, new_weights = shift(resampled, offset=ijfrac, weights=new_weights,
                                        mode='masked', maskval=maskval, nans=nans,
                                        returns='iw')
@@ -185,7 +187,7 @@ def resample(
         if new_weights is not None:
             new_weights = new_weights[..., :new_xy_shape[0], :new_xy_shape[1]]
 
-        return _check_return(resampled, weights=new_weights, info=info, extra=new_center)
+        return _check_return(resampled, None, new_weights, info=info, extra=new_center)
 
     # Handle weighting along x-axis and then the y-axis
 

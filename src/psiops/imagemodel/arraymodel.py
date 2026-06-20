@@ -35,7 +35,7 @@ class ArrayModel(ImageModel):
         self._outside = float(outside)
 
         if origin is None:
-            self._origin = np.asarray(self.array.shape) / 2.
+            self._origin = np.asarray(self._array.shape) / 2.
         else:
             self._origin = np.asarray(origin, dtype=np.float64)
 
@@ -75,28 +75,37 @@ class ArrayModel(ImageModel):
             expanded, and rotated.
         """
 
+        # resample() and rotate() require at least three dimensions, so operate on the
+        # 2-D model array with a leading unit axis and then drop it afterward.
+        source = self._array[np.newaxis]
+
         if rotate:
             # Determine a temporary center and shape for a resample operation such that
             # pixels will be truncated during rotation.
             iradius = int(np.ceil(self._radius * expand))
-            temp_center = np.array((iradius + center[0]%1, iradius + center[1]%1))
-            temp_shape  = np.ceil(temp_center + radius).astype(np.int_)
+            temp_center = (iradius + center[0] % 1, iradius + center[1] % 1)
+            temp_shape  = (int(np.ceil(temp_center[0] + iradius)),
+                           int(np.ceil(temp_center[1] + iradius)))
 
             # Resample
-            array, mask = resample(self._array, zoom=expand, origin=self._origin,
+            array, mask = resample(source, expand, origin=self._origin,
                                    center=temp_center, shape=temp_shape, returns='im')
 
             # Rotate and place into final grid
-            array, mask = ops_rotate(array, angle=rotate, mask=mask, origin=temp_center,
-                                     center=center, shape=shape, returns='im')
+            array, mask = ops_rotate(array, rotate, mask=mask, origin=temp_center,
+                                     center=center, shape=tuple(shape), returns='im')
 
         # Without rotation, we can just use resample(); this is a common occurrence
         else:
-            array, mask = resample(self._array, zoom=expand, origin=self._origin,
-                                   center=center, shape=shape, returns='im')
+            array, mask = resample(source, expand, origin=self._origin,
+                                   center=center, shape=tuple(shape), returns='im')
 
-        # Fill perimeter and reeturn
-        array[mask] = self._outside
+        # resample() multiplies pixel values by expand**2, so divide it back out to
+        # preserve the model's integral, as documented.
+        array = array[0] / expand**2
+
+        # Fill perimeter and return
+        array[mask[0]] = self._outside
         return array
 
 ##########################################################################################

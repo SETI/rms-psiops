@@ -5,8 +5,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from image_ops.mean       import mean as ops_mean
-from image_ops.imagemodel import ImageModel
+from . import ImageModel
 
 
 class SmearedModel(ImageModel):
@@ -31,8 +30,9 @@ class SmearedModel(ImageModel):
 
         self._model = model
 
+        smear = np.asarray(smear, dtype=np.float64)
         distance = np.sqrt(smear[0]**2 + smear[1]**2)
-        nsteps = int(np.ceil(distance/maxstep))
+        nsteps = max(int(np.ceil(distance/maxstep)), 1)
 
         self._nsteps = nsteps
         self._offsets = smear/nsteps * np.arange(-nsteps/2 + 0.5, nsteps/2)[:,np.newaxis]
@@ -69,10 +69,10 @@ class SmearedModel(ImageModel):
 
         center = np.array(center)
 
-        images = np.empty((self.nsteps,) + shape)
-        for k, offset in enumerate(self.offsets):
+        images = np.empty((self._nsteps,) + tuple(shape))
+        for k, offset in enumerate(self._offsets):
             images[k] = self._model.transform(shape, center + offset, expand, rotate)
 
-        return np.mean(image, axis=0)
+        return np.mean(images, axis=0)
 
 ##########################################################################################
