@@ -103,9 +103,10 @@ def _check_tuple(
         raise ValueError(f'missing {title}')
 
     if isinstance(item, (tuple, list, np.ndarray)):
+        # Convert any NumPy scalars to Python scalars for clean error messages
+        item = tuple(x.item() if isinstance(x, np.generic) else x for x in item)
         if len(item) != 2:
-            raise ValueError(f'invalid {title} {tuple(item)}; two values required')
-        item = tuple(item)
+            raise ValueError(f'invalid {title} {item}; two values required')
     else:
         item = (item, item)
 

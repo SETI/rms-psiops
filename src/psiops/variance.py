@@ -2,6 +2,8 @@
 # psiops/variance.py
 ##########################################################################################
 
+import warnings
+
 import numpy as np
 import numpy.typing as npt
 
@@ -158,8 +160,11 @@ def _variance(
             if not info.image_is_copy:
                 image = image.copy()
             mask = np.broadcast_to(mask, image.shape)
-            image[mask] = np.NaN
-            var_image = np.nanvar(image, axis=axis, ddof=ddof)
+            image[mask] = np.nan
+            # Fully/under-populated slices yield NaN (expected); suppress the warning
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                var_image = np.nanvar(image, axis=axis, ddof=ddof)
             new_weights = info.pixel_area - np.sum(mask, axis=axis)
             return (var_image, None, new_weights)
 
@@ -182,20 +187,22 @@ def _variance(
     weights = _flatten_axes(weights, axis, shape=image.shape)
     image = _flatten_axes(image, axis)
 
-    # Determined the weighted variance
-    new_weights = np.sum(weights, axis=0)
-    image_sum = np.sum(image * weights, axis=0)
-    mean = image_sum / new_weights                  # zero-weight elements are NaN
-    sumsq = np.sum(weights * (image - mean)**2, axis=0)
+    # Determined the weighted variance. Zero-weight elements produce expected NaNs from
+    # 0/0 divisions, so suppress the associated warnings.
+    with np.errstate(invalid='ignore', divide='ignore'):
+        new_weights = np.sum(weights, axis=0)
+        image_sum = np.sum(image * weights, axis=0)
+        mean = image_sum / new_weights              # zero-weight elements are NaN
+        sumsq = np.sum(weights * (image - mean)**2, axis=0)
 
-    if vartype == 'reliability':
-        wsumsq = np.sum(weights**2, axis=0)
-        denom = new_weights - wsumsq/new_weights
-    elif vartype != 'biased':
-        denom = new_weights - 1
+        if vartype == 'reliability':
+            wsumsq = np.sum(weights**2, axis=0)
+            denom = new_weights - wsumsq/new_weights
+        elif vartype != 'biased':
+            denom = new_weights - 1
 
-    new_weights[denom == 0] = 0
-    var_image = sumsq / denom
+        new_weights[denom == 0] = 0
+        var_image = sumsq / denom
     return (var_image, None, new_weights)
 
 

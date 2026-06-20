@@ -2,6 +2,8 @@
 # psiops/median.py
 ##########################################################################################
 
+import warnings
+
 import numpy as np
 import numpy.typing as npt
 
@@ -136,8 +138,11 @@ def _median(
             if not info.image_is_copy:
                 image = image.copy()
             mask = np.broadcast_to(mask, image.shape)
-            image[mask] = np.NaN
-            median_image = np.nanmedian(image, axis=axis)
+            image[mask] = np.nan
+            # Fully masked slices yield NaN (expected); suppress the warning
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                median_image = np.nanmedian(image, axis=axis)
             new_weights = info.pixel_area - np.sum(mask, axis=axis)
             return (median_image, None, new_weights)
 

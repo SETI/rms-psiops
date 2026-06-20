@@ -263,24 +263,27 @@ def resample(
             new_step = 0
 
         # Suppress roundoff errors in weights
-        axis_weights[weights < minweight] = 0.
-        axis_info.append((old_index, new_index, old_step, new_step, weights))
+        axis_weights[axis_weights < minweight] = 0.
+        axis_info.append((old_index, new_index, old_step, new_step, axis_weights))
 
     (old_x, new_x, old_dx, new_dx, xweight) = axis_info[0]
     (old_y, new_y, old_dy, new_dy, yweight) = axis_info[1]
 
-    # Create empty buffers for the arrays to be resampled
+    # Create empty buffers for the arrays to be resampled. Weighted accumulation is
+    # floating-point, so integer images must use a float buffer.
+    out_dtype = image.dtype if image.dtype.kind in 'fc' else np.float64
     new_shape = image.shape[:-2] + new_xy_shape
     if weights is None:
         arrays = image
-        buffer = np.zeros(new_shape, dtype=image.dtype)
+        buffer = np.zeros(new_shape, dtype=out_dtype)
         new_mask = np.ones(new_xy_shape, dtype=np.bool_)
         count = 1
     else:
-        arrays = np.empty((2, *image.shape), dtype=image.dtype)
+        arrays = np.empty((2, *image.shape), dtype=out_dtype)
         arrays[1] = weights
         arrays[0] = image * weights
-        buffer = np.zeros((2, *new_shape), dtype=image.dtype)
+        buffer = np.zeros((2, *new_shape), dtype=out_dtype)
+        new_mask = None         # derived from new_weights by _check_return()
         count = 2
 
     # We need to avoid repeated indices below, so these sets are useful
@@ -339,7 +342,9 @@ def resample(
 
     else:
         (resampled, new_weights) = buffer
-        resampled /= new_weights
+        # Fully masked pixels produce 0/0 -> NaN, which is expected and handled later
+        with np.errstate(invalid='ignore', divide='ignore'):
+            resampled = resampled / new_weights
 
     return _check_return(resampled, new_mask, new_weights, info=info, extra=new_center)
 

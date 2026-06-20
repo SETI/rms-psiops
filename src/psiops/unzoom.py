@@ -86,7 +86,9 @@ def unzoom(
     reshaped_weights = _reshaped_unzoom_array(weights, unzoom_)
     unzoomed_sum = np.sum(reshaped_image * reshaped_weights, axis=(-3,-1))
     new_weights = np.sum(reshaped_weights, axis=(-3,-1))
-    unzoomed_sum /= new_weights
+    # Fully masked pixels produce 0/0 -> NaN, which is expected and handled below
+    with np.errstate(invalid='ignore', divide='ignore'):
+        unzoomed_sum = unzoomed_sum / new_weights
 
     if info.fill_value is None:     # don't leave NaNs in the array unless it's intended
         info.fill_value = 0

@@ -98,10 +98,11 @@ def stdev(
     results = variance(image, mask=mask, maskval=maskval, weights=weights, nans=nans,
                        axis=axis, factors=factors, vartype=stdtype, returns=returns)
 
-    if isinstance(results, np.ndarray):
-        return np.sqrt(results)
-
-    return (np.sqrt(results[0]), *results[1:])
+    # Masked/under-populated pixels yield NaN variances; suppress sqrt warnings
+    with np.errstate(invalid='ignore'):
+        if isinstance(results, np.ndarray):
+            return np.sqrt(results)
+        return (np.sqrt(results[0]), *results[1:])
 
 
 def stdev_filter(
@@ -183,9 +184,10 @@ def stdev_filter(
                               weights=weights, nans=nans, vartype=stdtype,
                               returns=returns)
 
-    if isinstance(results, np.ndarray):
-        return np.sqrt(results)
-
-    return (np.sqrt(results[0]), *results[1:])
+    # Masked/under-populated pixels yield NaN variances; suppress sqrt warnings
+    with np.errstate(invalid='ignore'):
+        if isinstance(results, np.ndarray):
+            return np.sqrt(results)
+        return (np.sqrt(results[0]), *results[1:])
 
 ##########################################################################################
