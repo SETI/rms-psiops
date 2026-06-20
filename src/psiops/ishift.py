@@ -21,7 +21,7 @@ def ishift(
     weights: np.ndarray | None = None,
     nans: bool = False,
     mode: str = 'masked',
-    cval: float = 0,
+    cval: float | None = 0,
     returns: str | None = None,
 ) -> np.ndarray | list[np.ndarray]:
     """Apply an integer shift to an image.
@@ -92,7 +92,7 @@ def ishift(
                                               returns=returns, comps=True)
 
     # Special case where a mask is needed even if not provided
-    if mask is None and weights is None and mode == 'masked':
+    if mask is None and weights is None and (mode == 'masked' or cval is None):
         mask = np.zeros(image.shape[-2:], dtype=np.bool_)
         info.mask_is_copy = True
         if info.returns == 'i' and not info.is_maskedarray:
@@ -109,16 +109,18 @@ def ishift(
             weights = weights.copy()
         return _check_return(image, mask, weights, info)
 
-    # Shift the image one axis at a time
-    shifted_image = _ishift_array(image, offset, mode=mode, cval=cval)
+    # Shift the image one axis at a time; 'masked' and cval=None both use a zero fill
+    image_mode = 'constant' if mode == 'masked' else mode
+    shifted_image = _ishift_array(image, offset, mode=image_mode,
+                                  cval=0 if cval is None else cval)
 
     # Without any need for a mask or weights, we're done
-    if mask is None and weights is None:
+    if mask is None and weights is None and cval is not None:
         return _check_return(shifted_image, None, None, info)
 
     # Shift the mask/weight array one axis at a time
     if weights is None:
-        if mode == 'masked':
+        if mode == 'masked' or cval is None:
             temp_mode = 'constant'
             temp_cval = True
         else:
@@ -127,7 +129,7 @@ def ishift(
         new_mask = _ishift_array(mask, offset, mode=temp_mode, cval=temp_cval)
         new_weights = None
     elif mask is None:
-        if mode == 'masked':
+        if mode == 'masked' or cval is None:
             temp_mode = 'constant'
             temp_cval = 0
         else:
@@ -249,7 +251,7 @@ def _ishift_axis1(
         repeat = 2 * w_minus_1
         offset = offset % repeat
         if offset > w_minus_1:
-            return _ishift_axis1(image[..., ::-1], offset - w_minus_1, mode=mode)
+            return _ishift_axis1(image[..., ::-1], offset - w_minus_1, mode=mode, cval=cval)
         if offset == 0:
             return image.copy()
         if offset == w_minus_1:
@@ -259,11 +261,11 @@ def _ishift_axis1(
         shifted[..., :offset] = image[..., 1:offset+1][..., ::-1]
 
     # Reflect case
-    else:
+    elif mode == 'reflect':
         repeat = 2 * width
         offset = offset % repeat
         if offset > width:
-            return _ishift_axis1(image[..., ::-1], offset - width, mode=mode)
+            return _ishift_axis1(image[..., ::-1], offset - width, mode=mode, cval=cval)
         if offset == 0:
             return image.copy()
         if offset == width:
@@ -271,6 +273,8 @@ def _ishift_axis1(
 
         shifted[..., offset:] = image[..., :-offset]
         shifted[..., :offset] = image[..., :offset][..., ::-1]
+
+    else:
         raise ValueError(f'unrecognized mode "{mode}"')
 
     return shifted

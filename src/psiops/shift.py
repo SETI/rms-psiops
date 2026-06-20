@@ -22,7 +22,7 @@ def shift(
     weights: np.ndarray | None = None,
     nans: bool = False,
     mode: str = 'masked',
-    cval: float = 0,
+    cval: float | None = 0,
     returns: str | None = None,
 ) -> np.ndarray | list[np.ndarray]:
     """Apply an integral or non-integral shift to an image while retaining photometric
@@ -87,6 +87,11 @@ def shift(
         ValueError: If `returns` is not a valid option.
         TypeError: If `image` dtype is not numeric.
     """
+
+    # cval=None means mask boundary pixels rather than fill with a constant
+    if cval is None:
+        mode = 'masked'
+        cval = 0.
 
     # Interpret the offset
     offset = _check_tuple(offset, 'offset', floats=True, negs=True)
@@ -156,13 +161,14 @@ def shift(
 
     # Without masks or weights, just return the weighted sum (as float32 if necessary)
     if local_returns == 'i':
+        out_dtype = image.dtype if image.dtype.kind in 'fc' else np.float64
         if (ifrac and jfrac) or not use_shortcuts:
             return (shifts[0,0] * f00 + shifts[0,1] * f01 +
-                    shifts[1,0] * f10 + shifts[1,1] * f11).astype(image.dtype)
+                    shifts[1,0] * f10 + shifts[1,1] * f11).astype(out_dtype)
         elif ifrac:
-            return (shifts[0,0] * f00 + shifts[1,0] * f10).astype(image.dtype)
+            return (shifts[0,0] * f00 + shifts[1,0] * f10).astype(out_dtype)
         else:
-            return (shifts[0,0] * f00 + shifts[0,1] * f01).astype(image.dtype)
+            return (shifts[0,0] * f00 + shifts[0,1] * f01).astype(out_dtype)
         # the integer shift case was handled above
 
     # Split the mask/weight arrays from the shifted images
@@ -194,8 +200,10 @@ def shift(
         shifted = shift00 * w00 + shift01 * w01
         new_weights = w00 + w01
 
-    # Re-normalize the sums
-    shifted /= new_weights
-    return _check_return(shifted, None, new_weights, info)
+    # Re-normalize the sums (fully masked pixels produce 0/0 → NaN, which is expected)
+    out_dtype = image.dtype if image.dtype.kind in 'fc' else np.float64
+    with np.errstate(invalid='ignore', divide='ignore'):
+        shifted /= new_weights
+    return _check_return(shifted.astype(out_dtype), None, new_weights, info)
 
 ##########################################################################################

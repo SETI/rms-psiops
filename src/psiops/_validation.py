@@ -128,7 +128,10 @@ def _check_image(
             mask = np.asarray(mask, dtype=np.bool_)
             mask_is_copy = True
 
-        if mask.ndim < 2:
+        if mask.ndim == 0:
+            mask = np.full(image.shape[-2:], bool(mask), dtype=np.bool_)
+            mask_is_copy = True
+        elif mask.ndim < 2:
             raise ValueError(f'illegal mask shape {mask.shape}; must be at least 2-D')
 
         if mask.shape[-2:] != image.shape[-2:]:

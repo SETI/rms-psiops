@@ -394,7 +394,7 @@ def test_ishift() -> None:
     image = array + array[:,np.newaxis]
     for dtype in ('int', 'float', 'float32', 'bool', 'uint8', 'uint16', 'int16'):
         typed_image = image.astype(dtype)
-        shifted = ishift(typed_image, (1,1))
+        shifted, _ = ishift(typed_image, (1,1))
         assert typed_image.dtype == shifted.dtype
 
     # quasi-random inputs to check against prior results
@@ -411,16 +411,18 @@ def test_ishift() -> None:
       if isinstance(mask, numbers.Real):
         maskval = mask
         mask = None
+      else:
+        maskval = None
       for o,offset in enumerate([(0,1), (0,-1), (1,0), (-1,0), (-1,1), (1,-2), (3,1)]):
         for k,mode in enumerate(['constant', 'nearest', 'wrap', 'mirror', 'reflect']):
           for c,cval in enumerate([9, None]):
             if mode != 'constant' and c > 0:
                 continue
-            shifted, smask = ishift(image, offset=offset, mask=mask, mode=mode, cval=cval,
-                                    returns='im')
+            shifted, smask = ishift(image, offset=offset, mask=mask, maskval=maskval,
+                                    mode=mode, cval=cval, returns='im')
             if PRINT_ANSWERS:
-                vals = str(list(shifted.flatten()))
-                mask_ = str(list(smask.flatten().astype('int')))
+                vals = str(shifted.flatten().tolist())
+                mask_ = str(smask.flatten().astype('int').tolist())
                 print(f'    ({m},{o},{k},{c}): ({vals}, {mask_}),')
             else:
                 answer = ANSWERS[m,o,k,c]
