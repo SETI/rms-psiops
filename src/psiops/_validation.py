@@ -315,7 +315,7 @@ def _check_return(
 
     # Construct results and return
     if info.returns == 'i':
-        return image
+        return keepdims(image)
 
     results = [keepdims(image)]
     if 'm' in info.returns:
