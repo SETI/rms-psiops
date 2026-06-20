@@ -5,7 +5,8 @@
 import numpy as np
 import numpy.typing as npt
 
-from ._utils import _check_axis, _check_image
+from ._utils import _check_axis
+from ._validation import _check_image
 from .circle import circle
 from .gaussian_filter import gaussian_filter
 from .median import median, median_filter
@@ -103,7 +104,9 @@ def outliers(
                                weights=weights, nans=nans, returns='i')
 
     # Return the mask of residuals above the cutoff
-    new_mask = mask | (diff_sq > cutoff**2 * smoothed)
+    new_mask = diff_sq > cutoff**2 * smoothed
+    if mask is not None:
+        new_mask = mask | new_mask
     return new_mask
 
 ##########################################################################################

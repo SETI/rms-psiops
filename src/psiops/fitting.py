@@ -15,7 +15,8 @@ import numpy as np
 import numpy.typing as npt
 from scipy.optimize import least_squares
 
-from ._utils import _check_image, _check_tuple, _merge_weights
+from ._utils import _check_tuple, _merge_weights
+from ._validation import _check_image
 from .imagemodel import ImageModel
 from .stretch import Stretch
 
@@ -145,17 +146,22 @@ class Fitting:
         self.corner = corner
         self.shape = shape
 
-        self.target = target[corner[0]:corner[0]+shape[0], corner[1]:corner[1]+shape[1]]
-        if weights is None:
+        islice = slice(corner[0], corner[0]+shape[0])
+        jslice = slice(corner[1], corner[1]+shape[1])
+        self.target = target[islice, jslice]
+
+        if mask is None:
             self.mask = None
+        else:
+            self.mask = mask[islice, jslice]
+
+        if weights is None:
             self.weights = None
         else:
-            self.mask = mask[corner[0]:corner[0]+shape[0], corner[1]:corner[1]+shape[1]]
-            self.weights = weights[corner[0]:corner[0]+shape[0],
-                                   corner[1]:corner[1]+shape[1]]
-            self.weights /= np.max(self._weights)
+            self.weights = weights[islice, jslice]
+            self.weights = self.weights / np.max(self.weights)
 
-        self.stretch.set_target(self.target, self.mask, maskval=maskval,
+        self.stretch.set_target(self.target, mask=self.mask, maskval=maskval,
                                 weights=self.weights, nans=nans)
 
     def remask(
@@ -177,8 +183,7 @@ class Fitting:
         if self.mask is None:
             self.mask = mask
         else:
-            self.mask = mask | mask[self.corner[0]:self.corner[0]+self.shape[0],
-                                    self.corner[1]:self.corner[1]+self.shape[1]]
+            self.mask = self.mask | mask
 
     @staticmethod
     def _func(
@@ -301,7 +306,7 @@ class Fitting:
 
         # Update the cached values from `_func` if necessary
         if not np.all(result.x == self._x):
-            _ = self._func(result.x)
+            _ = self._func(result.x, self)
 
         self.params = self._params
         (self.x, self.y, self.zoom, self.rotate) = self.params
@@ -318,14 +323,14 @@ class Fitting:
             self.weight_sum = unmasked
             self.dof = unmasked - self.nparams - self.stretch.ncoeffs
             self.chi_sq = result.cost
-            self.rms = np.sqrt(self.chisq / (self.dof - 1))
+            self.rms = np.sqrt(self.chi_sq / (self.dof - 1))
         else:
             antimask = np.logical_not(self.mask)
             self.dof = np.sum(antimask) - self.nparams - self.stretch.ncoeffs
             w = self.weights[antimask]
             wsum = np.sum(w)
             w2sum = np.sum(w**2)
-            self.chi_sq = np.sum(w * self.stretch.residual_1d**2)
+            self.chi_sq = np.sum(w * self.stretch.residuals_1d**2)
             self.weight_sum = wsum
             self.rms = np.sqrt(self.chi_sq / (wsum - w2sum/wsum))
 
@@ -334,17 +339,27 @@ class Fitting:
         #   cov(a,b) = df/dx(x0) * dg/dy(y0) * cov(x,y)
 
         derivs = np.zeros(4)
+        fitted = np.zeros(4, dtype=bool)
         i = 0
         for k in range(4):
             if self.flags[k]:
                 derivs[k] = self._dfunc_dx[k](result.x[i]) * self.rms
                 # ^note the RMS scaling here
+                fitted[k] = True
                 i += 1
 
-        self.covar = (result.jac.T @ result.jac) * derivs[:,np.newaxis] * derivs
+        # The covariance of the fitted parameters is the inverse of the curvature
+        # matrix J^T J. Scatter this nparams x nparams result into a full 4x4 matrix
+        # at the positions of the fitted parameters, leaving the rows and columns of
+        # the unfitted parameters equal to zero.
+        cov_fitted = np.linalg.inv(result.jac.T @ result.jac)
+        cov_full = np.zeros((4, 4))
+        index = np.where(fitted)[0]
+        cov_full[np.ix_(index, index)] = cov_fitted
+        self.covar = cov_full * derivs[:,np.newaxis] * derivs
         self.dx = np.sqrt(self.covar[0,0])
         self.dy = np.sqrt(self.covar[1,1])
-        denom = self.x_sigma * self.y_sigma
+        denom = self.dx * self.dy
         self.corr = self.covar[0,1] / denom if denom else 0.
 
     ######################################################################################

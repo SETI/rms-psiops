@@ -31,7 +31,7 @@ def fft(
         return _retile(fftpack.fft2(image), retile=retile, real=real, dest=None)
 
     dest = np.empty(image.shape, dtype=(np.float64 if real else np.complex128))
-    for k in np.nditer(image.shape[:-2]):
+    for k in np.ndindex(*image.shape[:-2]):
         _ = _retile(fftpack.fft2(image[k]), retile=retile, real=real, dest=dest[k])
 
     return dest
@@ -56,11 +56,11 @@ def ifft(
     """
 
     if image.ndim == 2:
-        return _retile(fftpack.ifft2(image), retile=retile, dest=None)
+        return _retile(fftpack.ifft2(image), retile=retile, real=real, dest=None)
 
     dest = np.empty(image.shape, dtype=(np.float64 if real else np.complex128))
-    for k in np.nditer(image.shape[:-2]):
-        _ = _retile(fftpack.ifft2(image[k]), retile=retile, dest=dest[k])
+    for k in np.ndindex(*image.shape[:-2]):
+        _ = _retile(fftpack.ifft2(image[k]), retile=retile, real=real, dest=dest[k])
 
     return dest
 

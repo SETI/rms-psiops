@@ -33,7 +33,8 @@ import numpy as np
 import numpy.typing as npt
 import scipy.linalg
 
-from ._utils import _check_image, _merge_weights
+from ._utils import _merge_weights
+from ._validation import _check_image
 
 
 class Stretch:
@@ -122,10 +123,16 @@ class Stretch:
 
         self._image_powers = []         # [image, image**2, ...]
         self._ij_powers = []            # [i, j, i**2, i*j, j**2, ...]
-        self._matrix3d = None           # model = sum(self._coeffs * self._matrix3d)
+        self._matrix3d = None           # model = sum(self.coeffs * self._matrix3d)
+
+        # Info about the target to which this Stretch is fitted
+        self.target = None
+        self.target_mask = None
+        self.target_weights = None
+        self._target2d = None
 
         if image is not None:
-            self.set_image(image)
+            self.set_image(image, mask=mask, maskval=maskval, nans=nans)
 
         self._reset_fit()
 
@@ -133,6 +140,7 @@ class Stretch:
         """Initialize info about the latest fit."""
 
         self.mask = None
+        self._antimask = None
         self.dof = None
         self.weight_sum = None
         self.chi_sq = None
@@ -155,7 +163,7 @@ class Stretch:
 
         coeffs = np.asarray(coeffs, dtype=np.float64)
         if len(coeffs) != self.ncoeffs:
-            raise ValueError('incorrect number of parameters; {self.ncoeffs} required')
+            raise ValueError(f'incorrect number of parameters; {self.ncoeffs} required')
 
         self.coeffs = coeffs
         self._reset_fit()
@@ -212,9 +220,10 @@ class Stretch:
         indx = rank
         for image_expo in range(1, self._max_image_expo + 1):
             rank = self.ranks[image_expo]
-            self._matrix3d[indx] = self._image_powers[image_expo]
-            self._matrix3d[indx+1:indx+rank] = (self._ij_powers[:rank-1]
-                                                * self._image_powers[image_expo-1])
+            self._matrix3d[indx] = self._image_powers[image_expo-1]
+            for offset in range(1, rank):
+                self._matrix3d[indx+offset] = (self._ij_powers[offset-1]
+                                               * self._image_powers[image_expo-1])
             indx += rank
 
         # Save info about the image
@@ -254,31 +263,23 @@ class Stretch:
         # Interpret the image inputs
         target, mask, weights, _ = _check_image(target, mask, maskval, weights, nans=nans,
                                                 comps=False, two=True)
-        if target.shape != self._image.shape:
-            raise ValueError(f'shape mismatch, must be {self._image.shape}')
+        if self.image is None:
+            raise ValueError('no image has been assigned to this Stretch')
+        if target.shape != self.image.shape:
+            raise ValueError(f'shape mismatch, must be {self.image.shape}')
 
         # Fill in the mask and weights
         target_weights = _merge_weights(mask, weights)
         self.target = target
+        self.target_mask = mask
         self.target_weights = target_weights
         if target_weights is not None:
-            self.target_weights /= np.max(target_weights)
+            self.target_weights = self.target_weights / np.max(target_weights)
 
-        if weights is None:
+        if self.target_weights is None:
             self._target2d = self.target
         else:
             self._target2d = self.target * self.target_weights
-
-        if mask is None:
-            if self.image_mask is None:
-                self.mask = None
-            else:
-                self.mask = self.image_mask
-        else:
-            if self.image_mask is None:
-                self.mask = mask
-            else:
-                self.mask = mask | self.image_mask
 
         self._reset_fit()
 
@@ -306,40 +307,44 @@ class Stretch:
         #
         # The formula with weights is the same, provided we replace M by W@M and T by W@T.
 
+        # Build a dense (ncoeffs, ni, nj) matrix from the object array of terms, each of
+        # which is a scalar or a 2-D array broadcastable to the image shape.
+        dense = np.empty((self.ncoeffs, *self.shape), dtype=np.float64)
+        for c in range(self.ncoeffs):
+            dense[c] = np.broadcast_to(self._matrix3d[c], self.shape)
+
         # Weight the image matrix
-        if self.target_weights is None:
-            matrix3d = self._matrix3d
-        else:
-            matrix3d = self.target_weights * self._matrix3d
+        if self.target_weights is not None:
+            dense = dense * self.target_weights
 
         # Determine the new mask and select the unmasked matrix elements
         if self.image_mask is None and self.target_mask is None:
             self.mask = None
-            matrix2d = matrix3d.reshape(matrix3d.shape[0], -1)
-            target1d = self.target2d.ravel()
+            self._antimask = np.ones(self.shape, dtype=np.bool_)
         else:
             self.mask = (self.image_mask if self.target_mask is None
                          else self.target_mask if self.image_mask is None
                          else self.image_mask | self.target_mask)
             self._antimask = np.logical_not(self.mask)
-            matrix2d = matrix3d[:, self._antimask]
-            target1d = self.target2d[self._antimask]
+
+        matrix2d = dense[:, self._antimask]
+        target1d = self._target2d[self._antimask]
 
         # Solve
-        (self.coeffs, chi_sq) = scipy.linalg.lstsq(matrix2d.T, target1d)
+        self.coeffs = scipy.linalg.lstsq(matrix2d.T, target1d)[0]
 
         # Evaluate the unbiased RMS residual
         if self.target_weights is None:
             self.weight_sum = np.sum(self._antimask)
             self.dof = self.weight_sum - self.ncoeffs
-            self.chi_sq = chi_sq
+            self.chi_sq = float(np.sum(self.residuals_1d**2))
             self.rms = np.sqrt(self.chi_sq / (self.dof - 1))
         else:
             self.dof = np.sum(self._antimask) - self.ncoeffs
             w = self.target_weights[self._antimask]
             wsum = np.sum(w)
             w2sum = np.sum(w**2)
-            self.chi_sq = np.sum(w * self.residual_1d**2)
+            self.chi_sq = float(np.sum(w * self.residuals_1d**2))
             self.weight_sum = wsum
             self.rms = np.sqrt(self.chi_sq / (wsum - w2sum/wsum))
 
@@ -372,7 +377,7 @@ class Stretch:
             ValueError: If no image has been assigned.
         """
 
-        if self._coeffs is None:
+        if self.coeffs is None:
             raise ValueError('no coefficients have been defined')
         if self._matrix3d is None:
             raise ValueError('this Stretch has not yet been applied to an image')
@@ -382,11 +387,14 @@ class Stretch:
 
         imax = imin + rank
         if powers_only:
-            matrix3d = self._ij_powers[:rank]
+            matrix3d = [1., *self._ij_powers[:rank-1]]
         else:
-            matrix3d = self._matrix3d[imin:imax]
+            matrix3d = list(self._matrix3d[imin:imax])
 
-        return np.sum(self._coeffs[imin:imax] * matrix3d)
+        result = 0.
+        for c in range(rank):
+            result = result + self.coeffs[imin+c] * matrix3d[c]
+        return result
 
     def _sigma(
         self,
@@ -410,23 +418,31 @@ class Stretch:
             ValueError: If no image has been assigned.
         """
 
-        if self._coeffs is None:
+        if self.coeffs is None:
             raise ValueError('no coefficients have been defined')
         if self._matrix3d is None:
             raise ValueError('this Stretch has not yet been applied to an image')
+        if self.covar is None:
+            raise ValueError('this Stretch has not yet been fitted')
+
+        if rank == 0:
+            return np.zeros(self.shape)
 
         imax = imin + rank
         if powers_only:
-            matrix3d = self._ij_powers[:rank]
+            matrix3d = [1., *self._ij_powers[:rank-1]]
         else:
-            matrix3d = self._matrix3d[imin:imax]
+            matrix3d = list(self._matrix3d[imin:imax])
 
-        sum = 0.
+        # Broadcast each basis term to the full image shape
+        terms = [np.broadcast_to(term, self.shape) for term in matrix3d]
+
+        var = np.zeros(self.shape)
         for i in range(rank):
             for j in range(rank):
-                sum = sum + self.covar[i,j] * matrix3d[i][:,np.newaxis] * matrix3d[j]
+                var = var + self.covar[imin+i, imin+j] * terms[i] * terms[j]
 
-        return np.sqrt(sum)
+        return np.sqrt(var)
 
     @property
     def model(self) -> np.ndarray:
@@ -451,7 +467,8 @@ class Stretch:
     def residuals(self) -> np.ndarray:
         """The 2-D array of residuals image minus model."""
         diff = self.target - self.model
-        diff[self._antimask] = 0
+        if self.mask is not None:
+            diff = np.where(self.mask, 0., diff)
         return diff
 
     @property

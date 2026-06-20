@@ -6,7 +6,8 @@ import numpy as np
 import numpy.typing as npt
 import scipy.ndimage
 
-from ._utils import _check_image, _check_return, _merge_weights
+from ._utils import _merge_weights
+from ._validation import _check_image, _check_return
 from .gaussian_filter import gaussian_filter
 
 _EPS = 1.e-8
@@ -118,10 +119,10 @@ def camouflage(
                                                 mode='constant', cval=127)
         in_range = (filtered == -1)
         holes[in_range & unfilled] = k
-        if np.all(in_range):
-            max_k = k
+        unfilled = unfilled & np.logical_not(in_range)
+        max_k = k
+        if not np.any(unfilled):
             break
-        unfilled = np.logical_not(in_range)
 
     if np.any(unfilled):
         max_k = len(footprints)
@@ -130,7 +131,7 @@ def camouflage(
 
     # Replace every non-negative value with the largest value within the same hole
     antimask = np.logical_not(mask)
-    for _iter in range(radii):
+    for _iter in range(len(radii)):
         new_holes = scipy.ndimage.maximum_filter(holes, footprint=footprints[0],
                                                  mode='constant', cval=0)
         new_holes[antimask] = -1
@@ -143,15 +144,20 @@ def camouflage(
     filled = image.copy()
     weights = _merge_weights(mask, weights)
     new_weights = weights.copy()
+
+    # Zero out masked pixels in the working image so that any NaN or maskval values do not
+    # poison the weighted Gaussian filter (their weight is zero in any case).
+    clean = np.asarray(image, dtype=np.float64).copy()
+    clean[np.broadcast_to(mask, clean.shape)] = 0.
     for k, rad in enumerate(radii[:max_k+1]):
-        filtered, filtered_weights = gaussian_filter(image, rad/2., weights=weights,
-                                                     returns='iw')
-        temp_mask = (holes == k) & filtered_weights
+        filtered, filtered_weights = gaussian_filter(clean, rad/2., weights=weights,
+                                                     mode='constant', returns='iw')
+        temp_mask = (holes == k) & (filtered_weights > 0.)
         filled[temp_mask] = filtered[temp_mask]
         new_weights[temp_mask] = filtered_weights[temp_mask]
 
     # Return the filled image and its possible mask
     info.fill_value = info.fill_value or 0.
-    return _check_return(image, None, new_weights, info)
+    return _check_return(filled, None, new_weights, info)
 
 ##########################################################################################
