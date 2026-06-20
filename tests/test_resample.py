@@ -7,6 +7,7 @@ import pytest
 from psiops.resample import resample
 from psiops.unzoom   import unzoom
 from psiops.zoom     import zoom
+from psiops._filter  import _use_shortcuts
 
 from tests.resize import resize # removed from image_ops but retained for cross-testing
 
@@ -307,5 +308,48 @@ def test_resample_negative_dimensions(shortcuts) -> None:
         resample(image, 2, origin=(0, 0), center=(-1000, 0))
     assert (str(exc_info.value).partition(':')[0]
             == 'negative dimensions are not allowed')
+
+
+def test_resample_unit_zoom_integer_offset() -> None:
+    # The zoom_==(1,1) fast path relocates the image with shift(). With an integer
+    # offset it is a pure integer shift; the origin defaults to shape/2 = (4, 5).
+    _use_shortcuts(True)
+    image = np.arange(80, dtype=float).reshape(1, 8, 10)
+
+    shifted = resample(image, 1, center=(6, 8))     # offset (2, 3)
+    assert shifted.shape == (1, 10, 13)
+    assert np.allclose(shifted[:, 2:8, 3:10], image[:, 0:6, 0:7])
+
+
+def test_resample_unit_zoom_fractional_offset() -> None:
+    _use_shortcuts(True)
+    image = np.arange(80, dtype=float).reshape(1, 8, 10)
+
+    # A fractional offset enlarges the buffer by one pixel before trimming
+    frac, fmask = resample(image, 1, center=(6.5, 8.0), returns='im')
+    assert frac.shape == (1, 11, 13)
+    assert fmask.shape[-2:] == frac.shape[-2:]
+
+
+def test_resample_unit_zoom_with_mask() -> None:
+    _use_shortcuts(True)
+    image = np.arange(80, dtype=float).reshape(1, 8, 10)
+    mask = np.zeros((1, 8, 10), dtype=bool)
+    mask[:, 0, 0] = True
+
+    masked, mmask = resample(image, 1, center=(6, 8), mask=mask, returns='im')
+    # The masked source pixel (0, 0) moves to (2, 3) in the output
+    assert mmask[:, 2, 3].all()
+
+
+def test_resample_unit_zoom_with_weights() -> None:
+    _use_shortcuts(True)
+    image = np.arange(80, dtype=float).reshape(1, 8, 10)
+    weights = np.full((1, 8, 10), 2.0)
+
+    weighted, new_weights = resample(image, 1, center=(6, 8), weights=weights,
+                                     returns='iw')
+    assert weighted.shape == (1, 10, 13)
+    assert np.isclose(new_weights.max(), 2.0)
 
 ##########################################################################################
