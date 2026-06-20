@@ -90,6 +90,11 @@ def unzoom(
     with np.errstate(invalid='ignore', divide='ignore'):
         unzoomed_sum = unzoomed_sum / new_weights
 
+    # A lower-rank mask/weights yields a lower-rank result above; broadcast it up to the
+    # full result shape so the derived mask aligns for filling in `_check_return`.
+    if new_weights.shape != unzoomed_sum.shape:
+        new_weights = np.broadcast_to(new_weights, unzoomed_sum.shape).copy()
+
     if info.fill_value is None:     # don't leave NaNs in the array unless it's intended
         info.fill_value = 0
 

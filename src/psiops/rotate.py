@@ -6,6 +6,7 @@ import numpy as np
 import numpy.typing as npt
 
 from psiops.resample import resample
+from psiops._filter import _use_shortcuts
 from psiops._utils import _check_tuple, _merge_weights
 from psiops._validation import _check_image, _check_return
 
@@ -113,6 +114,10 @@ def rotate(
                                               extra_char='c',
                                               extra_by_default=(center is None))
 
+    # Preserve a floating-point input dtype (e.g. float32, complex64); integer inputs
+    # become float64 because the area-weighted accumulation is floating-point.
+    out_dtype = image.dtype if image.dtype.kind in 'fc' else None
+
     # Interpret origin
     old_xy_shape = image.shape[-2:]
     origin = _check_tuple(origin, 'origin coordinates', floats=True, negs=True,
@@ -174,8 +179,12 @@ def rotate(
 
         new_center = tuple(new_center)
 
-    # Prepare the image and weight array
+    # Prepare the image and weight array. Keep an un-weighted copy of the image and the
+    # merged weights for the exact-multiple-of-pi/2 fallback, which delegates to
+    # resample() and does its own weighting.
     weights = _merge_weights(mask, weights)
+    orig_image = image
+    orig_weights = weights
     if weights is None:
         weights = np.ones(image.shape, dtype=image.dtype)
     else:
@@ -274,25 +283,60 @@ def rotate(
         if abs(diff) > eps:
             raise err
 
-        # Use rot90 to rotate the image
+        # Work from the original, un-weighted image and merged weights; resample() applies
+        # its own weighting.
+        rot_image = orig_image
+        rot_weights = orig_weights
+        rot_mask = mask
+
+        # Use rot90 to rotate the image, mask, and weights together
         if steps != 0:
-            image = np.rot90(image, steps, axes=(-2, -1))
-            if mask is not None:
-                mask = np.rot90(mask, steps, axes=(-2, -1))
+            rot_image = np.rot90(rot_image, steps, axes=(-2, -1))
+            if rot_mask is not None:
+                rot_mask = np.rot90(rot_mask, steps, axes=(-2, -1))
+            if rot_weights is not None:
+                rot_weights = np.rot90(rot_weights, steps, axes=(-2, -1))
 
         # Update the origin
         if steps == 1:
-            origin = (image.shape[-2] - origin[1], origin[0])
+            origin = (rot_image.shape[-2] - origin[1], origin[0])
         elif steps == 2:
-            origin = (image.shape[-2] - origin[0], image.shape[-1] - origin[1])
+            origin = (rot_image.shape[-2] - origin[0],
+                      rot_image.shape[-1] - origin[1])
         elif steps == 3:
-            origin = (origin[1], image.shape[-1] - origin[0])
+            origin = (origin[1], rot_image.shape[-1] - origin[0])
 
-        # Use resample to create the new image
-        rotated, new_mask, new_weights = resample(image, 1, mask=mask, maskval=maskval,
-                                                  weights=weights, origin=origin,
-                                                  center=new_center, shape=new_xy_shape,
-                                                  minweight=minweight, returns='imw')
+        # resample() requires at least three dimensions, so temporarily add a leading
+        # axis for 2-D inputs and squeeze it back off the results afterward.
+        squeeze = rot_image.ndim < 3
+        if squeeze:
+            rot_image = rot_image[np.newaxis]
+            if rot_mask is not None:
+                rot_mask = rot_mask[np.newaxis]
+            if rot_weights is not None:
+                rot_weights = rot_weights[np.newaxis]
+
+        # Use resample to create the new image. Force the general (non-shortcut) resample
+        # path: the zoom==1 shortcut is unsuitable here because it does not return the new
+        # mask that this branch requires. The flag is restored in all cases.
+        saved_shortcuts = _use_shortcuts()
+        try:
+            _use_shortcuts(False)
+            rotated, new_mask, new_weights = resample(rot_image, 1, mask=rot_mask,
+                                                      maskval=maskval,
+                                                      weights=rot_weights, origin=origin,
+                                                      center=new_center,
+                                                      shape=new_xy_shape,
+                                                      minweight=minweight, returns='imw')
+        finally:
+            _use_shortcuts(saved_shortcuts)
+
+        if squeeze:
+            rotated = rotated[0]
+            if new_mask is not None and new_mask.ndim > 2:
+                new_mask = new_mask[0]
+            if new_weights is not None and new_weights.ndim > 2:
+                new_weights = new_weights[0]
 
         if _debug is not None:
             _debug['area_list'] = None
@@ -304,7 +348,8 @@ def rotate(
         _debug['new_mask'] = new_mask
         _debug['new_weights'] = new_weights
 
-    return _check_return(rotated, new_mask, new_weights, info, extra=new_center)
+    return _check_return(rotated, new_mask, new_weights, info, extra=new_center,
+                         return_dtype=out_dtype)
 
 
 def _intersection(

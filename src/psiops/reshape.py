@@ -69,9 +69,14 @@ def reshape(
     result = resample(image, zoom_=zoom_, mask=mask,  maskval=maskval, weights=weights,
                       nans=nans, shape=shape, center=None, returns=returns)
 
-    if len(result) == 2:
+    # `reshape` does not expose the new center, so strip it off. `resample` appends the
+    # center only when its `returns` defaults are used (i.e. `returns` is None here); an
+    # explicit `returns` string never includes it.
+    if returns is not None:
+        return result
+
+    if len(result) == 2:        # only the image and the appended center
         return result[0]
-    else:
-        return result[:-1]
+    return result[:-1]          # drop the trailing center
 
 ##########################################################################################
