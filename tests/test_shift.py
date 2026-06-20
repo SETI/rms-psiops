@@ -130,19 +130,23 @@ def brief_fmt(val):
     return valstr
 
 
-def test_shift() -> None:
+def _diag_setup() -> tuple[np.ndarray, np.ndarray]:
+    """A (10, 10, 10) ramp stack with a diagonal mask, used across shift tests."""
 
-    rng = np.random.default_rng(4280)
+    array = np.arange(10)
+    image = array + array[:,np.newaxis] + array[:,np.newaxis,np.newaxis]
+    mask = np.zeros(image.shape, dtype='bool')
+    for k in range(1,9):
+        mask[...,k,k] = True
+    return image, mask
 
-    printed = False
+
+def test_shift_small_shifts_all_modes() -> None:
+
     for status in (False, True):
         _use_shortcuts(status)
 
-        array = np.arange(10)
-        image = array + array[:,np.newaxis] + array[:,np.newaxis,np.newaxis]
-        mask = np.zeros(image.shape, dtype='bool')
-        for k in range(1,9):
-            mask[...,k,k] = True
+        image, mask = _diag_setup()
 
         # small shifts, all modes, masked and unmasked
         for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
@@ -163,6 +167,13 @@ def test_shift() -> None:
             shifted, smask = shift(image, 0, mask, mode=mode, cval=0)
             assert np.all(shifted[~mask] == image[~mask])
             assert np.all(smask == mask)
+
+def test_shift_constant_cval_none() -> None:
+
+    for status in (False, True):
+        _use_shortcuts(status)
+
+        image, mask = _diag_setup()
 
         mode = 'constant'
         shifted, smask = shift(image, (0,0.5), mode=mode, cval=None)
@@ -234,6 +245,15 @@ def test_shift() -> None:
                       == image[:,1:][mask[:,:-1]])
         assert not np.any(smask)
 
+def test_shift_modest_shifts() -> None:
+
+    rng = np.random.default_rng(4280)
+
+    for status in (False, True):
+        _use_shortcuts(status)
+
+        image, _ = _diag_setup()
+
         # modest shifts, all modes, masked and unmasked
         for mask in (rng.random(image.shape) < 0.1,
                      rng.random(image.shape) < 0.8):
@@ -281,8 +301,13 @@ def test_shift() -> None:
                 assert not np.any(smask[...,1:])
                 assert np.all(smask[...,:1])
 
+def test_shift_reference_answers() -> None:
+
+    for status in (False, True):
+        _use_shortcuts(status)
+
         # quasi-random inputs to check against prior results
-        if PRINT_ANSWERS and not printed:
+        if PRINT_ANSWERS:
             print('\nANSWERS = {')
 
         image = np.array([4, 3, 5, 1, 2, 0, 8, 6, 7]).reshape(3,3)
@@ -305,24 +330,26 @@ def test_shift() -> None:
                     continue
                 shifted, smask = shift(image, offset=offset, mask=mask, maskval=maskval_,
                                        mode=mode, cval=cval, returns='im')
-                if PRINT_ANSWERS and not printed:
+                if PRINT_ANSWERS:
                     vals = '[' + ', '.join([brief_fmt(x) for x in shifted.flatten()]) + ']'
                     mask_ = str(smask.flatten().astype('int').tolist())
                     print(f'    ({m},{o},{k},{c}): ({vals}, {mask_}),')
-                elif not printed:
+                else:
                     answer = ANSWERS[m,o,k,c]
                     assert np.array_equal(shifted, np.array(answer[0], dtype=float).reshape(3,3),
                                           equal_nan=True)
                     assert np.all(smask == np.array(answer[1]).reshape(3,3))
 
-        if PRINT_ANSWERS and not printed:
+        if PRINT_ANSWERS:
             print('}')
-            printed = True
 
-        # Make sure dtype float32 is preserved
-        array = np.arange(10)
-        image = (array + array[:,np.newaxis]).astype('float32')
-        shifted, _ = shift(image, (1,1))
-        assert image.dtype == shifted.dtype
+
+def test_shift_dtype_preserved() -> None:
+
+    # Make sure dtype float32 is preserved
+    array = np.arange(10)
+    image = (array + array[:,np.newaxis]).astype('float32')
+    shifted, _ = shift(image, (1,1))
+    assert image.dtype == shifted.dtype
 
 ##########################################################################################
