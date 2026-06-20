@@ -222,13 +222,81 @@ ANSWERS = {
     (3,6,4,0): ([8, 8, 6, 1, 1, 2, 4, 4, 3], [0, 0, 0, 0, 0, 0, 0, 0, 1]),
 }
 
-def test_ishift() -> None:
-
-    rng = np.random.default_rng(1037)
+def _ramp_stack() -> np.ndarray:
+    """A (10, 10, 10) stack of additive ramps used across the ishift tests."""
 
     array = np.arange(10)
-    image = array + array[:,np.newaxis] + array[:,np.newaxis,np.newaxis]
-    mask = rng.random(image.shape) < 0.3
+    return array + array[:,np.newaxis] + array[:,np.newaxis,np.newaxis]
+
+
+def _ramp_mask() -> np.ndarray:
+    """A deterministic boolean mask matching the shape of `_ramp_stack()`."""
+
+    return np.random.default_rng(1037).random((10,10,10)) < 0.3
+
+
+def test_ishift_invalid_mode() -> None:
+
+    image = _ramp_stack()
+    with pytest.raises(ValueError) as exc_info:
+        _ = ishift(image, (1,1), mode='bogus')
+    assert 'bogus' in str(exc_info.value)
+
+
+def test_ishift_weights_without_mask() -> None:
+
+    # Exercises the weights branch (weights encode the mask) and the zero-offset copy
+    image = _ramp_stack()
+    weights = np.random.default_rng(55).random(image.shape) + 0.1
+
+    shifted, new_weights = ishift(image, (0,1), weights=weights, mode='constant')
+    assert np.all(shifted[...,1:] == image[...,:-1])
+    assert np.all(new_weights[...,1:] == weights[...,:-1])
+
+    # Zero offset returns copies, not the input arrays
+    shifted, new_weights = ishift(image, 0, weights=weights, mode='constant')
+    assert np.all(shifted == image)
+    assert new_weights is not weights
+    assert np.all(new_weights == weights)
+
+    # A non-masking boundary mode fills exposed weights with the maximum weight
+    shifted, new_weights = ishift(image, (0,1), weights=weights, mode='nearest')
+    assert np.all(shifted[...,1:] == image[...,:-1])
+    assert np.all(new_weights[...,0] == weights[...,0])
+
+
+def test_ishift_mask_and_weights_together() -> None:
+
+    # Both a mask and weights supplied: weights must absorb the mask without error
+    image = _ramp_stack()
+    mask = _ramp_mask()
+    weights = np.random.default_rng(7).random(image.shape) + 0.1
+
+    shifted, smask, new_weights = ishift(image, (1,1), mask=mask, weights=weights,
+                                         mode='constant')
+    assert np.all(shifted[...,1:,1:] == image[...,:-1,:-1])
+    # Masked source pixels carry zero weight after shifting
+    assert np.all(new_weights[...,1:,1:][mask[...,:-1,:-1]] == 0)
+    assert np.all(smask[...,1:,1:][mask[...,:-1,:-1]])
+
+
+def test_ishift_reflect_large_offset() -> None:
+
+    # Reflect mode with an offset larger than the image width exercises the
+    # recursive folding branches in _ishift_axis1.
+    image = _ramp_stack()
+
+    shifted = ishift(image, (0,10), mode='reflect')
+    assert np.all(shifted == image[...,::-1])
+
+    shifted = ishift(image, (0,20), mode='reflect')
+    assert np.all(shifted == image)
+
+
+def test_ishift_small_shifts_all_modes() -> None:
+
+    image = _ramp_stack()
+    mask = _ramp_mask()
 
     # small shifts, all modes, masked and unmasked
     for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
@@ -264,6 +332,11 @@ def test_ishift() -> None:
         shifted, smask = ishift(image, 0, mask, mode=mode)
         assert np.all(shifted == image)
         assert np.all(smask == mask)
+
+def test_ishift_constant_cval_none() -> None:
+
+    image = _ramp_stack()
+    mask = _ramp_mask()
 
     # mode = 'constant', cval=None
     mode = 'constant'
@@ -311,6 +384,11 @@ def test_ishift() -> None:
     assert np.all(smask[:,-3:,:])
     assert np.all(smask[:,:,:2])
 
+def test_ishift_constant_large_offsets() -> None:
+
+    image = _ramp_stack()
+    mask = _ramp_mask()
+
     # shift, constant mode and all masks
     for offset in [(0,10), (0,-10), (10,0), (-10,0)]:
         shifted = ishift(image, offset, mode='constant', cval=-7)
@@ -319,6 +397,10 @@ def test_ishift() -> None:
         shifted, smask = ishift(image, offset, mask, mode='constant', cval=None)
         assert np.all(shifted == 0)
         assert np.all(smask == True)
+
+def test_ishift_nearest_mode() -> None:
+
+    image = _ramp_stack()
 
     # shift, nearest mode
     shifted = ishift(image, (0,10), mode='nearest')
@@ -342,6 +424,10 @@ def test_ishift() -> None:
     assert np.all(shifted[:,3:,:3] == image[:,:-3,:1])
     assert np.all(shifted[:,:3,:3] == image[:,:1,:1])
 
+def test_ishift_wrap_mode() -> None:
+
+    image = _ramp_stack()
+
     # shift, wrap mode
     shifted = ishift(image, (0,10), mode='wrap')
     assert np.all(shifted == image)
@@ -363,6 +449,10 @@ def test_ishift() -> None:
     assert np.all(shifted[:,:3,3:] == image[:,-3:,:-3])
     assert np.all(shifted[:,3:,:3] == image[:,:-3,-3:])
     assert np.all(shifted[:,:3,:3] == image[:,-3:,-3:])
+
+def test_ishift_mirror_mode() -> None:
+
+    image = _ramp_stack()
 
     # shift, mirror
     shifted = ishift(image, (0,9), mode='mirror')
@@ -389,6 +479,8 @@ def test_ishift() -> None:
     assert np.all(shifted[:,3:,:3] == image[:,:-3,3:0:-1])
     assert np.all(shifted[:,:3,:3] == image[:,3:0:-1,3:0:-1])
 
+def test_ishift_dtype_preserved() -> None:
+
     # Make sure dtype is preserved
     array = np.arange(10)
     image = array + array[:,np.newaxis]
@@ -396,6 +488,8 @@ def test_ishift() -> None:
         typed_image = image.astype(dtype)
         shifted, _ = ishift(typed_image, (1,1))
         assert typed_image.dtype == shifted.dtype
+
+def test_ishift_reference_answers() -> None:
 
     # quasi-random inputs to check against prior results
     if PRINT_ANSWERS:

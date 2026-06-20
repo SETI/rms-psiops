@@ -118,17 +118,10 @@ def ishift(
     if mask is None and weights is None and cval is not None:
         return _check_return(shifted_image, None, None, info)
 
-    # Shift the mask/weight array one axis at a time
-    if weights is None:
-        if mode == 'masked' or cval is None:
-            temp_mode = 'constant'
-            temp_cval = True
-        else:
-            temp_mode = mode
-            temp_cval = False
-        new_mask = _ishift_array(mask, offset, mode=temp_mode, cval=temp_cval)
-        new_weights = None
-    elif mask is None:
+    # Shift the mask or weight array one axis at a time. When weights are present they
+    # already encode the masking (weights == 0 wherever masked), so shifting the weights
+    # alone is sufficient; the new mask is derived from them by `_check_return`.
+    if weights is not None:
         if mode == 'masked' or cval is None:
             temp_mode = 'constant'
             temp_cval = 0
@@ -137,6 +130,15 @@ def ishift(
             temp_cval = np.max(weights)
         new_weights = _ishift_array(weights, offset, mode=temp_mode, cval=temp_cval)
         new_mask = None             # filled in by _check_return()
+    else:
+        if mode == 'masked' or cval is None:
+            temp_mode = 'constant'
+            temp_cval = True
+        else:
+            temp_mode = mode
+            temp_cval = False
+        new_mask = _ishift_array(mask, offset, mode=temp_mode, cval=temp_cval)
+        new_weights = None
 
     # Clean up and return the results
     return _check_return(shifted_image, new_mask, new_weights, info)
