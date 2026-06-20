@@ -178,4 +178,15 @@ def test_outliers_quantile_with_mask_uses_unmasked_pixels(outliers) -> None:
     result = outliers(image, footprint=10, quantile=0.99, mask=mask)
     assert result[18:22, 18:22].any()
 
+
+def test_outliers_axis_reduces_stack(outliers) -> None:
+    # The `axis` parameter builds the per-pixel noise model by reducing a stack of
+    # images across that axis (exercising the axis branch). The result is a boolean
+    # mask with the spatial shape of a single image.
+    rng = np.random.default_rng(5)
+    stack = rng.normal(10.0, 0.05, (5, 40, 40))
+    result = outliers(stack, footprint=10, axis=0)
+    assert result.dtype == bool
+    assert result.shape == (40, 40)
+
 ##########################################################################################
