@@ -110,7 +110,7 @@ def test_median() -> None:
     image = np.arange(12).reshape(4,3)
     with pytest.raises(ValueError) as exc_info:
         _ = median(image)
-    assert str(exc_info.value) == 'illegal image shape; ndim >= 3 required: (4, 3)'
+    assert str(exc_info.value) == 'invalid image shape (4, 3); must be at least 3-D'
 
     # Unequal factors
     image = rng.random((5,10,10))

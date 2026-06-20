@@ -211,13 +211,14 @@ def _apply_op(
         weights3d = weights4d[..., footprint]
         mask3d = None
 
-    # At this point, the new axis is last. Move it to the slot before the image axes.
+    # At this point, the new axis is last. Move it to the slot before the image axes so
+    # that the trailing two axes remain the spatial axes expected by the operations.
     image3d = np.moveaxis(image3d, -1, -3)
     mask3d = None if mask3d is None else np.moveaxis(mask3d, -1, -3)
     weights3d = None if weights3d is None else np.moveaxis(weights3d, -1, -3)
 
-    # Finally, apply the operation
-    return op(image3d, mask=mask3d, weights=weights3d, info=info, axis=-1, **kwargs)
+    # Finally, apply the operation, reducing over the footprint axis (now at -3)
+    return op(image3d, mask=mask3d, weights=weights3d, info=info, axis=-3, **kwargs)
 
 
 def _image_to_4d(

@@ -132,16 +132,19 @@ def _mean(
             image[..., mask] = 0
             image_sum = np.sum(image, axis=axis)
             new_weights = info.pixel_area - np.sum(mask, axis=axis)
-            mean_image = image_sum / new_weights
+            # Fully masked pixels produce 0/0 -> NaN, which is expected
+            with np.errstate(invalid='ignore', divide='ignore'):
+                mean_image = image_sum / new_weights
             return (mean_image, None, new_weights)
 
     # Combine weights, mask, and factors
     weights = _merge_weights(mask, weights, factors)
     weights = np.broadcast_to(weights, image.shape)
 
-    # Calculate the mean and weights
+    # Calculate the mean and weights (fully masked pixels yield expected 0/0 NaNs)
     new_weights = np.sum(weights, axis=axis)
-    mean_image = np.sum(weights * image, axis=axis) / new_weights
+    with np.errstate(invalid='ignore', divide='ignore'):
+        mean_image = np.sum(weights * image, axis=axis) / new_weights
 
     return (mean_image, None, new_weights)
 

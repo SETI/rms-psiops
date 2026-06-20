@@ -85,7 +85,8 @@ def median(
 
     # Interpret the image inputs
     image, mask, weights, info = _check_image(image, mask, maskval, weights, nans=nans,
-                                              comps=False, floats=True, returns=returns)
+                                              comps=False, floats=True, three=True,
+                                              returns=returns)
 
     # Identify the axes
     axis = _check_axis(axis, image.shape)

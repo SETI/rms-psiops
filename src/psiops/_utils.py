@@ -252,7 +252,9 @@ def _merge_weights(
     """
 
     if factors is not None:
-        factors = np.asarray(factors)[:, np.newaxis, np.newaxis]
+        # Factors apply to the non-spatial axes; append two trailing (spatial) axes so
+        # they broadcast against image.shape[:-2]. This works for factors of any rank.
+        factors = np.asarray(factors)[..., np.newaxis, np.newaxis]
 
     if weights is None:
         if mask is None:

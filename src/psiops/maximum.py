@@ -74,7 +74,7 @@ def maximum(
 
     # Interpret the image inputs
     image, mask, weights, info = _check_image(image, mask, maskval, weights, nans=nans,
-                                              comps=False, returns=returns)
+                                              comps=False, three=True, returns=returns)
 
     # Identify the axes
     axis = _check_axis(axis, image.shape)

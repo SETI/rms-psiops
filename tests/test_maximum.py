@@ -117,7 +117,7 @@ def test_maximum() -> None:
     image = np.arange(12).reshape(4,3)
     with pytest.raises(ValueError) as exc_info:
         _ = maximum(image)
-    assert str(exc_info.value) == 'illegal image shape; ndim >= 3 required: (4, 3)'
+    assert str(exc_info.value) == 'invalid image shape (4, 3); must be at least 3-D'
 
     image = np.array(24 * [None]).reshape(2,3,4)
     with pytest.raises(TypeError) as exc_info:
