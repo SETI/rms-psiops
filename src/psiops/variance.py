@@ -166,6 +166,9 @@ def _variance(
                 warnings.simplefilter('ignore', RuntimeWarning)
                 var_image = np.nanvar(image, axis=axis, ddof=ddof)
             new_weights = info.pixel_area - np.sum(mask, axis=axis)
+            # Under-populated slices have too few values for this estimator; mask them
+            # by zeroing their weight so the result is consistent with the full path.
+            new_weights[new_weights <= ddof] = 0
             return (var_image, None, new_weights)
 
     # Combine weights and factors, case by case...
@@ -200,8 +203,10 @@ def _variance(
             denom = new_weights - wsumsq/new_weights
         elif vartype != 'biased':
             denom = new_weights - 1
+        else:
+            denom = new_weights
 
-        new_weights[denom == 0] = 0
+        new_weights[denom <= 0] = 0
         var_image = sumsq / denom
     return (var_image, None, new_weights)
 

@@ -139,6 +139,12 @@ def _mean(
 
     # Combine weights, mask, and factors
     weights = _merge_weights(mask, weights, factors)
+
+    # With no mask, weights, or factors, every pixel has uniform weight: a plain mean.
+    if weights is None:
+        mean_image = np.mean(image, axis=axis)
+        return (mean_image, None, None)
+
     weights = np.broadcast_to(weights, image.shape)
 
     # Calculate the mean and weights (fully masked pixels yield expected 0/0 NaNs)

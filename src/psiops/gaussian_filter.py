@@ -111,7 +111,7 @@ def gaussian_filter(
 
     # Interpret array and mask
     image, mask, weights, info = _check_image(image, mask, maskval, weights, nans=nans,
-                                              floats=True)
+                                              floats=True, returns=returns)
     if info.fill_value is None:  # don't leave NaNs in the array unless that's intended
         info.fill_value = 0
 
@@ -130,30 +130,58 @@ def gaussian_filter(
         return _check_return(filtered_image, None, None, info)
 
     # If the image is completely masked, there's nothing to do
-    if np.all(mask):
-        new_mask = np.ones(mask.shape, dtype=np.bool_)
+    if mask is not None and np.all(mask):
+        new_mask = np.ones(image.shape, dtype=np.bool_)
         return _check_return(image, new_mask, None, info)
 
-    # Filter the weights
+    # Masked locations carry zero weight, but a masked NaN (or maskval) value would still
+    # propagate through the `image * weights` product as NaN * 0 == NaN. Replace masked
+    # values with zero so they have no effect on the filtered result.
+    if mask is not None:
+        bmask = np.broadcast_to(mask, image.shape)
+        if np.any(bmask) and not np.all(np.isfinite(image[bmask])):
+            if not info.image_is_copy:
+                image = image.copy()
+                info.image_is_copy = True
+            image[bmask] = 0.
+
+    # Filter the weights. A weight array must be floating-point; a boolean array would be
+    # rounded back to 0/1 by the filter and corrupt the weighted normalization.
     if weights is None:
-        weights = np.ones(image.shape[-2:]) if mask is None else np.logical_not(mask)
+        if mask is None:
+            weights = np.ones(image.shape[-2:])
+        else:
+            weights = np.logical_not(mask).astype(np.float64)
     wsigma = (weights.ndim-2) * (0,) + sigma
     worder = (weights.ndim-2) * (0,) + order
+    # In "masked" mode, locations outside the boundary contribute no weight, which is
+    # equivalent to filtering both the weights and the weighted image with constant zeros
+    # outside the boundary.
     if mode == 'masked':
-        wmode = 'constant'
+        wmode = imode = 'constant'
         wval = 0.
+        ival = 0.
     else:
-        wmode = mode
+        wmode = imode = mode
         wval = np.max(weights)
+        ival = cval or 0.
     filtered_weights = _unmasked_gaussian_filter(weights, sigma=wsigma, mode=wmode,
                                                  cval=wval, order=worder)
 
     # Filter the weighted image
     isigma = (image.ndim-2) * (0,) + sigma
     iorder = (image.ndim-2) * (0,) + order
-    filtered_image = _unmasked_gaussian_filter(image * weights, sigma=isigma, mode=mode,
-                                               cval=cval or 0., order=iorder)
-    filtered_image /= filtered_weights
+    filtered_image = _unmasked_gaussian_filter(image * weights, sigma=isigma, mode=imode,
+                                               cval=ival, order=iorder)
+    # Locations with no contributing weight produce expected 0/0 -> NaN
+    with np.errstate(invalid='ignore', divide='ignore'):
+        filtered_image /= filtered_weights
+
+    # The weights may have fewer leading axes than the image (e.g. a 2-D mask over a
+    # stack of images); broadcast them so the returned weights/mask match the result.
+    if filtered_weights.shape != filtered_image.shape:
+        filtered_weights = np.broadcast_to(filtered_weights,
+                                           filtered_image.shape).copy()
 
     return _check_return(filtered_image, None, filtered_weights, info)
 

@@ -96,7 +96,8 @@ def stdev(
         raise ValueError(f'unrecognized value for stdtype: {stdtype!r}')
 
     results = variance(image, mask=mask, maskval=maskval, weights=weights, nans=nans,
-                       axis=axis, factors=factors, vartype=stdtype, returns=returns)
+                       axis=axis, keepdims=keepdims, factors=factors, vartype=stdtype,
+                       returns=returns)
 
     # Masked/under-populated pixels yield NaN variances; suppress sqrt warnings
     with np.errstate(invalid='ignore'):
