@@ -160,7 +160,9 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "A", "N", "PT", "RUF"]
 extend-ignore = ["PT011", "SIM105", "SIM108"]
 
 [tool.ruff.lint.per-file-ignores]
-#"TODO" = ["TODO"]
+# test_shift.py holds a large machine-generated ANSWERS table of regression data
+# (regenerate via PRINT_ANSWERS); its rows exceed the line limit and are not hand-edited.
+"tests/test_shift.py" = ["E501"]
 
 [tool.pymarkdown.plugins.md013]
 # Line length (disable so README/CONTRIBUTING can use longer lines).

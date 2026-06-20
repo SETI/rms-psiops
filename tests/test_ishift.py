@@ -539,7 +539,8 @@ def test_ishift_reference_answers() -> None:
 #           for c,cval in enumerate([9, None]):
 #             if mode != 'constant' and c > 0:
 #                 continue
-#             shifted, smask = ishift(image, offset=offset, mask=mask, mode=mode, cval=cval)
+#             shifted, smask = ishift(image, offset=offset, mask=mask, mode=mode,
+#                                     cval=cval)
 #             if PRINT_ANSWERS:
 #                 vals = str(list(shifted.flatten()))
 #                 mask_ = str(list(smask.flatten().astype('int')))

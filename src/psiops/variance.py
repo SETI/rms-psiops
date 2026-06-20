@@ -8,7 +8,8 @@ import numpy as np
 import numpy.typing as npt
 
 from psiops._filter import _apply_op_as_filter, _use_shortcuts
-from psiops._utils import _ImageInfo, _check_axis, _flatten_axes, _merge_weights, _pixel_area
+from psiops._utils import (_ImageInfo, _check_axis, _flatten_axes, _merge_weights,
+                           _pixel_area)
 from psiops._validation import _check_image, _check_return
 
 
@@ -77,9 +78,9 @@ def variance(
         `var_image` or (`var_image`[, `new_mask`][, `new_weights`]):
 
         * `var_image`: The floating-point variance array. If `image` is a MaskedArray,
-          this will also be a MaskedArray. If `maskval` was specified, any masked pixels in
-          this array will be filled with this value. Otherwise, if `nans` is True, masked
-          pixels will be filled with NaN.
+          this will also be a MaskedArray. If `maskval` was specified, any masked
+          pixels in this array will be filled with this value. Otherwise, if `nans`
+          is True, masked pixels will be filled with NaN.
         * `new_mask`: The new mask array, True wherever all the image pixels along the
           specified `axis` are masked. By default, this is returned if `mask` is provided;
           use `returns` to override the default behavior.
@@ -264,9 +265,9 @@ def variance_filter(
         `var_image` or (`var_image`[, `new_mask`][, `new_weights`]):
 
         * `var_image`: The floating-point variance array. If `image` is a MaskedArray,
-          this will also be a MaskedArray. If `maskval` was specified, any masked pixels in
-          this array will be filled with this value. Otherwise, if `nans` is True, masked
-          pixels will be filled with NaN.
+          this will also be a MaskedArray. If `maskval` was specified, any masked
+          pixels in this array will be filled with this value. Otherwise, if `nans`
+          is True, masked pixels will be filled with NaN.
         * `new_mask`: The new mask array, True wherever all the pixels contributing to the
           image are masked. By default, this is returned if `mask` is provided; use
           `returns` to override the default behavior.

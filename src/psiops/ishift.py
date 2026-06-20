@@ -253,7 +253,8 @@ def _ishift_axis1(
         repeat = 2 * w_minus_1
         offset = offset % repeat
         if offset > w_minus_1:
-            return _ishift_axis1(image[..., ::-1], offset - w_minus_1, mode=mode, cval=cval)
+            return _ishift_axis1(image[..., ::-1], offset - w_minus_1, mode=mode,
+                                 cval=cval)
         if offset == 0:
             return image.copy()
         if offset == w_minus_1:
