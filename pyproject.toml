@@ -157,7 +157,8 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "A", "N", "PT", "RUF"]
 # PT011 - pytest.raises is too broad.
 # SIM105 - Use contextlib.suppress for suppressions.
 # SIM108 - Use ternary operator for simple if/else.
-extend-ignore = ["PT011", "SIM105", "SIM108"]
+# RUF005 - Prefer iterable unpacking over `+` concatenation (tuple/list building).
+extend-ignore = ["PT011", "SIM105", "SIM108", "RUF005"]
 
 [tool.ruff.lint.per-file-ignores]
 # test_shift.py holds a large machine-generated ANSWERS table of regression data
