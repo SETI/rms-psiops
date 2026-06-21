@@ -2,9 +2,10 @@
 # psiops/imagemodel/summedmodel.py
 ##########################################################################################
 
+from collections.abc import Sequence
+
 import numpy as np
 import numpy.typing as npt
-from collections.abc import Sequence
 
 from . import ImageModel
 

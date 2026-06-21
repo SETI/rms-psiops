@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 
 from psiops._filter import _apply_op_as_filter, _use_shortcuts
-from psiops._utils import _ImageInfo, _check_axis, _merge_weights, _pixel_area
+from psiops._utils import _check_axis, _ImageInfo, _merge_weights, _pixel_area
 from psiops._validation import _check_image, _check_return
 
 

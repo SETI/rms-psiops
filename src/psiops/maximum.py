@@ -7,7 +7,7 @@ import numpy.typing as npt
 import scipy.ndimage
 
 from psiops._filter import _apply_op_as_filter, _use_shortcuts
-from psiops._utils import _ImageInfo, _check_axis, _pixel_area
+from psiops._utils import _check_axis, _ImageInfo, _pixel_area
 from psiops._validation import _check_image, _check_return
 
 

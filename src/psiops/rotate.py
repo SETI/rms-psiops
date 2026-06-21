@@ -5,10 +5,10 @@
 import numpy as np
 import numpy.typing as npt
 
-from psiops.resample import resample
 from psiops._filter import _use_shortcuts
 from psiops._utils import _check_tuple, _merge_weights
 from psiops._validation import _check_image, _check_return
+from psiops.resample import resample
 
 HALFPI = np.pi/2.
 TWOPI = np.pi * 2.

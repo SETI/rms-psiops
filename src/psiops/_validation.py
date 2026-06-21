@@ -141,7 +141,7 @@ def _check_image(
             _ = np.broadcast_to(mask, image.shape)
         except ValueError:
             raise ValueError(f'mask and image have incompatible shapes: {mask.shape}, '
-                             f'{image.shape}')
+                             f'{image.shape}') from None
 
     # Update the mask based on maskval and nans
     if maskval is not None or nans:
@@ -180,7 +180,7 @@ def _check_image(
             _ = np.broadcast_to(weights, image.shape)
         except ValueError:
             raise ValueError('weights and image have incompatible shapes: '
-                             f'{weights.shape}, {image.shape}')
+                             f'{weights.shape}, {image.shape}') from None
 
         # Force mask and weights to the same shape
         if mask is None:

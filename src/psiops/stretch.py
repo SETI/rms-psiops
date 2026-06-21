@@ -200,13 +200,13 @@ class Stretch:
             j = (np.arange(shape[1]) - half_j) / half_j
             self._ij_powers = [i, j]
             for expo in range(2, self._max_order+1):
-                for terms in range(expo):
+                for _terms in range(expo):
                     self._ij_powers.append(i * self._ij_powers[-expo])
                 self._ij_powers.append(j * self._ij_powers[-expo-1])
 
         # Fill in the powers of the image
         self._image_powers = [image]
-        for expo in range(2, self._max_image_expo + 1):
+        for _expo in range(2, self._max_image_expo + 1):
             self._image_powers.append(image * self._image_powers[-1])
 
         # Combine...

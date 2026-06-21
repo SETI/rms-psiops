@@ -5,8 +5,8 @@
 import numpy as np
 import numpy.typing as npt
 
-from psiops.resample import resample
 from psiops._utils import _check_tuple
+from psiops.resample import resample
 
 
 def reshape(

@@ -37,8 +37,8 @@ center of the first pixel.
 """
 
 import os
-import warnings
 import sys
+import warnings
 
 # Turn off all RuntimeWarnings by default. User can override if they wish.
 if not sys.warnoptions:
@@ -71,22 +71,21 @@ __all__ = [
 ]
 
 # Spatial transforms
-from psiops.ishift   import ishift
-from psiops.resample import resample
-from psiops.reshape  import reshape
-from psiops.rotate   import rotate
-from psiops.shift    import shift
-from psiops.unzoom   import unzoom
-from psiops.zoom     import zoom
-
 # Stack operations and spatial filters
 from psiops.gaussian_filter import gaussian_filter
-from psiops.maximum  import maximum, maximum_filter
-from psiops.mean     import mean, mean_filter
-from psiops.median   import median, median_filter
-from psiops.minimum  import minimum, minimum_filter
-from psiops.stdev    import stdev, stdev_filter
+from psiops.ishift import ishift
+from psiops.maximum import maximum, maximum_filter
+from psiops.mean import mean, mean_filter
+from psiops.median import median, median_filter
+from psiops.minimum import minimum, minimum_filter
+from psiops.resample import resample
+from psiops.reshape import reshape
+from psiops.rotate import rotate
+from psiops.shift import shift
+from psiops.stdev import stdev, stdev_filter
+from psiops.unzoom import unzoom
 from psiops.variance import variance, variance_filter
+from psiops.zoom import zoom
 
 # Modeling
 # from psiops.imagemodel            import ImageModel

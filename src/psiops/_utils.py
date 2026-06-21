@@ -165,13 +165,13 @@ def _check_axis(
     try:
         axis = tuple(axis)
     except TypeError:
-        raise TypeError(f'invalid axis of type {type(axis).__name__}: {repr(axis)}')
+        raise TypeError(f'invalid axis of type {type(axis).__name__}: {axis!r}') from None
 
     new_axis = []
     for k in axis:
         original_k = k
         if not isinstance(k, numbers.Integral):
-            raise TypeError(f'invalid axis item {repr(k)} of type {type(k).__name__}')
+            raise TypeError(f'invalid axis item {k!r} of type {type(k).__name__}')
         if k < 0:
             k += len(shape)
         if k < 0 or k >= len(shape):

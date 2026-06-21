@@ -5,9 +5,9 @@
 import numpy as np
 import numpy.typing as npt
 
-from . import ImageModel
 from ..resample import resample
-from ..rotate   import rotate as ops_rotate
+from ..rotate import rotate as ops_rotate
+from . import ImageModel
 
 
 class ArrayModel(ImageModel):

@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 import psutil
 
-from psiops._utils import _ImageInfo, _check_tuple
+from psiops._utils import _check_tuple, _ImageInfo
 
 ##########################################################################################
 # Filter support
