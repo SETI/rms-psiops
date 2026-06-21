@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools", "setuptools_scm[toml]"]
+requires = ["setuptools>=77", "setuptools_scm[toml]"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "PSIops"
 dynamic = ["version"]
-description = "TODO"
+description = "Photometrically accurate Science Image Operations: shift, rotate, zoom, resample, and filter scientific images while conserving total signal, built on NumPy and SciPy."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -32,7 +32,6 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Astronomy",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Topic :: Utilities",
-  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
