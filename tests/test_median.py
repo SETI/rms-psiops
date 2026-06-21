@@ -4,6 +4,7 @@
 
 import numpy as np
 import pytest
+
 from psiops.median import median, median_filter
 
 
@@ -114,17 +115,17 @@ def test_median_masked_values() -> None:
     mask = rng.random((5,4,100,200)) < 0.6        # mostly masked
     a, amask = median(image, axis=0, mask=mask)
 
-    sorted = image.copy()
-    sorted[mask] = 10
-    sorted = np.sort(sorted, axis=0)
+    ordered = image.copy()
+    ordered[mask] = 10
+    ordered = np.sort(ordered, axis=0)
 
     k = np.sum(np.logical_not(mask), axis=0)
     assert np.all((k==0) == amask)
-    assert np.all((a == sorted[0])[k==1])
-    assert np.all((a == np.mean(sorted[:2], axis=0))[k==2])
-    assert np.all((a == sorted[1])[k==3])
-    assert np.all((a == np.mean(sorted[1:3], axis=0))[k==4])
-    assert np.all((a == sorted[2])[k==5])
+    assert np.all((a == ordered[0])[k==1])
+    assert np.all((a == np.mean(ordered[:2], axis=0))[k==2])
+    assert np.all((a == ordered[1])[k==3])
+    assert np.all((a == np.mean(ordered[1:3], axis=0))[k==4])
+    assert np.all((a == ordered[2])[k==5])
 
 
 def test_median_dtypes() -> None:
@@ -273,7 +274,7 @@ def test_median_weights() -> None:
     image = rng.random((4,10,10))
     weights = rng.random((4,10,10)) + 0.1
 
-    a, aw = median(image, weights=weights)
+    _, aw = median(image, weights=weights)
     assert np.allclose(aw, np.sum(weights, axis=0))
 
     # A weight far larger than the rest pins the median to that layer's value
@@ -312,10 +313,10 @@ def test_median_masked_weights_return() -> None:
     rng = np.random.default_rng(49)
     image = rng.random((4,10,10))
     mask = rng.random((4,10,10)) < 0.3
-    a, aw = median(image, mask=mask, returns='iw')
+    _, aw = median(image, mask=mask, returns='iw')
     assert np.all(aw == np.sum(np.logical_not(mask), axis=0))
 
-    a, am, aw = median(image, mask=mask, returns='imw')
+    _, am, aw = median(image, mask=mask, returns='imw')
     assert np.all(am == np.all(mask, axis=0))
     assert np.all(aw == np.sum(np.logical_not(mask), axis=0))
 

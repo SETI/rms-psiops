@@ -4,8 +4,8 @@
 
 import numpy as np
 import pytest
-from psiops.variance import variance, variance_filter
 
+from psiops.variance import variance, variance_filter
 
 ##########################################################################################
 # variance: unweighted, matches numpy.var
@@ -20,8 +20,8 @@ def test_variance_basic() -> None:
     assert np.abs(a - image0**2).max() < 1.e-12
 
 
-@pytest.mark.parametrize('vartype,ddof', [('biased', 0), ('unbiased', 1),
-                                          ('frequency', 1), ('reliability', 1)])
+@pytest.mark.parametrize(('vartype', 'ddof'), [('biased', 0), ('unbiased', 1),
+                                               ('frequency', 1), ('reliability', 1)])
 def test_variance_vartypes_match_numpy(vartype: str, ddof: int) -> None:
     rng = np.random.default_rng(11)
     image = rng.random((6,10,10))
@@ -101,7 +101,7 @@ def test_variance_mask_newmask_reliability() -> None:
     image = rng.random((5,4,3,10,10))
     mask = rng.random((5,4,3,10,10)) < 0.7
     count = np.sum(np.logical_not(mask), axis=2)
-    a, amask = variance(image, axis=2, mask=mask)
+    _, amask = variance(image, axis=2, mask=mask)
     assert np.all(amask == (count < 2))
 
 
@@ -110,7 +110,7 @@ def test_variance_mask_newmask_biased() -> None:
     image = rng.random((5,4,3,10,10))
     mask = rng.random((5,4,3,10,10)) < 0.7
     count = np.sum(np.logical_not(mask), axis=2)
-    a, amask = variance(image, axis=2, mask=mask, vartype='biased')
+    _, amask = variance(image, axis=2, mask=mask, vartype='biased')
     assert np.all(amask == (count == 0))
 
 

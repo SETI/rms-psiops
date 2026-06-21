@@ -4,8 +4,8 @@
 
 import numpy as np
 import pytest
-from psiops.mean import mean, mean_filter
 
+from psiops.mean import mean, mean_filter
 
 ##########################################################################################
 # mean

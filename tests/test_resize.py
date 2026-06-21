@@ -4,10 +4,10 @@
 
 import numpy as np
 import pytest
-from psiops.unzoom import unzoom
-from psiops.zoom   import zoom
 
-from tests.resize import resize # removed from image_ops but retained for cross-testing
+from psiops.unzoom import unzoom
+from psiops.zoom import zoom
+from tests.resize import resize  # removed from image_ops but retained for cross-testing
 
 
 def _make_image() -> np.ndarray:
@@ -88,7 +88,7 @@ def test_resize_mixed_with_mask() -> None:
 
     mask = np.zeros(image.shape, dtype='bool')
     mask[:3, :3, :3] = True
-    resized2, rmask = resize(image, (7, 11), mask)
+    resized2, _ = resize(image, (7, 11), mask)
     assert np.all(resized[3:] == resized2[3:])
     assert np.all(resized[:3, 3:] == resized2[:3, 3:])
     assert np.all(resized[:3, :3, 4:] == resized2[:3, :3, 4:])
@@ -97,13 +97,20 @@ def test_resize_mixed_with_mask() -> None:
 
 def test_resize_errors() -> None:
     image = _make_image()
-    with pytest.raises(TypeError): resize(image, 3.2)
-    with pytest.raises(TypeError): resize(image, (3.2, 1))
-    with pytest.raises(TypeError): resize(image, '')
-    with pytest.raises(ValueError): resize(image, (-3, 1))
-    with pytest.raises(ValueError): resize(image, (1, 2, 3))
-    with pytest.raises(ValueError): resize(image, (2,))
-    with pytest.raises(ValueError): resize(image, None)
+    with pytest.raises(TypeError):
+        resize(image, 3.2)
+    with pytest.raises(TypeError):
+        resize(image, (3.2, 1))
+    with pytest.raises(TypeError):
+        resize(image, '')
+    with pytest.raises(ValueError):
+        resize(image, (-3, 1))
+    with pytest.raises(ValueError):
+        resize(image, (1, 2, 3))
+    with pytest.raises(ValueError):
+        resize(image, (2,))
+    with pytest.raises(ValueError):
+        resize(image, None)
 
 
 def test_resize_dtype_float32_preserved() -> None:

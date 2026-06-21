@@ -4,6 +4,7 @@
 
 import numpy as np
 import pytest
+
 from psiops.rotate import rotate
 
 
@@ -76,7 +77,7 @@ def test_rotate_60_nonsquare_area_conserved(shortcuts) -> None:
 def test_rotate_random_angles_area_conserved(shortcuts) -> None:
     rng = np.random.default_rng(9676)
     image = np.arange(10) + 2 * np.arange(20)[:, np.newaxis]
-    for k in range(300):
+    for _k in range(300):
         angle = 2 * np.pi * rng.random()
         debug = {}
         rotate(image, angle, _debug=debug)
@@ -115,14 +116,13 @@ def test_rotate_45_isolated_masked_pixels(shortcuts) -> None:
 def test_rotate_many_masked_pixels_unweighted(shortcuts) -> None:
     rng = np.random.default_rng(9676)
     image = np.arange(10) + 2 * np.arange(20)[:, np.newaxis]
-    for k in range(300):                # advance the RNG to match historical sequence
+    for _k in range(300):               # advance the RNG to match historical sequence
         _ = 2 * np.pi * rng.random()
 
     image = np.arange(10) + np.arange(10)[:, np.newaxis]
     debug0 = {}
     result0 = rotate(image, np.pi/5, _debug=debug0)
     rotated0 = result0[0]
-    rmask0 = debug0['new_mask']
 
     mask = rng.random((10, 10)) < 0.8
     image[mask] = -9999
@@ -228,7 +228,7 @@ def test_rotate_float32_preserved(shortcuts) -> None:
 def test_rotate_half_integer_center(shortcuts) -> None:
     rng = np.random.default_rng(9676)
     image = rng.random((10, 10))
-    rotated, new_center = rotate(image, 0.3, origin=(3.5, 3.5))
+    _, new_center = rotate(image, 0.3, origin=(3.5, 3.5))
     assert new_center[0] % 1 == 0.5
     assert new_center[1] % 1 == 0.5
 
@@ -236,7 +236,7 @@ def test_rotate_half_integer_center(shortcuts) -> None:
 def test_rotate_integer_center(shortcuts) -> None:
     rng = np.random.default_rng(9676)
     image = rng.random((10, 10))
-    rotated, new_center = rotate(image, 0.4, origin=(3., 4.))
+    _, new_center = rotate(image, 0.4, origin=(3., 4.))
     assert new_center[0] % 1 == 0.
     assert new_center[1] % 1 == 0.
 
@@ -315,14 +315,14 @@ def test_rotate_with_weights(shortcuts) -> None:
     weights = np.ones(image.shape)
     weights[0, 0] = 0.
     weights[5, 5] = 3.
-    rotated, new_weights, center = rotate(image, 0.3, weights=weights, returns='iwc')
+    rotated, new_weights, _ = rotate(image, 0.3, weights=weights, returns='iwc')
     assert rotated.shape == new_weights.shape
 
 
 def test_rotate_maskval(shortcuts) -> None:
     image = (np.arange(10) + np.arange(10)[:, np.newaxis]).astype(np.float64)
     image[4, 4] = -999.
-    rotated, rmask, center = rotate(image, 0.3, maskval=-999., returns='imc')
+    rotated, rmask, _ = rotate(image, 0.3, maskval=-999., returns='imc')
     # The masked input value never bleeds into the unmasked output region as -999.
     assert np.all(rotated[~rmask] != -999.)
 

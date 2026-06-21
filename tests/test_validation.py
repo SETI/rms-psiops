@@ -9,7 +9,6 @@ import psiops
 from psiops._utils import _ImageInfo
 from psiops._validation import _check_return
 
-
 # Every stack reduction that supports `keepdims`. Each is exercised on its bare-image
 # (no mask/weights) return path, which is where `keepdims` was previously dropped.
 _REDUCTIONS = ['mean', 'median', 'minimum', 'maximum', 'variance', 'stdev']

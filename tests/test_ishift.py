@@ -3,8 +3,10 @@
 ##########################################################################################
 
 import numbers
+
 import numpy as np
 import pytest
+
 from psiops.ishift import ishift
 
 PRINT_ANSWERS = False   # change to True to print out this value of `ANSWERS`
@@ -396,7 +398,7 @@ def test_ishift_constant_large_offsets() -> None:
 
         shifted, smask = ishift(image, offset, mask, mode='constant', cval=None)
         assert np.all(shifted == 0)
-        assert np.all(smask == True)
+        assert np.all(smask)
 
 def test_ishift_nearest_mode() -> None:
 

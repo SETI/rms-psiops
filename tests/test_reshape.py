@@ -4,9 +4,10 @@
 
 import numpy as np
 import pytest
-from psiops.reshape import reshape as resize    # rename and then re-use resize tests
-from psiops.unzoom  import unzoom
-from psiops.zoom    import zoom
+
+from psiops.reshape import reshape as resize  # rename and then re-use resize tests
+from psiops.unzoom import unzoom
+from psiops.zoom import zoom
 
 EPS = 2.e-14
 
@@ -101,13 +102,20 @@ def test_reshape_mixed_with_mask() -> None:
 
 def test_reshape_errors() -> None:
     image = _make_image()
-    with pytest.raises(TypeError): resize(image, 3.2)
-    with pytest.raises(TypeError): resize(image, (3.2, 1))
-    with pytest.raises(TypeError): resize(image, '')
-    with pytest.raises(ValueError): resize(image, (-3, 1))
-    with pytest.raises(ValueError): resize(image, (1, 2, 3))
-    with pytest.raises(ValueError): resize(image, (2,))
-    with pytest.raises(ValueError): resize(image, None)
+    with pytest.raises(TypeError):
+        resize(image, 3.2)
+    with pytest.raises(TypeError):
+        resize(image, (3.2, 1))
+    with pytest.raises(TypeError):
+        resize(image, '')
+    with pytest.raises(ValueError):
+        resize(image, (-3, 1))
+    with pytest.raises(ValueError):
+        resize(image, (1, 2, 3))
+    with pytest.raises(ValueError):
+        resize(image, (2,))
+    with pytest.raises(ValueError):
+        resize(image, None)
 
 
 def test_reshape_dtype_float32_preserved() -> None:

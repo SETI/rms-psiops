@@ -4,8 +4,8 @@
 
 import numpy as np
 import pytest
-from psiops.stdev import stdev, stdev_filter, variance_filter
 
+from psiops.stdev import stdev, stdev_filter, variance_filter
 
 ##########################################################################################
 # stdev
@@ -113,7 +113,7 @@ def test_stdev_mask_newmask_unbiased() -> None:
     mask = rng.random((5,4,3,10,10)) < 0.7
     count = np.sum(np.logical_not(mask), axis=2)
 
-    a, amask = stdev(image, axis=2, mask=mask, stdtype='unbiased')
+    _, amask = stdev(image, axis=2, mask=mask, stdtype='unbiased')
     assert amask.shape == (5,4,10,10)
     assert np.all(amask == (count < 2))
 
@@ -124,7 +124,7 @@ def test_stdev_mask_newmask_frequency() -> None:
     mask = rng.random((5,4,3,10,10)) < 0.7
     count = np.sum(np.logical_not(mask), axis=2)
 
-    a, amask = stdev(image, axis=2, mask=mask, stdtype='frequency')
+    _, amask = stdev(image, axis=2, mask=mask, stdtype='frequency')
     assert np.all(amask == (count < 2))
 
 
@@ -136,7 +136,7 @@ def test_stdev_mask_newmask_biased() -> None:
     mask = rng.random((5,4,3,10,10)) < 0.7
     count = np.sum(np.logical_not(mask), axis=2)
 
-    a, amask = stdev(image, axis=2, mask=mask, stdtype='biased')
+    _, amask = stdev(image, axis=2, mask=mask, stdtype='biased')
     assert np.all(amask == (count == 0))
 
 

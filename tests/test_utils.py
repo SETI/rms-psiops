@@ -6,16 +6,20 @@ import numpy as np
 import pytest
 import scipy.ndimage
 
+from psiops._filter import (
+    _apply_op_as_filter_info,
+    _image_to_4d,
+    _usable_bytes,
+    _use_shortcuts,
+)
+from psiops._utils import _check_axis, _check_tuple
 from psiops.maximum import maximum_filter
 from psiops.median import median_filter
-from psiops._filter import (_apply_op_as_filter_info, _image_to_4d, _usable_bytes,
-                            _use_shortcuts)
-from psiops._utils  import _check_tuple, _check_axis
 
 
 def test_check_tuple() -> None:
 
-    assert _check_tuple(None,     'index', nones=True)       == None
+    assert _check_tuple(None,     'index', nones=True)       is None
     assert _check_tuple(None,     'index', default='abc')    == 'abc'
     assert _check_tuple(1,        'index')                   == (1,1)
     assert _check_tuple([2,3],    'index')                   == (2,3)
@@ -199,7 +203,7 @@ def test_image_to_4d_all_masked() -> None:
     image = _ramp_image()
     footprint = np.ones((3,3), dtype='bool')
     imask = np.ones(image.shape, dtype='bool')
-    test, mask, weights = _image_to_4d(image, footprint, imask, None)
+    _, mask, weights = _image_to_4d(image, footprint, imask, None)
     assert weights is None
     assert np.all(mask)
 
@@ -493,7 +497,7 @@ def test_apply_op_as_filter_median_weights_tiled() -> None:
 
         _usable_bytes(1)
         a_img, a_w = median_filter(image, footprint=5, weights=weights)
-        layers, tiles = _apply_op_as_filter_info()
+        _, tiles = _apply_op_as_filter_info()
         assert tiles > 1
         assert np.allclose(a_img, ref_img)
         assert np.allclose(a_w, ref_w)

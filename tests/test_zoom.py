@@ -4,8 +4,9 @@
 
 import numpy as np
 import pytest
-from psiops.zoom   import zoom
+
 from psiops.unzoom import unzoom
+from psiops.zoom import zoom
 
 
 def _make_image() -> np.ndarray:
@@ -76,12 +77,18 @@ def test_zoom_with_weights() -> None:
 
 def test_zoom_errors() -> None:
     image = _make_image()
-    with pytest.raises(TypeError): zoom(image, 3.2)
-    with pytest.raises(TypeError): zoom(image, (3.2, 1))
-    with pytest.raises(ValueError): zoom(image, (-3, 1))
-    with pytest.raises(ValueError): zoom(image, (1, 2, 3))
-    with pytest.raises(ValueError): zoom(image, (2,))
-    with pytest.raises(ValueError): zoom(image, None)
+    with pytest.raises(TypeError):
+        zoom(image, 3.2)
+    with pytest.raises(TypeError):
+        zoom(image, (3.2, 1))
+    with pytest.raises(ValueError):
+        zoom(image, (-3, 1))
+    with pytest.raises(ValueError):
+        zoom(image, (1, 2, 3))
+    with pytest.raises(ValueError):
+        zoom(image, (2,))
+    with pytest.raises(ValueError):
+        zoom(image, None)
 
 
 def test_zoom_dtype_preserved() -> None:
@@ -131,7 +138,6 @@ def test_unzoom_no_mask_averaging() -> None:
 
 def test_unzoom_with_mask() -> None:
     image = _make_image()
-    array = np.arange(10)
     unzoomed = unzoom(image, (1, 2))
 
     mask = np.zeros(image.shape, dtype='bool')
@@ -181,13 +187,20 @@ def test_unzoom_maskval_sets_fill_value() -> None:
 
 def test_unzoom_errors() -> None:
     image = _make_image()
-    with pytest.raises(TypeError): unzoom(image, 3.2)
-    with pytest.raises(TypeError): unzoom(image, (3.2, 1))
-    with pytest.raises(ValueError): unzoom(image, (-3, 1))
-    with pytest.raises(ValueError): unzoom(image, (1, 2, 3))
-    with pytest.raises(ValueError): unzoom(image, (2,))
-    with pytest.raises(ValueError): unzoom(image, None)
-    with pytest.raises(ValueError): unzoom(image, 3)     # shape is (10,10)
+    with pytest.raises(TypeError):
+        unzoom(image, 3.2)
+    with pytest.raises(TypeError):
+        unzoom(image, (3.2, 1))
+    with pytest.raises(ValueError):
+        unzoom(image, (-3, 1))
+    with pytest.raises(ValueError):
+        unzoom(image, (1, 2, 3))
+    with pytest.raises(ValueError):
+        unzoom(image, (2,))
+    with pytest.raises(ValueError):
+        unzoom(image, None)
+    with pytest.raises(ValueError):
+        unzoom(image, 3)     # shape is (10,10)
 
 
 def test_unzoom_dtype_float32_preserved() -> None:

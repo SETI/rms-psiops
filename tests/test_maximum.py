@@ -4,6 +4,7 @@
 
 import numpy as np
 import pytest
+
 from psiops.maximum import maximum, maximum_filter
 
 
@@ -211,13 +212,13 @@ def test_maximum_weights() -> None:
     image = rng.random((3,10,10))
     w = rng.random((3,10,10)) + 0.1
 
-    a, aw = maximum(image, weights=w)
+    _, aw = maximum(image, weights=w)
     assert np.allclose(aw, np.sum(w, axis=0))
 
     # Weight of zero acts like a mask
     w2 = w.copy()
     w2[0] = 0.
-    a2, aw2 = maximum(image, weights=w2)
+    a2, _ = maximum(image, weights=w2)
     expected = np.max(np.where(w2 == 0, -np.inf, image), axis=0)
     assert np.all(a2 == expected)
 

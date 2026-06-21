@@ -4,6 +4,7 @@
 
 import numpy as np
 import pytest
+
 from psiops.minimum import minimum, minimum_filter
 
 
@@ -209,13 +210,13 @@ def test_minimum_weights() -> None:
     image = rng.random((3,10,10))
     w = rng.random((3,10,10)) + 0.1
 
-    a, aw = minimum(image, weights=w)
+    _, aw = minimum(image, weights=w)
     assert np.allclose(aw, np.sum(w, axis=0))
 
     # Weight of zero acts like a mask
     w2 = w.copy()
     w2[0] = 0.
-    a2, aw2 = minimum(image, weights=w2)
+    a2, _ = minimum(image, weights=w2)
     expected = np.min(np.where(w2 == 0, np.inf, image), axis=0)
     assert np.all(a2 == expected)
 

@@ -4,13 +4,12 @@
 
 import numpy as np
 import pytest
+
+from psiops._filter import _use_shortcuts
 from psiops.resample import resample
-from psiops.unzoom   import unzoom
-from psiops.zoom     import zoom
-from psiops._filter  import _use_shortcuts
-
-from tests.resize import resize # removed from image_ops but retained for cross-testing
-
+from psiops.unzoom import unzoom
+from psiops.zoom import zoom
+from tests.resize import resize  # removed from image_ops but retained for cross-testing
 
 # resample() requires at least three dimensions, so every test uses a 3-D image.
 
@@ -91,44 +90,44 @@ def _resize_image() -> np.ndarray:
 
 
 def test_resample_vs_resize_shrink_square(shortcuts) -> None:
-    EPS = 1.e-14
+    eps = 1.e-14
     image = _resize_image()
     resized = resize(image, (3, 3))
     resampled, rcenter = resample(image, (3/4., 3/4.))
-    assert np.max(np.abs(resized - resampled)) < EPS
+    assert np.max(np.abs(resized - resampled)) < eps
     assert rcenter == (1.5, 1.5)
 
 
 def test_resample_vs_resize_shrink_square_masked(shortcuts) -> None:
-    EPS = 1.e-14
+    eps = 1.e-14
     rng = np.random.default_rng(8107)
     image = _resize_image()
     mask = rng.standard_normal((4, 4)) < 0.3
     resized, zmask = resize(image, (3, 3), mask)
     resampled, rmask, rcenter = resample(image, (3/4., 3/4.), mask)
     assert np.all(rmask == zmask)
-    assert np.max(np.abs(resized[~rmask] - resampled[~rmask])) < EPS
+    assert np.max(np.abs(resized[~rmask] - resampled[~rmask])) < eps
     assert rcenter == (1.5, 1.5)
 
 
 def test_resample_vs_resize_rectangular(shortcuts) -> None:
-    EPS = 1.e-14
+    eps = 1.e-14
     image = _resize_image()
     resized = resize(image, (3, 5))
     resampled, rcenter = resample(image, (3/4., 5/4.))
-    assert np.all(np.abs(resized - resampled) < EPS)
+    assert np.all(np.abs(resized - resampled) < eps)
     assert rcenter == (1.5, 2.5)
 
 
 def test_resample_vs_resize_rectangular_masked(shortcuts) -> None:
-    EPS = 1.e-14
+    eps = 1.e-14
     rng = np.random.default_rng(8107)
     image = _resize_image()
     mask = rng.standard_normal((4, 4)) < 0.3
     resized, zmask = resize(image, (3, 5), mask)
     resampled, rmask, rcenter = resample(image, (3/4., 5/4.), mask)
     assert np.all(rmask == zmask)
-    assert np.max(np.abs(resized[~rmask] - resampled[~rmask])) < EPS
+    assert np.max(np.abs(resized[~rmask] - resampled[~rmask])) < eps
     assert rcenter == (1.5, 2.5)
 
 
@@ -140,24 +139,24 @@ def _prime_image() -> np.ndarray:
 
 
 def test_resample_vs_resize_primes(shortcuts) -> None:
-    EPS = 1.e-12
+    eps = 1.e-12
     image = _prime_image()
     resized = resize(image, (97, 11))
     resampled, rcenter = resample(image, (97/13., 11/47.))
-    assert np.max(np.abs(resized - resampled)) < EPS
+    assert np.max(np.abs(resized - resampled)) < eps
     assert rcenter == (97/2., 11/2.)
 
 
 @pytest.mark.parametrize('frac', [0.02, 0.3, 0.7, 0.9, 0.98])
 def test_resample_vs_resize_primes_masked(shortcuts, frac) -> None:
-    EPS = 1.e-12
+    eps = 1.e-12
     rng = np.random.default_rng(8107)
     image = _prime_image()
     mask = rng.standard_normal(image.shape) < frac
     resized, zmask = resize(image, (97, 11), mask)
     resampled, rmask, rcenter = resample(image, (97/13., 11/47.), mask)
     assert np.all(rmask == zmask)
-    assert np.max(np.abs(resized[~zmask] - resampled[~zmask])) < EPS
+    assert np.max(np.abs(resized[~zmask] - resampled[~zmask])) < eps
     assert rcenter == (97/2., 11/2.)
 
 
@@ -172,7 +171,7 @@ def _param_image() -> np.ndarray:
 def test_resample_default_origin(shortcuts) -> None:
     image = _param_image()
     ref, rmask, rcenter = resample(image, 1.5, returns='imc')
-    assert np.all(rmask == False)
+    assert not np.any(rmask)
     assert ref.shape == (1, 9, 6)
     assert np.mean(image) == np.mean(ref)
     assert rcenter == (4.5, 3)
@@ -183,7 +182,7 @@ def test_resample_explicit_origin(shortcuts) -> None:
     ref = resample(image, 1.5)[0]
     resampled, rmask, rcenter = resample(image, 1.5, origin=(1, 1), returns='imc')
     assert np.all(resampled == ref)
-    assert np.all(rmask == False)
+    assert not np.any(rmask)
     assert rcenter == (1.5, 1.5)
 
 
@@ -193,7 +192,7 @@ def test_resample_origin_and_center_aligned(shortcuts) -> None:
     resampled, rmask, rcenter = resample(image, 1.5, origin=(2, 2), center=(3, 3),
                                          returns='imc')
     assert np.all(resampled == ref)
-    assert np.all(rmask == False)
+    assert not np.any(rmask)
     assert rcenter == (3, 3)
 
 
@@ -203,9 +202,9 @@ def test_resample_origin_and_center_shifted(shortcuts) -> None:
     resampled, rmask, rcenter = resample(image, 1.5, origin=(2, 2), center=(4, 4),
                                          returns='imc')
     assert np.all(resampled[0][1:, 1:] == ref[0])
-    assert np.all(rmask[0][1:, 1:] == False)
-    assert np.all(rmask[0][0] == True)
-    assert np.all(rmask[0][:, 0] == True)
+    assert not np.any(rmask[0][1:, 1:])
+    assert np.all(rmask[0][0])
+    assert np.all(rmask[0][:, 0])
     assert rcenter == (4, 4)
 
 
@@ -214,9 +213,9 @@ def test_resample_explicit_shape(shortcuts) -> None:
     ref = resample(image, 1.5)[0]
     resampled, rmask, rcenter = resample(image, 1.5, shape=(11, 8), returns='imc')
     assert np.all(resampled[0][:-2, :-2] == ref[0])
-    assert np.all(rmask[0][:-2, :-2] == False)
-    assert np.all(rmask[0][-2:] == True)
-    assert np.all(rmask[0][:, -2:] == True)
+    assert not np.any(rmask[0][:-2, :-2])
+    assert np.all(rmask[0][-2:])
+    assert np.all(rmask[0][:, -2:])
     assert rcenter == (4.5, 3)
 
 
@@ -226,9 +225,9 @@ def test_resample_shape_and_center(shortcuts) -> None:
     resampled, rmask, rcenter = resample(image, 1.5, shape=(11, 8), center=(4.5, 3),
                                          returns='imc')
     assert np.all(resampled[0][:-2, :-2] == ref[0])
-    assert np.all(rmask[0][:-2, :-2] == False)
-    assert np.all(rmask[0][-2:] == True)
-    assert np.all(rmask[0][:, -2:] == True)
+    assert not np.any(rmask[0][:-2, :-2])
+    assert np.all(rmask[0][-2:])
+    assert np.all(rmask[0][:, -2:])
     assert rcenter == (4.5, 3)
 
 
@@ -238,7 +237,7 @@ def test_resample_origin_and_shape(shortcuts) -> None:
     resampled, rmask, rcenter = resample(image, 1.5, origin=(0, 2), shape=(6, 6),
                                          returns='imc')
     assert np.all(resampled[0] == ref[0][:6, :6])
-    assert np.all(rmask == False)
+    assert not np.any(rmask)
     assert rcenter == (0, 3)
 
 
@@ -284,7 +283,7 @@ def test_resample_maskval(shortcuts) -> None:
     image[:, 2, 2] = -999.
     # Use a zoom factor != 1 so the general resampling path is exercised; source pixel
     # (2,2) maps to the 2x2 output block at (4:6, 4:6).
-    resampled, rmask, center = resample(image, 2, maskval=-999., returns='imc')
+    resampled, rmask, _ = resample(image, 2, maskval=-999., returns='imc')
     assert np.all(rmask[:, 4:6, 4:6])
     assert np.all(resampled[:, 4:6, 4:6] == -999.)
 
@@ -337,7 +336,7 @@ def test_resample_unit_zoom_with_mask() -> None:
     mask = np.zeros((1, 8, 10), dtype=bool)
     mask[:, 0, 0] = True
 
-    masked, mmask = resample(image, 1, center=(6, 8), mask=mask, returns='im')
+    _, mmask = resample(image, 1, center=(6, 8), mask=mask, returns='im')
     # The masked source pixel (0, 0) moves to (2, 3) in the output
     assert mmask[:, 2, 3].all()
 

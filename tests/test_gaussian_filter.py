@@ -155,7 +155,7 @@ def test_gaussian_weights_masked_mode() -> None:
     rng = np.random.default_rng(7)
     image = rng.random((2,20,20))
     weights = rng.random((20,20)) + 0.5
-    a, aw = gaussian_filter(image, 1.0, weights=weights)
+    a, _ = gaussian_filter(image, 1.0, weights=weights)
     fw = _sgf(weights, 1.0, mode='constant', cval=0.)
     fi = _scipy_ref(image * weights, 1.0, mode='constant', cval=0.)
     assert np.abs(a - fi / fw).max() < 1.e-12

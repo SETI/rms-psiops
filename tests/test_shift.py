@@ -3,11 +3,11 @@
 ##########################################################################################
 
 import numbers
+
 import numpy as np
-import re
-from psiops.ishift import ishift
-from psiops.shift  import shift
+
 from psiops._filter import _use_shortcuts
+from psiops.shift import shift
 
 PRINT_ANSWERS = False   # change to True to print out this value of `ANSWERS`
 
