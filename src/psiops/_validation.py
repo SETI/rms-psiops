@@ -9,7 +9,7 @@ from psiops._utils import _ImageInfo
 
 
 def _check_image(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     mask: npt.ArrayLike | None = None,
     maskval: float | None = None,
     weights: npt.ArrayLike | None = None,

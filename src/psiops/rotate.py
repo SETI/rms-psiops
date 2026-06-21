@@ -3,7 +3,6 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 
 from psiops._filter import _use_shortcuts
 from psiops._utils import _check_tuple, _merge_weights
@@ -15,7 +14,7 @@ TWOPI = np.pi * 2.
 
 
 def rotate(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     angle: float,
     mask: np.ndarray | None = None,
     *,

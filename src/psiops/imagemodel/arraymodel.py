@@ -3,7 +3,6 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 
 from ..resample import resample
 from ..rotate import rotate as ops_rotate
@@ -15,7 +14,7 @@ class ArrayModel(ImageModel):
 
     def __init__(
         self,
-        array: npt.ArrayLike,
+        array: np.ndarray,
         origin: tuple[float, float] | None = None,
         outside: float = 0.,
     ) -> None:

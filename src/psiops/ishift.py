@@ -5,7 +5,6 @@
 from collections.abc import Sequence
 
 import numpy as np
-import numpy.typing as npt
 
 from psiops._filter import _use_shortcuts
 from psiops._utils import _check_tuple
@@ -13,7 +12,7 @@ from psiops._validation import _check_image, _check_return
 
 
 def ishift(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     offset: int | Sequence[int],
     mask: np.ndarray | None = None,
     *,

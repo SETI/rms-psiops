@@ -3,7 +3,6 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 from scipy.ndimage import gaussian_filter as _unmasked_gaussian_filter
 
 from psiops._utils import _check_tuple
@@ -11,7 +10,7 @@ from psiops._validation import _check_image, _check_return
 
 
 def gaussian_filter(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     sigma: float | tuple[float, float],
     mask: np.ndarray | None = None,
     *,

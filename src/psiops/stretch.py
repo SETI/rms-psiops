@@ -80,7 +80,7 @@ class Stretch:
         orders: Sequence[int],
         coeffs: npt.ArrayLike | None = None,
         *,
-        image: npt.ArrayLike | None = None,
+        image: np.ndarray | None = None,
         mask: np.ndarray | None = None,
         maskval: float | None = None,
         weights: np.ndarray | None = None,
@@ -170,7 +170,7 @@ class Stretch:
 
     def set_image(
         self,
-        image: npt.ArrayLike,
+        image: np.ndarray,
         mask: np.ndarray | None = None,
         maskval: float | None = None,
         nans: bool = False,
@@ -235,7 +235,7 @@ class Stretch:
 
     def set_target(
         self,
-        target: npt.ArrayLike,
+        target: np.ndarray,
         *,
         mask: np.ndarray | None = None,
         maskval: float | None = None,

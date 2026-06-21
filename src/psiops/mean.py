@@ -11,7 +11,7 @@ from psiops._validation import _check_image, _check_return
 
 
 def mean(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     mask: np.ndarray | None = None,
     *,
     maskval: float | None = None,
@@ -156,7 +156,7 @@ def _mean(
 
 
 def mean_filter(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     footprint: npt.ArrayLike | int | tuple[int, int],
     *,
     mask: np.ndarray | None = None,

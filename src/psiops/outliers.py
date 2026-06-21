@@ -3,7 +3,6 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 
 from ._utils import _check_axis
 from ._validation import _check_image
@@ -13,7 +12,7 @@ from .median import median, median_filter
 
 
 def outliers(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     footprint: float = 10,
     *,
     cutoff: float = 5,

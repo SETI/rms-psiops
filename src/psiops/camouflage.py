@@ -3,7 +3,6 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 import scipy.ndimage
 
 from ._utils import _merge_weights
@@ -14,7 +13,7 @@ _EPS = 1.e-8
 
 
 def camouflage(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     mask: np.ndarray | None = None,
     *,
     maskval: float | None = None,

@@ -3,14 +3,13 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 
 from psiops._utils import _check_tuple
 from psiops.resample import resample
 
 
 def reshape(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     shape: int | tuple[int, int],
     mask: np.ndarray | None = None,
     *,

@@ -3,7 +3,6 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 
 from psiops._filter import _use_shortcuts
 from psiops._utils import _check_tuple, _merge_weights
@@ -12,7 +11,7 @@ from psiops.shift import shift
 
 
 def resample(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     zoom_: float | tuple[float, float],
     mask: np.ndarray | None = None,
     *,

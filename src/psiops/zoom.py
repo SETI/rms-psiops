@@ -3,14 +3,13 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 
 from psiops._utils import _check_tuple
 from psiops._validation import _check_image, _check_return
 
 
 def zoom(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     zoom_: int | tuple[int, int],
     mask: np.ndarray | None = None,
     *,

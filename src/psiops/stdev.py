@@ -9,7 +9,7 @@ from psiops.variance import variance, variance_filter
 
 
 def stdev(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     mask: np.ndarray | None = None,
     *,
     maskval: float | None = None,
@@ -107,7 +107,7 @@ def stdev(
 
 
 def stdev_filter(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     footprint: npt.ArrayLike | int | tuple[int, int],
     *,
     mask: np.ndarray | None = None,

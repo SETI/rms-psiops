@@ -96,7 +96,7 @@ class Fitting:
 
     def set_target(
         self,
-        target: npt.ArrayLike,
+        target: np.ndarray,
         *,
         mask: np.ndarray | None = None,
         maskval: float | None = None,

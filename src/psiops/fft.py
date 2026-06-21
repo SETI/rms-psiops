@@ -3,14 +3,13 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 from scipy import fftpack
 
 from psiops.gaussian_filter import gaussian_filter
 
 
 def fft(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     *,
     retile: bool = False,
     real: bool = False,
@@ -38,7 +37,7 @@ def fft(
 
 
 def ifft(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     *,
     retile: bool = False,
     real: bool = False,
@@ -66,7 +65,7 @@ def ifft(
 
 
 def fft_power(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     retile: bool = False,
 ) -> np.ndarray:
     """FFT power of an image.
@@ -86,8 +85,8 @@ def fft_power(
 
 
 def correlate(
-    image: npt.ArrayLike,
-    reference: npt.ArrayLike,
+    image: np.ndarray,
+    reference: np.ndarray,
     *,
     normalize: bool = False,
     retile: bool = False,
@@ -120,7 +119,7 @@ def correlate(
 
 
 def autocorrelate(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     retile: bool = False,
 ) -> np.ndarray:
     """2-D autocorrelation function for an image.
@@ -142,8 +141,8 @@ def autocorrelate(
 
 
 def ialign(
-    image: npt.ArrayLike,
-    reference: npt.ArrayLike,
+    image: np.ndarray,
+    reference: np.ndarray,
     sigma: float,
 ) -> tuple[int, int]:
     """Integer offset required to align two images, based on the location of maximum

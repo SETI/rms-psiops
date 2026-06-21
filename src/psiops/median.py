@@ -19,7 +19,7 @@ from psiops._validation import _check_image, _check_return
 
 
 def median(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     mask: np.ndarray | None = None,
     *,
     maskval: float | None = None,
@@ -215,7 +215,7 @@ def _median(
 
 
 def median_filter(
-    image: npt.ArrayLike,
+    image: np.ndarray,
     footprint: npt.ArrayLike | int | tuple[int, int],
     *,
     mask: np.ndarray | None = None,
