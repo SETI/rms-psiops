@@ -66,10 +66,6 @@ class ArrayModel(ImageModel):
             expanded, and rotated.
         """
 
-        # resample() and rotate() require at least three dimensions, so operate on the
-        # 2-D model array with a leading unit axis and then drop it afterward.
-        source = self._array[np.newaxis]
-
         if rotate:
             # Determine a temporary center and shape for a resample operation such that
             # pixels will be truncated during rotation.
@@ -79,7 +75,7 @@ class ArrayModel(ImageModel):
                            int(np.ceil(temp_center[1] + iradius)))
 
             # Resample
-            array, mask = resample(source, expand, origin=self._origin,
+            array, mask = resample(self._array, expand, origin=self._origin,
                                    center=temp_center, shape=temp_shape, returns='im')
 
             # Rotate and place into final grid
@@ -88,15 +84,15 @@ class ArrayModel(ImageModel):
 
         # Without rotation, we can just use resample(); this is a common occurrence
         else:
-            array, mask = resample(source, expand, origin=self._origin,
+            array, mask = resample(self._array, expand, origin=self._origin,
                                    center=center, shape=tuple(shape), returns='im')
 
         # resample() multiplies pixel values by expand**2, so divide it back out to
         # preserve the model's integral, as documented.
-        array = array[0] / expand**2
+        array = array / expand**2
 
         # Fill perimeter and return
-        array[mask[0]] = self._outside
+        array[mask] = self._outside
         return array
 
 ##########################################################################################

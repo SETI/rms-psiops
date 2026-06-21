@@ -161,6 +161,15 @@ def test_arraymodel_transform_shape(no_shortcuts: None) -> None:
     assert model.transform((9, 11), (4.5, 5.5)).shape == (9, 11)
 
 
+def test_arraymodel_transform_returns_2d(no_shortcuts: None) -> None:
+    # transform() now drives resample()/rotate() directly on the 2-D model array (no
+    # temporary leading axis), so the result must be a plain 2-D array in every branch.
+    model = ArrayModel(_delta())
+    assert model.transform((9, 11), (4.5, 5.5)).ndim == 2                  # plain
+    assert model.transform((9, 11), (4.5, 5.5), expand=1.5).ndim == 2      # expand
+    assert model.transform((13, 13), (6.5, 6.5), rotate=0.5).ndim == 2     # rotate
+
+
 def test_arraymodel_preserves_integral(no_shortcuts: None) -> None:
     model = ArrayModel(_delta(value=3.0))
     result = model.transform((11, 11), (5.5, 5.5))

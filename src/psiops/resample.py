@@ -84,8 +84,7 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
 
     # Interpret the image and mask
     image, mask, weights, info = _check_image(image, mask, maskval, weights, nans=nans,
-                                              comps=True, three=True, returns=returns,
-                                              extra_char='c',
+                                              comps=True, returns=returns, extra_char='c',
                                               extra_by_default=(center is None))
     weights = _merge_weights(mask, weights)
 

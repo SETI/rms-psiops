@@ -100,7 +100,7 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
             from the nearest multiple by more than `eps`.
     """
 
-    # Intepret array and mask
+    # Interpret array and mask
     image, mask, weights, info = _check_image(image, mask, maskval, weights, nans=nans,
                                               comps=True, returns=returns,
                                               extra_char='c',

@@ -149,11 +149,14 @@ def test_reshape_maskedarray() -> None:
     assert isinstance(resized, np.ma.MaskedArray)
 
 
-def test_reshape_2d_image_requires_3d() -> None:
-    # reshape() delegates to resample(), which requires at least 3 dimensions.
+def test_reshape_2d_image() -> None:
+    # reshape() delegates to resample(), which now accepts a bare 2-D image; the 2-D
+    # result must match the single-layer 3-D path with the unit axis squeezed off.
     array = np.arange(10)
-    image = array + array[:, np.newaxis]
-    with pytest.raises(ValueError):
-        resize(image, (12, 9))
+    image = (array + array[:, np.newaxis]).astype(float)
+    flat = resize(image, (12, 9))
+    stacked = resize(image[np.newaxis], (12, 9))
+    assert flat.shape == stacked.shape[1:]
+    assert np.allclose(flat, stacked[0], equal_nan=True)
 
 ##########################################################################################

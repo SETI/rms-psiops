@@ -294,10 +294,37 @@ def test_resample_invalid_returns(shortcuts: bool) -> None:
         resample(image, 2, returns='xyz')
 
 
-def test_resample_requires_3d() -> None:
-    image = np.arange(10) + np.arange(10)[:, np.newaxis]
-    with pytest.raises(ValueError):
-        resample(image, 2)
+def test_resample_2d_matches_3d(shortcuts: bool) -> None:
+    # A bare 2-D image is resampled directly (no leading axes are required). The result
+    # must match the single-layer 3-D path with the unit axis squeezed off.
+    rng = np.random.default_rng(4521)
+    image = rng.random((9, 11))
+    for factor in (2, 0.5, 1.7, 1):
+        flat = resample(image, factor, returns='i')
+        stacked = resample(image[np.newaxis], factor, returns='i')
+        assert flat.shape == stacked.shape[1:]
+        assert np.allclose(flat, stacked[0], equal_nan=True)
+
+
+def test_resample_2d_with_mask(shortcuts: bool) -> None:
+    rng = np.random.default_rng(99)
+    image = rng.random((8, 10))
+    mask = rng.random((8, 10)) < 0.3
+    flat, fmask = resample(image, 1.5, mask=mask, returns='im')
+    stacked, smask = resample(image[np.newaxis], 1.5, mask=mask[np.newaxis], returns='im')
+    assert flat.shape == stacked.shape[1:]
+    assert np.allclose(flat, stacked[0], equal_nan=True)
+    assert np.array_equal(fmask, smask[0])
+
+
+def test_resample_2d_returns_modes(shortcuts: bool) -> None:
+    # Every `returns` mode yields 2-D outputs for a 2-D input.
+    image = np.arange(100.0).reshape(10, 10)
+    for ret, count in (('i', 1), ('im', 2), ('iw', 2), ('imw', 3)):
+        out = resample(image, 2, returns=ret)
+        results = out if isinstance(out, list) else [out]
+        assert len(results) == count
+        assert all(r.shape == (20, 20) for r in results)
 
 
 def test_resample_negative_dimensions(shortcuts: bool) -> None:
