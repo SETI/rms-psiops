@@ -148,8 +148,8 @@ def test_median_list_input() -> None:
     assert np.all(median(image, axis=1) == np.median(image, axis=1))
     assert np.all(median(image, axis=(0,-1)) == np.median(image, axis=(0,2)))
 
-    image = list(image)     # works for non-arrays?
-    assert np.all(median(image) == np.median(image, axis=(0,1,2)))
+    image_list = list(image)     # works for non-arrays?
+    assert np.all(median(image_list) == np.median(image_list, axis=(0,1,2)))
 
 
 def test_median_keepdims() -> None:
@@ -322,7 +322,7 @@ def test_median_masked_weights_return() -> None:
 
 ##########################################################################################
 
-def test_median_filter_no_mask(shortcuts) -> None:
+def test_median_filter_no_mask(shortcuts: bool) -> None:
 
     image = np.arange(10) + np.arange(10)[:,None] + np.arange(4)[:,None,None]
     a = median_filter(image, 2)
@@ -336,7 +336,7 @@ def test_median_filter_no_mask(shortcuts) -> None:
     assert np.abs(a - b).max() < 1.e-15
 
 
-def test_median_filter_mask(shortcuts) -> None:
+def test_median_filter_mask(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(8063)
     image = rng.random((100,100))
@@ -366,7 +366,7 @@ def test_median_filter_mask(shortcuts) -> None:
             assert np.abs(a[i,j] - np.median(values)) < 1.e-14
 
 
-def test_median_filter_footprint_forms(shortcuts) -> None:
+def test_median_filter_footprint_forms(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(21)
     image = rng.random((20,20))
@@ -379,7 +379,7 @@ def test_median_filter_footprint_forms(shortcuts) -> None:
     assert np.allclose(a_int, a_bool)
 
 
-def test_median_filter_omit(shortcuts) -> None:
+def test_median_filter_omit(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(51)
     image = rng.random((10,10))
@@ -389,7 +389,7 @@ def test_median_filter_omit(shortcuts) -> None:
     assert np.all(np.isfinite(a))
 
 
-def test_median_filter_weights(shortcuts) -> None:
+def test_median_filter_weights(shortcuts: bool) -> None:
     # A weighted median filter must apply the weight values (regression: the shortcut
     # path used to ignore them and return the unweighted median). Checked on both code
     # paths via the `shortcuts` fixture.

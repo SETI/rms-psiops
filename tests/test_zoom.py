@@ -109,8 +109,9 @@ def test_zoom_maskedarray() -> None:
 
     zoomed = zoom(marray, 2)
     assert isinstance(zoomed, np.ma.MaskedArray)
-    assert np.all(zoomed.mask[::2, ::2] == mask)
-    assert np.all(zoomed.mask[1::2, 1::2] == mask)
+    zmask = np.asarray(zoomed.mask)
+    assert np.all(zmask[::2, ::2] == mask)
+    assert np.all(zmask[1::2, 1::2] == mask)
 
 
 def test_zoom_maskval() -> None:

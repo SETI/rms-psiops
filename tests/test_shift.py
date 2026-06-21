@@ -104,7 +104,7 @@ ANSWERS = {
     (4,2,4,0): ([5, 5, 5, 5, 5, 5, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0]),
 }
 
-def brief_fmt(val):
+def brief_fmt(val: float) -> str:
     """Compact, exact format of a value that is a multiple of 1/3 or 1/4."""
 
     if np.isnan(val):

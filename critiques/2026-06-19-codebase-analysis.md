@@ -1,6 +1,6 @@
 # Codebase analysis: rms-psiops
 
-*Generated: 2026-06-19 — Updated: 2026-06-20*
+*Generated: 2026-06-19 — Updated: 2026-06-21*
 
 ## Summary
 
@@ -16,9 +16,14 @@ most at 100%), wrote tests for all previously-untested modules, and added a Sphi
 Guide**. That work uncovered and fixed roughly a dozen further latent bugs (NumPy 2.0
 breakage, a masked-filter axis-reduction bug that silently broke every masked `*_filter`,
 weighted-filter shortcuts ignoring weights, `keepdims` dropped on the bare-image return, the
-`resample` unit-zoom shortcut, and others — see §11). The remaining work is now a short list of
-medium/low structural and tooling items: lint/mypy debt, the `returns` DSL discoverability
-(won't-fix), thread-safety documentation, and a couple of packaging-metadata placeholders.
+`resample` unit-zoom shortcut, and others — see §11).
+
+A lint-and-type cleanup pass (2026-06-21) then **cleared the entire lint/type backlog: `ruff
+check src tests` is fully green, `mypy src` is clean across all 30 source files, and a hand-
+maintained `__init__.pyi` type stub now pins the public API signatures** (see §12). The
+remaining work is a short list of medium/low items: ~33 `mypy` errors confined to `tests/`,
+the `returns` DSL discoverability (won't-fix), thread-safety documentation, and a couple of
+packaging-metadata placeholders.
 
 ---
 
@@ -136,6 +141,12 @@ medium/low structural and tooling items: lint/mypy debt, the `returns` DSL disco
 
 - ~~**Finding (low)**: No `__all__` is declared in `__init__.py` or any module.~~ ✓ **Fixed**
   (see §10).
+
+- ~~**Finding (medium)**: Public function signatures used `npt.ArrayLike` for image
+  parameters and then dereferenced `.ndim`/`.shape`, producing a few hundred `mypy` errors
+  across `src`.~~ ✓ **Fixed** (2026-06-21). Image parameters are now typed as `np.ndarray`,
+  and a hand-maintained `src/psiops/__init__.pyi` stub pins the full public API signatures as
+  the type authority for the package. `mypy src` is clean across all 30 source files (see §12).
 
 ---
 
@@ -388,6 +399,32 @@ time, surfacing these latent bugs. All are fixed with regression tests unless no
 
 ---
 
+## 12. Lint and type cleanup pass (2026-06-21)
+
+A focused pass cleared the lint/type backlog from item #7 and added a public-API type stub.
+
+- **Lint backlog cleared**: `ruff check src tests` now passes with zero findings. The ~184
+  prior findings (`E501` line-length, `I001` import order, `E701` one-line
+  `with pytest.raises(...):`, `E712` `== True/False`, `RUF010`, `B904`, `B007`, `RUF059`)
+  were resolved across `src/` and `tests/`; `RUF005` was disabled globally as a deliberate
+  style choice. ✓
+- **Source mypy clean**: image parameters were retyped from `npt.ArrayLike` to `np.ndarray`,
+  eliminating the bulk of the `.ndim`/`.shape`-deref errors. `MYPYPATH=src mypy src` now
+  reports success across all 30 source files. ✓
+- **Public API type stub added** (`src/psiops/__init__.pyi`): a hand-maintained stub mirrors
+  every exported signature (transforms, stack ops, filters, `ImageModel` family, `Stretch`,
+  and the FFT/correlation ops) and is the type authority for the package. It is committed and
+  tracked, and is ruff- and mypy-clean. Because it is not auto-validated against the
+  implementation, its signatures must be kept in sync when public functions change (per
+  `CLAUDE.md`). ✓
+- **Signature/docstring formatting** (`src/psiops/*.py`): `def` signatures were rewrapped to
+  the 90-column limit (no trailing comma after the last parameter), and `, optional` was
+  added to the docstring type of every defaulted parameter. Ruff-clean; tests unaffected.
+- **Remaining**: ~33 `mypy` errors confined to `tests/` (see #7) and the `-> None` test
+  annotations (#8).
+
+---
+
 ## Recommended priorities (remaining)
 
 1. ~~**Fix the critical bugs.**~~ ✓ Done.
@@ -400,12 +437,13 @@ time, surfacing these latent bugs. All are fixed with regression tests unless no
 
 **Still open (medium/low):**
 
-7. **Lint and type debt**: `ruff check src tests` reports ~184 findings (mostly `E501`
-   line-length, `I001` import order, `E701` one-line `with pytest.raises(...):`, `E712`
-   `== True/False`, `RUF059` unused unpacking) and `mypy` still reports a few hundred errors
-   (largely `npt.ArrayLike` params dereferenced via `.ndim`/`.shape`, and fit-attribute
-   `None`-initialization in `fitting`/`stretch`). None block tests or the docs build. Schedule
-   a focused lint/type cleanup so `scripts/run-all-checks.sh` is fully green.
+7. ~~**Lint and type debt**: `ruff check src tests` reports ~184 findings and `mypy` reports a
+   few hundred errors.~~ ✓ **Largely done** (2026-06-21). `ruff check src tests` is fully green
+   and `mypy src` is clean (see §12). **Remaining**: ~33 `mypy` errors confined to `tests/`
+   (test-only `attr-defined`/`assignment`/`var-annotated` issues in `test_fitting`,
+   `test_rotate`, `test_minimum`, `test_maximum`, `test_median`) — these and the missing
+   `-> None` annotations (#8) are the only items keeping `scripts/run-all-checks.sh` from full
+   green. Note: `pyroma` also still fails on the `description = "TODO"` placeholder (#12).
 8. **Add `-> None` to the ~60 remaining test functions** in the newer test suites (§4).
 9. **Decide the fate of the commented-out `__init__.py` block** (§1): export the
    now-tested modules or delete the dead lines; remove the non-existent `scaling`/`scaling2`

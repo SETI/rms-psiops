@@ -50,7 +50,7 @@ def test_check_return_no_keepdims_bare_image_unchanged() -> None:
 
 
 @pytest.mark.parametrize('name', _REDUCTIONS)
-def test_reduction_keepdims_bare_image_shape(name) -> None:
+def test_reduction_keepdims_bare_image_shape(name: str) -> None:
     # The public reductions must honor keepdims on the default (no-mask) return,
     # which uses the returns == 'i' path.
     rng = np.random.default_rng(7)
@@ -68,7 +68,7 @@ def test_reduction_keepdims_bare_image_shape(name) -> None:
 
 
 @pytest.mark.parametrize('name', _REDUCTIONS)
-def test_reduction_keepdims_multiple_axes(name) -> None:
+def test_reduction_keepdims_multiple_axes(name: str) -> None:
     rng = np.random.default_rng(11)
     stack = rng.random((4, 3, 8, 10))
     fn = getattr(psiops, name)
@@ -79,7 +79,7 @@ def test_reduction_keepdims_multiple_axes(name) -> None:
 
 
 @pytest.mark.parametrize('name', _REDUCTIONS)
-def test_reduction_keepdims_matches_numpy_shape(name) -> None:
+def test_reduction_keepdims_matches_numpy_shape(name: str) -> None:
     # The kept shape matches what numpy produces for the same reduction.
     rng = np.random.default_rng(13)
     stack = rng.random((5, 2, 6, 6))

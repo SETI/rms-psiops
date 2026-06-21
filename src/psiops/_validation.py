@@ -3,53 +3,45 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 
 from psiops._utils import _ImageInfo
 
 
-def _check_image(
-    image: np.ndarray,
-    mask: npt.ArrayLike | None = None,
-    maskval: float | None = None,
-    weights: npt.ArrayLike | None = None,
-    *,
-    nans: bool = False,
-    returns: str | None = None,
-    extra_char: str = '',
-    extra_by_default: bool = False,
-    floats: bool = False,
-    comps: bool = False,
-    two: bool = False,
-    three: bool = False,
-) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None, _ImageInfo]:
+def _check_image(image, mask=None, maskval=None, weights=None, *, nans=False,
+                 returns=None, extra_char='', extra_by_default=False, floats=False,
+                 comps=False, two=False, three=False):
     """Interpret function inputs. Return (image, mask, weight array, flags).
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be an MaskedArray.
-        mask: Boolean mask array, equal to True where the values in `image` are to be
-            ignored. It is broadcasted to the shape of `image` if necessary.
-        maskval: A value that should be masked wherever it appears in `image`. This can be
-            used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with the
-            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
-            This can be provided in addition to or instead of the `mask` or `maskval`. It
-            is broadcasted to the shape of `image` if necessary.
-        nans: True to check `image` for NaNs and interpret them as masked values.
-        returns: The quantities for `_check_return` to return, indicated by "i" (image
-            only), "im" (image and mask), "iw" (image and weights), or "imw" (image, mask,
-            and weights). Optionally, it can end with the `extra_char`.
-        extra_char: A character that can be appended to the `returns` string to indicate
-            that one extra quantity is to be appended to the tuple returned by
-            `_check_return`.
-        extra_by_default: If True and `extra_char` is present, the extra quantity will be
-            included by default; otherwise it will be omitted by default.
-        floats: True to convert the dtype of `image` to float64 if it does not already
-            contain floats. An array of dtype float32 or complex64 is not changed.
-        comps: True to allow `image` to contain complex values.
-        two: True if the image must have exactly two dimensions.
-        three: True if at least three image dimensions are required.
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be an MaskedArray.
+        mask (array-like, optional): Boolean mask array, equal to True where the values
+            in `image` are to be ignored. It is broadcasted to the shape of `image` if
+            necessary.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array-like, optional): Weight array specifying the possibly unequal
+            weights associated with the pixels in `image`. A weight of zero is
+            equivalent to a `mask` value of True. This can be provided in addition to or
+            instead of the `mask` or `maskval`. It is broadcasted to the shape of
+            `image` if necessary.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as
+            masked values.
+        returns (str, optional): The quantities for `_check_return` to return, indicated
+            by "i" (image only), "im" (image and mask), "iw" (image and weights), or
+            "imw" (image, mask, and weights). Optionally, it can end with the
+            `extra_char`.
+        extra_char (str, optional): A character that can be appended to the `returns`
+            string to indicate that one extra quantity is to be appended to the tuple
+            returned by `_check_return`.
+        extra_by_default (bool, optional): If True and `extra_char` is present, the extra
+            quantity will be included by default; otherwise it will be omitted by default.
+        floats (bool, optional): True to convert the dtype of `image` to float64 if it
+            does not already contain floats. An array of dtype float32 or complex64 is not
+            changed.
+        comps (bool, optional): True to allow `image` to contain complex values.
+        two (bool, optional): True if the image must have exactly two dimensions.
+        three (bool, optional): True if at least three image dimensions are required.
 
     Returns:
         A tuple (`image`, `mask`, `weights`, `info`), where:
@@ -229,30 +221,23 @@ def _check_image(
     return (image, mask, weights, info)
 
 
-def _check_return(
-    image: np.ndarray,
-    mask: np.ndarray | None,
-    weights: np.ndarray | None,
-    info: _ImageInfo,
-    *,
-    extra: object = None,
-    return_dtype: np.dtype | None = None,
-    pixel_area: int = 1,
-) -> np.ndarray | list[np.ndarray]:
+def _check_return(image, mask, weights, info, *, extra=None, return_dtype=None,
+                  pixel_area=1):
     """Construct the return value for a function based on the original input info.
 
     Parameters:
-        image: Image to return, which cannot be a MaskedArray.
-        mask: Mask to return, if any. If provided, it must be a new copy.
-        weights: Floating-point weight array to return, if any. If both `mask` and
-            `weights` are provided, they must be compatible. In other words, `weights` is
-            zero where `mask` is True, and vice-versa. This is not tested. If provided,
-            it must be a new copy.
-        info: The `_ImageInfo` object returned by `_check_image`.
-        extra: Anything to append to the return object if `returns` contains
-            `info.extra_char`.
-        return_dtype: The dtype of the image array to return.
-        pixel_area: The number of pixels being combined into a new result.
+        image (array): Image to return, which cannot be a MaskedArray.
+        mask (array, optional): Mask to return, if any. If provided, it must be a new
+            copy.
+        weights (array, optional): Floating-point weight array to return, if any. If
+            both `mask` and `weights` are provided, they must be compatible. In other
+            words, `weights` is zero where `mask` is True, and vice-versa. This is not
+            tested. If provided, it must be a new copy.
+        info (_ImageInfo): The `_ImageInfo` object returned by `_check_image`.
+        extra (any, optional): Anything to append to the return object if `returns`
+            contains `info.extra_char`.
+        return_dtype (numpy.dtype, optional): The dtype of the image array to return.
+        pixel_area (int, optional): The number of pixels being combined into a new result.
 
     Returns:
         `image` or (`image`[, `mask`][, `weights`][, `extra`]):
@@ -269,7 +254,7 @@ def _check_return(
         ValueError: if the value of `extra` is missing.
     """
 
-    def keepdims(array: np.ndarray | None) -> np.ndarray | None:
+    def keepdims(array):
         if array is None or not info.axis:
             return array
 

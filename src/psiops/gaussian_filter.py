@@ -9,39 +9,31 @@ from psiops._utils import _check_tuple
 from psiops._validation import _check_image, _check_return
 
 
-def gaussian_filter(
-    image: np.ndarray,
-    sigma: float | tuple[float, float],
-    mask: np.ndarray | None = None,
-    *,
-    maskval: float | None = None,
-    weights: np.ndarray | None = None,
-    nans: bool = False,
-    mode: str = 'masked',
-    cval: float = 0.,
-    order: int | tuple[int, int] = 0,
-    returns: str | None = None,
-) -> np.ndarray | list[np.ndarray]:
+def gaussian_filter(image, sigma, mask=None, *, maskval=None, weights=None, nans=False,
+                    mode='masked', cval=0., order=0, returns=None):
     """Gaussian filter of an array of images, allowing for masked and/or non-uniformly
     weighted pixels.
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be a MaskedArray.
-        sigma: The standard deviation to use for the Gaussian filter. Provide two values
-            to use different standard deviations along the two trailing (spatial) axes.
-        mask: Boolean mask array, equal to True where the values in `image` are to be
-            ignored. It is broadcasted to the shape of `image` if necessary.
-        maskval: A value that should be masked wherever it appears in `image`. This can
-            be used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with
-            the pixels in `image`. A weight of zero is equivalent to a `mask` value of
-            True. This can be provided in addition to or instead of the `mask` or
-            `maskval`. It is broadcasted to the shape of `image` if necessary. Values
-            should never be negative.
-        nans: True to check `image` for NaNs and interpret them as masked values.
-        mode: The method for handling locations outside the input image boundary, one
-            of:
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be a MaskedArray.
+        sigma (float or tuple of two floats): The standard deviation to use for the
+            Gaussian filter. Provide two values to use different standard deviations
+            along the two trailing (spatial) axes.
+        mask (array, optional): Boolean mask array, equal to True where the values in
+            `image` are to be ignored. It is broadcasted to the shape of `image` if
+            necessary.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array, optional): Weight array specifying the possibly unequal weights
+            associated with the pixels in `image`. A weight of zero is equivalent to a
+            `mask` value of True. This can be provided in addition to or instead of the
+            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
+            Values should never be negative.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as masked
+            values.
+        mode (str, optional): The method for handling locations outside the input image
+            boundary, one of:
 
             * "masked": Values outside the boundary are masked.
             * "constant" (`k k k k | a b c d | k k k k`): Assume all exterior values
@@ -56,16 +48,18 @@ def gaussian_filter(
             * "mirror" (`c d c b | a b c d | c b a b`): Reflect pixels near each
               edge of the image, where pixels at the edge appear only once
               ("half-sample symmetric").
-        cval: If mode is "constant", the numeric value to fill in for areas outside
-            the boundaries of the input array. The value is cast to the dtype of
-            `image`; use None to indicate that values outside the boundaries are masked.
-        order: The order of the filter along each axis, given as a single value or a
-            tuple of two values if the order is different across the two image axes. An
-            order of 0 corresponds to convolution with a Gaussian kernel. A positive
-            order corresponds to convolution with that derivative of a Gaussian.
-        returns: Used to override the default quantity or quantities to return, one of
-            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
-            "imw" (image, mask, and weight array).
+        cval (float, optional): If mode is "constant", the numeric value to fill in for
+            areas outside the boundaries of the input array. The value is cast to the
+            dtype of `image`; use None to indicate that values outside the boundaries are
+            masked.
+        order (int or tuple of two ints, optional): The order of the filter along each
+            axis, given as a single value or a tuple of two values if the order is
+            different across the two image axes. An order of 0 corresponds to convolution
+            with a Gaussian kernel. A positive order corresponds to convolution with that
+            derivative of a Gaussian.
+        returns (str, optional): Used to override the default quantity or quantities to
+            return, one of "i" (image only), "im" (image and mask), "iw" (image and
+            weight array), or "imw" (image, mask, and weight array).
 
     Returns:
         `filtered` or (`filtered`[, `new_mask`][, `new_weights`]):

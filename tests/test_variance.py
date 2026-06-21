@@ -305,7 +305,7 @@ def test_variance_filter_biased() -> None:
             assert np.abs(a[:, i, j] - expect).max() < 1.e-13
 
 
-def test_variance_filter_weights(shortcuts) -> None:
+def test_variance_filter_weights(shortcuts: bool) -> None:
     # A weighted filter must apply the weight values (regression: the shortcut path
     # used to ignore them and return the unweighted variance). Checked on both the
     # shortcut and general code paths via the `shortcuts` fixture.

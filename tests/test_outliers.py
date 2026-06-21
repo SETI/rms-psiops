@@ -11,6 +11,9 @@ the `patched_outliers` fixture substitutes a small, correct masked Gaussian smoo
 that single collaborator.
 """
 
+from collections.abc import Callable, Iterator
+from typing import Any
+
 import numpy as np
 import pytest
 import scipy.ndimage as ndi
@@ -19,8 +22,11 @@ import psiops.outliers as outliers_module
 from psiops._filter import _use_shortcuts
 
 
-def _masked_gaussian_filter(image, sigma, mask=None, *, maskval=None, weights=None,
-                            nans=False, returns='i'):
+def _masked_gaussian_filter(image: np.ndarray, sigma: float,
+                            mask: np.ndarray | None = None, *,
+                            maskval: float | None = None,
+                            weights: np.ndarray | None = None, nans: bool = False,
+                            returns: str = 'i') -> np.ndarray:
     """A correct, weight-aware Gaussian smoother returning a single image array.
 
     This stands in for `psiops.gaussian_filter.gaussian_filter` so that the outlier
@@ -42,7 +48,7 @@ def _masked_gaussian_filter(image, sigma, mask=None, *, maskval=None, weights=No
 
 
 @pytest.fixture
-def outliers():
+def outliers() -> Iterator[Callable[..., Any]]:
     """Provide `outliers` with a working masked Gaussian smoother and no shortcuts.
 
     The resample/filter shortcut path is disabled because it has a latent defect that
@@ -52,7 +58,7 @@ def outliers():
 
     _use_shortcuts(False)
     saved = outliers_module.gaussian_filter
-    outliers_module.gaussian_filter = _masked_gaussian_filter
+    outliers_module.gaussian_filter = _masked_gaussian_filter  # type: ignore[assignment]
     try:
         yield outliers_module.outliers
     finally:
@@ -69,34 +75,34 @@ def _noisy_image(seed: int = 0, shape: tuple[int, int] = (40, 40),
 # Basic behavior
 ##########################################################################################
 
-def test_outliers_returns_bool_array(outliers) -> None:
+def test_outliers_returns_bool_array(outliers: Callable[..., Any]) -> None:
     result = outliers(_noisy_image(), footprint=8)
     assert result.dtype == np.bool_
     assert result.shape == (40, 40)
 
 
-def test_outliers_flags_injected_outlier(outliers) -> None:
+def test_outliers_flags_injected_outlier(outliers: Callable[..., Any]) -> None:
     image = _noisy_image()
     image[20, 20] += 500.0
     result = outliers(image, footprint=8, cutoff=5)
     assert result[20, 20]
 
 
-def test_outliers_clean_image_flags_nothing(outliers) -> None:
+def test_outliers_clean_image_flags_nothing(outliers: Callable[..., Any]) -> None:
     # A perfectly uniform image has no statistical outliers.
     image = np.full((30, 30), 50.0)
     result = outliers(image, footprint=8, cutoff=5)
     assert not result.any()
 
 
-def test_outliers_does_not_flag_typical_noise(outliers) -> None:
+def test_outliers_does_not_flag_typical_noise(outliers: Callable[..., Any]) -> None:
     # Pure Gaussian noise with a generous cutoff should flag few or no pixels.
     image = _noisy_image(seed=3, noise=1.0)
     result = outliers(image, footprint=10, cutoff=8)
     assert result.sum() < 5
 
 
-def test_outliers_higher_cutoff_flags_fewer(outliers) -> None:
+def test_outliers_higher_cutoff_flags_fewer(outliers: Callable[..., Any]) -> None:
     image = _noisy_image(seed=1)
     image[10, 10] += 50.0
     image[25, 30] += 30.0
@@ -109,7 +115,7 @@ def test_outliers_higher_cutoff_flags_fewer(outliers) -> None:
 # Mask, maskval, weights, NaNs
 ##########################################################################################
 
-def test_outliers_preserves_input_mask(outliers) -> None:
+def test_outliers_preserves_input_mask(outliers: Callable[..., Any]) -> None:
     image = _noisy_image()
     mask = np.zeros((40, 40), dtype=bool)
     mask[0, 0] = True
@@ -117,7 +123,7 @@ def test_outliers_preserves_input_mask(outliers) -> None:
     assert result[0, 0]
 
 
-def test_outliers_mask_result_shape(outliers) -> None:
+def test_outliers_mask_result_shape(outliers: Callable[..., Any]) -> None:
     image = _noisy_image()
     mask = np.zeros((40, 40), dtype=bool)
     mask[5, 5] = True
@@ -125,21 +131,21 @@ def test_outliers_mask_result_shape(outliers) -> None:
     assert result.shape == (40, 40)
 
 
-def test_outliers_with_maskval(outliers) -> None:
+def test_outliers_with_maskval(outliers: Callable[..., Any]) -> None:
     image = _noisy_image()
     sentinel = float(image[0, 0])
     result = outliers(image, footprint=8, maskval=sentinel)
     assert result.shape == (40, 40)
 
 
-def test_outliers_with_weights(outliers) -> None:
+def test_outliers_with_weights(outliers: Callable[..., Any]) -> None:
     image = _noisy_image()
     weights = np.ones((40, 40))
     result = outliers(image, footprint=8, weights=weights)
     assert result.shape == (40, 40)
 
 
-def test_outliers_nans_treated_as_masked(outliers) -> None:
+def test_outliers_nans_treated_as_masked(outliers: Callable[..., Any]) -> None:
     image = _noisy_image()
     image[5, 5] = np.nan
     result = outliers(image, footprint=8, nans=True)
@@ -151,7 +157,7 @@ def test_outliers_nans_treated_as_masked(outliers) -> None:
 # Quantile parameter
 ##########################################################################################
 
-def test_outliers_quantile_one_skips_clipping(outliers) -> None:
+def test_outliers_quantile_one_skips_clipping(outliers: Callable[..., Any]) -> None:
     # quantile == 1.0 bypasses the squared-difference clipping branch.
     image = _noisy_image()
     image[15, 15] += 400.0
@@ -160,7 +166,7 @@ def test_outliers_quantile_one_skips_clipping(outliers) -> None:
     assert result[15, 15]
 
 
-def test_outliers_quantile_below_one_clips(outliers) -> None:
+def test_outliers_quantile_below_one_clips(outliers: Callable[..., Any]) -> None:
     # quantile < 1.0 clips the squared-difference image. A bright cluster (a few
     # percent of the pixels) survives the clip and is still detected.
     image = _noisy_image()
@@ -169,7 +175,8 @@ def test_outliers_quantile_below_one_clips(outliers) -> None:
     assert result[18:22, 18:22].any()
 
 
-def test_outliers_quantile_with_mask_uses_unmasked_pixels(outliers) -> None:
+def test_outliers_quantile_with_mask_uses_unmasked_pixels(
+        outliers: Callable[..., Any]) -> None:
     # Exercises the masked branch of the quantile clipping computation.
     image = _noisy_image()
     image[18:22, 18:22] += 200.0
@@ -179,7 +186,7 @@ def test_outliers_quantile_with_mask_uses_unmasked_pixels(outliers) -> None:
     assert result[18:22, 18:22].any()
 
 
-def test_outliers_axis_reduces_stack(outliers) -> None:
+def test_outliers_axis_reduces_stack(outliers: Callable[..., Any]) -> None:
     # The `axis` parameter builds the noise model by reducing a stack of images
     # across that axis with keepdims=True (exercising the axis branch). The reduced
     # axis is retained as size 1, so a (5, 40, 40) stack reduced over axis 0 yields a

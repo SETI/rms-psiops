@@ -11,18 +11,8 @@ from .gaussian_filter import gaussian_filter
 from .median import median, median_filter
 
 
-def outliers(
-    image: np.ndarray,
-    footprint: float = 10,
-    *,
-    cutoff: float = 5,
-    quantile: float = 0.999,
-    axis: int | tuple[int, ...] | None = None,
-    mask: np.ndarray | None = None,
-    maskval: float | None = None,
-    weights: np.ndarray | None = None,
-    nans: bool = False,
-) -> np.ndarray:
+def outliers(image, footprint=10, *, cutoff=5, quantile=0.999, axis=None, mask=None,
+             maskval=None, weights=None, nans=False):
     """A mask identifying pixels of the given image that are excessively bright compared
     to their surroundings.
 
@@ -32,34 +22,36 @@ def outliers(
     specified number of standard deviations are identified as outliers.
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be a MaskedArray.
-        footprint: The diameter in pixels of the median filter to be applied to the
-            image. This should be a few times larger than the size of the largest clump
-            of pixels to be identified as outliers.
-        cutoff: The number of standard deviations by which a pixel must deviate from
-            the local median for it to be identified as an outlier.
-        quantile: The fractional cutoff in the histogram of inferred standard deviations
-            above which values are truncated. This prevents bright objects from
-            contributing excessively to the noise amplitude analysis.
-        axis: One or more axes along which to assume that the images have identical
-            properties, given as an integer or tuple of integers; None to operate over
-            all but the last two (spatial) axes. When images have identical properties,
-            the image-to-image variation can contribute to the analysis by providing a
-            more robust estimate of the noise amplitude. Note that negative axes count
-            backwards from the first spatial axis, so axis=-1 actually refers to the
-            third-to-last axis of the image array. Default is to treat every 2-D image
-            as independent.
-        mask: Boolean mask array, equal to True where the values in `image` are to be
-            ignored. It is broadcasted to the shape of `image` if necessary.
-        maskval: A value that should be masked wherever it appears in `image`. This can
-            be used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with
-            the pixels in `image`. A weight of zero is equivalent to a `mask` value of
-            True. This can be provided in addition to or instead of the `mask` or
-            `maskval`. It is broadcasted to the shape of `image` if necessary. Values
-            should never be negative.
-        nans: True to check `image` for NaNs and interpret them as masked values.
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be a MaskedArray.
+        footprint (float, optional): The diameter in pixels of the median filter to be
+            applied to the image. This should be a few times larger than the size of the
+            largest clump of pixels to be identified as outliers.
+        cutoff (float, optional): The number of standard deviations by which a pixel must
+            deviate from the local median for it to be identified as an outlier.
+        quantile (float, optional): The fractional cutoff in the histogram of inferred
+            standard deviations above which values are truncated. This prevents bright
+            objects from contributing excessively to the noise amplitude analysis.
+        axis (int or tuple of ints, optional): One or more axes along which to assume
+            that the images have identical properties, given as an integer or tuple of
+            integers; None to operate over all but the last two (spatial) axes. When
+            images have identical properties, the image-to-image variation can contribute
+            to the analysis by providing a more robust estimate of the noise amplitude.
+            Note that negative axes count backwards from the first spatial axis, so
+            axis=-1 actually refers to the third-to-last axis of the image array. Default
+            is to treat every 2-D image as independent.
+        mask (array, optional): Boolean mask array, equal to True where the values in
+            `image` are to be ignored. It is broadcasted to the shape of `image` if
+            necessary.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array, optional): Weight array specifying the possibly unequal weights
+            associated with the pixels in `image`. A weight of zero is equivalent to a
+            `mask` value of True. This can be provided in addition to or instead of the
+            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
+            Values should never be negative.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as
+            masked values.
 
     Returns:
         A new boolean mask that incorporates the original `mask` but is also True where

@@ -24,13 +24,10 @@ be a polynomial of arbitrary order.
 
 Because all coefficients are linear, the `fit` function can use linear least-squares
 fitting (which is very fast and efficient) to solve for the coefficients that allow a
-stretched image to optimally match the values in another image.
+stretched image to optimally match the values in a target image.
 """
 
-from collections.abc import Sequence
-
 import numpy as np
-import numpy.typing as npt
 import scipy.linalg
 
 from ._utils import _merge_weights
@@ -75,34 +72,26 @@ class Stretch:
         s_sigma (array or scalar): The uncertainty in `scaling`.
     """
 
-    def __init__(
-        self,
-        orders: Sequence[int],
-        coeffs: npt.ArrayLike | None = None,
-        *,
-        image: np.ndarray | None = None,
-        mask: np.ndarray | None = None,
-        maskval: float | None = None,
-        weights: np.ndarray | None = None,
-        nans: bool = False,
-    ) -> None:
+    def __init__(self, orders, coeffs=None, *, image=None, mask=None, maskval=None,
+                 weights=None, nans=False):
         """Constructor for a Stretch.
 
         Parameters:
-            orders: The sequence of integer orders of the polynomials for each 2-D
-                function that will be applied to an image. For example, [2,0] describes a
-                Stretch involving a second-order background polynomial plus a constant
-                multiplying the image. Note that an order of -1 means that a function is
-                zero, so [-1,0] represents a simple scale factor on the image, with no
-                offset.
-            coeffs: The sequence of coefficients that are used for the polynomial
-                functions comprising this Stretch. Note that if a polynomial is order `n`,
-                then ((n+1) * (n+2))//2 coefficients are required. For example, if
-                `orders` is [2,0], then seven coefficients are needed: six for the
-                second-order function followed by one for the zero-order function. If
-                these are not specified with the constructor, they can be filled in later.
-            image: The 2-D image to which this Stretch is to be applied. This can be
-                specified with the constructor or else by calling `apply`.
+            orders (sequence of ints): The sequence of integer orders of the polynomials
+                for each 2-D function that will be applied to an image. For example, (2,0)
+                describes a Stretch involving a second-order background polynomial plus a
+                constant multiplying the image. Note that an order of -1 means that a
+                function is zero, so (-1,0) represents a simple scale factor on the image,
+                with no offset.
+            coeffs (array-like, optional): The sequence of coefficients that are used for
+                the polynomial functions comprising this Stretch. Note that if a
+                polynomial is order `n`, then ((n+1) * (n+2))//2 coefficients are
+                required. For example, if `orders` is [2,0], then seven coefficients are
+                needed: six for the second-order function followed by one for the
+                zero-order function. If these are not specified with the constructor, they
+                can be filled in later.
+            image (array, optional): The 2-D image to which this Stretch is to be applied.
+                This can be specified with the constructor or else by calling `apply`.
         """
 
         self.orders = tuple(orders)
@@ -118,7 +107,7 @@ class Stretch:
 
         # Info about the image to which this Stretch is applied
         self.image = None
-        self.image_mask = None         # could be None
+        self.image_mask = None          # could be None
         self.shape = None
 
         self._image_powers = []         # [image, image**2, ...]
@@ -136,7 +125,7 @@ class Stretch:
 
         self._reset_fit()
 
-    def _reset_fit(self) -> None:
+    def _reset_fit(self):
         """Initialize info about the latest fit."""
 
         self.mask = None
@@ -147,15 +136,12 @@ class Stretch:
         self.rms = None
         self.covar = None
 
-    def set_coeffs(
-        self,
-        coeffs: npt.ArrayLike,
-    ) -> None:
+    def set_coeffs(self, coeffs):
         """Set the coefficients of the Stretch.
 
         Parameters:
-            coeffs: The sequence of coefficients for this Stretch. Must have exactly
-                `self.ncoeffs` elements.
+            coeffs (array-like): The sequence of coefficients for this Stretch. Must have
+                exactly `self.ncoeffs` elements.
 
         Raises:
             ValueError: If the number of coefficients does not match `self.ncoeffs`.
@@ -168,24 +154,19 @@ class Stretch:
         self.coeffs = coeffs
         self._reset_fit()
 
-    def set_image(
-        self,
-        image: np.ndarray,
-        mask: np.ndarray | None = None,
-        maskval: float | None = None,
-        nans: bool = False,
-    ) -> None:
+    def set_image(self, image, mask=None, maskval=None, nans=False):
         """Assign the given image to this Stretch.
 
         The image can be masked but cannot have variable weights.
 
         Parameters:
-            image: The 2-D image, to which this Stretch object should apply.
-            mask: Boolean mask array, equal to True where the values in `image` are to be
-                ignored.
-            maskval: A value that should be masked wherever it appears in `target`. This
-                can be used instead of or in addition to the `image`.
-            nans: True to check `image` for NaNs and interpret them as masked values.
+            image (array): The 2-D image, to which this Stretch object should apply.
+            mask (array, optional): Boolean mask array, equal to True where the values in
+                `image` are to be ignored.
+            maskval (float, optional): A value that should be masked wherever it appears
+                in `target`. This can be used instead of or in addition to the `image`.
+            nans (bool, optional): True to check `image` for NaNs and interpret them as
+                masked values.
         """
 
         image, mask, _, _ = _check_image(image, mask, maskval=maskval, nans=nans,
@@ -233,28 +214,21 @@ class Stretch:
 
         self._reset_fit()
 
-    def set_target(
-        self,
-        target: np.ndarray,
-        *,
-        mask: np.ndarray | None = None,
-        maskval: float | None = None,
-        weights: np.ndarray | None = None,
-        nans: bool = False,
-    ) -> None:
+    def set_target(self, target, *, mask=None, maskval=None, weights=None, nans=False):
         """Set the target image of the fitting.
 
         Parameters:
-            target: The 2-D target image, which this Stretch object should match.
-            mask: Boolean mask array, equal to True where the values in `target` are to
-                be ignored.
-            maskval: A value that should be masked wherever it appears in `target`. This
-                can be used instead of or in addition to the `mask`.
-            weights: Weight array specifying the possibly unequal weights associated with
-                the pixels in `target`. A weight of zero is equivalent to a `mask` value
-                of True. This can be provided in addition to or instead of the `mask` or
-                `maskval`. Values should never be negative.
-            nans: True to check `target` for NaNs and interpret them as masked values.
+            target (array): The 2-D target image, which this Stretch object should match.
+            mask (array, optional): Boolean mask array, equal to True where the values in
+                `target` are to be ignored.
+            maskval (float, optional): A value that should be masked wherever it appears
+                in `target`. This can be used instead of or in addition to the `mask`.
+            weights (array, optional): Weight array specifying the possibly unequal
+                weights associated with the pixels in `target`. A weight of zero is
+                equivalent to a `mask` value of True. This can be provided in addition to
+                or instead of the `mask` or `maskval`. Values should never be negative.
+            nans (bool, optional): True to check `target` for NaNs and interpret them as
+                masked values.
 
         Raises:
             ValueError: If `target` shape does not match the image shape.
@@ -283,7 +257,7 @@ class Stretch:
 
         self._reset_fit()
 
-    def fit(self) -> None:
+    def fit(self):
         """Fit the stretched image to the target.
 
         This function updates these attributes of this Stretch:
@@ -355,19 +329,14 @@ class Stretch:
     # Array evaluation
     ######################################################################################
 
-    def _eval(
-        self,
-        imin: int,
-        rank: int,
-        powers_only: bool = False,
-    ) -> np.ndarray | float:
+    def _eval(self, imin, rank, powers_only=False):
         """Evaluate part of the Stretch after a fit.
 
         Parameters:
-            imin: Starting index in the coefficients array.
-            rank: Number of coefficients to use.
-            powers_only: If True, use only the polynomial powers of (i,j) rather than
-                the full matrix.
+            imin (int): Starting index in the coefficients array.
+            rank (int): Number of coefficients to use.
+            powers_only (bool, optional): If True, use only the polynomial powers of (i,j)
+                rather than the full matrix.
 
         Returns:
             The evaluated 2-D array or scalar result.
@@ -396,19 +365,14 @@ class Stretch:
             result = result + self.coeffs[imin+c] * matrix3d[c]
         return result
 
-    def _sigma(
-        self,
-        imin: int,
-        rank: int,
-        powers_only: bool = False,
-    ) -> np.ndarray:
+    def _sigma(self, imin, rank, powers_only=False):
         """Evaluate the uncertainty in part of the Stretch after a fit.
 
         Parameters:
-            imin: Starting index in the coefficients array.
-            rank: Number of coefficients to use.
-            powers_only: If True, use only the polynomial powers of (i,j) rather than
-                the full matrix.
+            imin (int): Starting index in the coefficients array.
+            rank (int): Number of coefficients to use.
+            powers_only (bool, optional): If True, use only the polynomial powers of (i,j)
+                rather than the full matrix.
 
         Returns:
             The 2-D array of uncertainties.
@@ -445,17 +409,17 @@ class Stretch:
         return np.sqrt(var)
 
     @property
-    def model(self) -> np.ndarray:
+    def model(self):
         """The 2-D model obtained by applying this Stretch to the applied image."""
         return self._eval(0, self.ncoeffs)
 
     @property
-    def background(self) -> np.ndarray:
+    def background(self):
         """The model background array that best fits the target image."""
         return self._eval(0, self.ranks[0])
 
     @property
-    def scaling(self) -> np.ndarray:
+    def scaling(self):
         """The model scale factor array that multiplies the image to best fits the target.
 
         Note that this returned result neglects the scaling of any second- or higher-order
@@ -464,7 +428,7 @@ class Stretch:
         return self._eval(self.ranks[0], self.ranks[1], powers_only=True)
 
     @property
-    def residuals(self) -> np.ndarray:
+    def residuals(self):
         """The 2-D array of residuals image minus model."""
         diff = self.target - self.model
         if self.mask is not None:
@@ -472,23 +436,23 @@ class Stretch:
         return diff
 
     @property
-    def residuals_1d(self) -> np.ndarray:
+    def residuals_1d(self):
         """The 1-D array of unmasked residuals."""
         diff = self.target - self.model
         return diff[self._antimask]
 
     @property
-    def m_sigma(self) -> np.ndarray:
+    def m_sigma(self):
         """Statistical uncertainty in the 2-D model."""
         return self._sigma(0, self.ncoeffs)
 
     @property
-    def b_sigma(self) -> np.ndarray:
+    def b_sigma(self):
         """Statistical uncertainty in the 2-D background."""
         return self._sigma(0, self.ranks[0])
 
     @property
-    def s_sigma(self) -> np.ndarray:
+    def s_sigma(self):
         """Statistical uncertainty in the 2-D scaling."""
         return self._sigma(self.ranks[0], self.ranks[1], powers_only=True)
 
@@ -497,15 +461,13 @@ class Stretch:
     ######################################################################################
 
     @staticmethod
-    def _rank_from_order(
-        order: int,
-    ) -> int:
+    def _rank_from_order(order):
         """Convert the polynomial order to number of coefficients::
 
                 -1 -> 0; 1 -> 1; 2 -> 3; 3 -> 6; 4 -> 10; etc.
 
         Parameters:
-            order: The order of the 2-D polynomial; -1 or None for no polynomial.
+            order (int): The order of the 2-D polynomial; -1 or None for no polynomial.
 
         Returns:
             The number of polynomial coefficients; always a triangular number.

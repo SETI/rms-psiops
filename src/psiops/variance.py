@@ -5,59 +5,49 @@
 import warnings
 
 import numpy as np
-import numpy.typing as npt
 
 from psiops._filter import _apply_op_as_filter, _use_shortcuts
 from psiops._utils import (
     _check_axis,
     _flatten_axes,
-    _ImageInfo,
     _merge_weights,
     _pixel_area,
 )
 from psiops._validation import _check_image, _check_return
 
 
-def variance(
-    image: np.ndarray,
-    mask: np.ndarray | None = None,
-    *,
-    maskval: float | None = None,
-    weights: np.ndarray | None = None,
-    nans: bool = False,
-    axis: int | tuple[int, ...] | None = None,
-    keepdims: bool = False,
-    factors: npt.ArrayLike | None = None,
-    vartype: str = 'reliability',
-    returns: str | None = None,
-) -> np.ndarray | list[np.ndarray]:
+def variance(image, mask=None, *, maskval=None, weights=None, nans=False, axis=None,
+             keepdims=False, factors=None, vartype='reliability', returns=None):
     """Variance among the pixels in an array of images, accounting for masked pixels
     and/or weights.
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be a MaskedArray. Must be at least 3-D.
-        mask: Boolean mask array, equal to True where the values in `image` are to be
-            ignored. It is broadcasted to the shape of `image` if necessary.
-        maskval: A value that should be masked wherever it appears in `image`. This can
-            be used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with the
-            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
-            This can be provided in addition to or instead of the `mask` or `maskval`. It
-            is broadcasted to the shape of `image` if necessary. Values should never be
-            negative.
-        nans: True to check `image` for NaNs and interpret them as masked values.
-        axis: The axis or axes over which to operate, given as an integer or tuple of
-            integers; None to operate over all but the last two (spatial) axes. Note that
-            negative axes count backwards from the first spatial axis, so axis=-1 actually
-            refers to the third-to-last axis of the image array.
-        keepdims: If True, the axes that are reduced are left in the result as dimensions
-            with size one. With this option, the results will broadcast correctly against
-            the input arrays.
-        factors: Array of weights to be applied to the non-spatial axes of the `image`
-            array. It is broadcasted to the shape of the image after excluding the
-            image's trailing two (spatial) axes.
-        vartype: The type of the variance estimate:
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be a MaskedArray. Must be at least 3-D.
+        mask (array, optional): Boolean mask array, equal to True where the values in
+            `image` are to be ignored. It is broadcasted to the shape of `image` if
+            necessary.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array, optional): Weight array specifying the possibly unequal weights
+            associated with the pixels in `image`. A weight of zero is equivalent to a
+            `mask` value of True. This can be provided in addition to or instead of the
+            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
+            Values should never be negative.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as masked
+            values.
+        axis (int or tuple of ints, optional): The axis or axes over which to operate,
+            given as an integer or tuple of integers; None to operate over all but the
+            last two (spatial) axes. Note that negative axes count backwards from the
+            first spatial axis, so axis=-1 actually refers to the third-to-last axis of
+            the image array.
+        keepdims (bool, optional): If True, the axes that are reduced are left in the
+            result as dimensions with size one. With this option, the results will
+            broadcast correctly against the input arrays.
+        factors (array-like, optional): Array of weights to be applied to the non-spatial
+            axes of the `image` array. It is broadcasted to the shape of the image after
+            excluding the image's trailing two (spatial) axes.
+        vartype (str, optional): The type of the variance estimate:
 
             * "biased": The divisor used in the variance calculation is the number of
               unmasked items or the sum of the weights. This is equivalent to using
@@ -75,9 +65,9 @@ def variance(
             See further info here:
                 https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Related_concepts
 
-        returns: Used to override the default quantity or quantities to return, one of
-            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
-            "imw" (image, mask, and weight array).
+        returns (str, optional): Used to override the default quantity or quantities to
+            return, one of "i" (image only), "im" (image and mask), "iw" (image and weight
+            array), or "imw" (image, mask, and weight array).
 
     Returns:
         `var_image` or (`var_image`[, `new_mask`][, `new_weights`]):
@@ -119,27 +109,19 @@ def variance(
     return _check_return(var_image, new_mask, new_weights, info)
 
 
-def _variance(
-    image: np.ndarray,
-    mask: np.ndarray | None,
-    weights: np.ndarray | None,
-    info: _ImageInfo,
-    axis: tuple[int, ...],
-    *,
-    factors: npt.ArrayLike | None = None,
-    vartype: str = 'reliability',
-) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
+def _variance(image, mask, weights, info, axis, *, factors=None, vartype='reliability'):
     """Internal implementation of variance().
 
     Parameters:
-        image: Image array.
-        mask: Boolean mask array, or None.
-        weights: Weight array, or None.
-        info: The `_ImageInfo` object returned by `_check_image`.
-        axis: Resolved tuple of axis indices over which to operate.
-        factors: Optional extra weight factors applied along non-spatial axes.
-        vartype: The type of variance estimate; one of "biased", "unbiased",
-            "frequency", or "reliability".
+        image (array): Image array.
+        mask (array, optional): Boolean mask array, or None.
+        weights (array, optional): Weight array, or None.
+        info (_ImageInfo): The `_ImageInfo` object returned by `_check_image`.
+        axis (tuple of ints): Resolved tuple of axis indices over which to operate.
+        factors (array-like, optional): Optional extra weight factors applied along
+            non-spatial axes.
+        vartype (str, optional): The type of variance estimate; one of "biased",
+            "unbiased", "frequency", or "reliability".
 
     Returns:
         A tuple (`var_image`, `new_mask`, `new_weights`).
@@ -217,34 +199,28 @@ def _variance(
     return (var_image, None, new_weights)
 
 
-def variance_filter(
-    image: np.ndarray,
-    footprint: npt.ArrayLike | int | tuple[int, int],
-    *,
-    mask: np.ndarray | None = None,
-    maskval: float | None = None,
-    weights: np.ndarray | None = None,
-    nans: bool = False,
-    vartype: str = 'reliability',
-    returns: str | None = None,
-) -> np.ndarray | list[np.ndarray]:
+def variance_filter(image, footprint, *, mask=None, maskval=None, weights=None,
+                    nans=False, vartype='reliability', returns=None):
     """Filter this image such that each new pixel contains the variance among the pixels
     within the specified footprint.
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be a MaskedArray.
-        footprint: The 2-D boolean footprint array or else an integer or tuple of two
-            integers defining the rectangular shape of the footprint.
-        mask: Boolean mask array with the same shape as `image` and equal to True where
-            the values in `image` are to be ignored.
-        maskval: A value that should be masked wherever it appears in `image`. This can
-            be used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with the
-            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
-            This can be provided in addition to or instead of the `mask` or `maskval`.
-        nans: True to check `image` for NaNs and interpret them as masked values.
-        vartype: The type of the variance estimate:
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be a MaskedArray.
+        footprint (array-like, int, or tuple of two ints): The 2-D boolean footprint
+            array or else an integer or tuple of two integers defining the rectangular
+            shape of the footprint.
+        mask (array, optional): Boolean mask array with the same shape as `image` and
+            equal to True where the values in `image` are to be ignored.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array, optional): Weight array specifying the possibly unequal weights
+            associated with the pixels in `image`. A weight of zero is equivalent to a
+            `mask` value of True. This can be provided in addition to or instead of the
+            `mask` or `maskval`.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as masked
+            values.
+        vartype (str, optional): The type of the variance estimate:
 
             * "biased": The divisor used in the variance calculation is the number of
               unmasked items or the sum of the weights. This is equivalent to using
@@ -262,9 +238,9 @@ def variance_filter(
             See further info here:
                 https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Related_concepts
 
-        returns: Used to override the default quantity or quantities to return, one of
-            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
-            "imw" (image, mask, and weight array).
+        returns (str, optional): Used to override the default quantity or quantities to
+            return, one of "i" (image only), "im" (image and mask), "iw" (image and weight
+            array), or "imw" (image, mask, and weight array).
 
     Returns:
         `var_image` or (`var_image`[, `new_mask`][, `new_weights`]):

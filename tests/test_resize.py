@@ -98,19 +98,19 @@ def test_resize_mixed_with_mask() -> None:
 def test_resize_errors() -> None:
     image = _make_image()
     with pytest.raises(TypeError):
-        resize(image, 3.2)
+        resize(image, 3.2)  # type: ignore[call-overload]
     with pytest.raises(TypeError):
-        resize(image, (3.2, 1))
+        resize(image, (3.2, 1))  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        resize(image, '')
+        resize(image, '')  # type: ignore[call-overload]
     with pytest.raises(ValueError):
         resize(image, (-3, 1))
     with pytest.raises(ValueError):
-        resize(image, (1, 2, 3))
+        resize(image, (1, 2, 3))  # type: ignore[arg-type]
     with pytest.raises(ValueError):
-        resize(image, (2,))
+        resize(image, (2,))  # type: ignore[arg-type]
     with pytest.raises(ValueError):
-        resize(image, None)
+        resize(image, None)  # type: ignore[call-overload]
 
 
 def test_resize_dtype_float32_preserved() -> None:
@@ -124,7 +124,7 @@ def test_resize_scalar_mask_broadcast() -> None:
     array = np.arange(10)
     image = (array + array[:, np.newaxis]).astype('float32')
     # A scalar mask should be broadcast and converted to bool
-    resized, rmask = resize(image, (12, 9), mask=7.)
+    resized, rmask = resize(image, (12, 9), mask=7.)  # type: ignore[call-overload]
     assert rmask.dtype == np.dtype('bool')
     assert rmask.shape == resized.shape
     assert np.all(rmask)

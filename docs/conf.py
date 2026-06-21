@@ -84,6 +84,10 @@ napoleon_use_rtype = True
 napoleon_preprocess_types = False
 napoleon_type_aliases = None
 napoleon_attr_annotations = True
+# 'Properties' is a non-standard section used by some classes (e.g. Stretch) to document
+# read-only properties; render it as a parameter-style field list (the real properties are
+# documented separately as members, so an 'Attributes' alias would duplicate them).
+napoleon_custom_sections = [('Properties', 'params_style')]
 
 # Intersphinx settings
 intersphinx_mapping = {

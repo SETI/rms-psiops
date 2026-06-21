@@ -31,6 +31,7 @@ def test_check_tuple() -> None:
 
 def test_check_tuple_errors() -> None:
 
+    exc_info: pytest.ExceptionInfo[Exception]
     with pytest.raises(ValueError) as exc_info:
         _ = _check_tuple(None, 'index')
     assert str(exc_info.value) == 'missing index'
@@ -92,6 +93,7 @@ def test_check_axis() -> None:
 
 def test_check_axis_errors() -> None:
 
+    exc_info: pytest.ExceptionInfo[Exception]
     with pytest.raises(TypeError) as exc_info:
         _ = _check_axis(1.5, (2,3,4,100,100))
     assert str(exc_info.value) == 'invalid axis of type float: 1.5'
@@ -368,7 +370,7 @@ def test_apply_op_as_filter_masked() -> None:
         _usable_bytes(0)
 
 
-def test_apply_op_as_filter_unmasked(shortcuts) -> None:
+def test_apply_op_as_filter_unmasked(shortcuts: bool) -> None:
 
     # With shortcuts disabled, the unmasked path also exercises _apply_op_as_filter.
     # With shortcuts enabled, scipy handles it directly (so the layer/tile counts do not

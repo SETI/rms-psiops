@@ -17,7 +17,7 @@ from psiops.imagemodel.summedmodel import SummedModel
 
 
 @pytest.fixture
-def no_shortcuts():
+def no_shortcuts() -> None:
     """Disable filter/resample shortcut paths for resample-based models.
 
     The optimized resample shortcut path has a latent defect when no weights are
@@ -156,36 +156,36 @@ def test_arraymodel_explicit_origin() -> None:
     assert np.array_equal(model._origin, np.array([1.0, 2.0]))
 
 
-def test_arraymodel_transform_shape(no_shortcuts) -> None:
+def test_arraymodel_transform_shape(no_shortcuts: None) -> None:
     model = ArrayModel(_delta())
     assert model.transform((9, 11), (4.5, 5.5)).shape == (9, 11)
 
 
-def test_arraymodel_preserves_integral(no_shortcuts) -> None:
+def test_arraymodel_preserves_integral(no_shortcuts: None) -> None:
     model = ArrayModel(_delta(value=3.0))
     result = model.transform((11, 11), (5.5, 5.5))
     assert result.sum() == pytest.approx(3.0)
 
 
-def test_arraymodel_expand_preserves_integral(no_shortcuts) -> None:
+def test_arraymodel_expand_preserves_integral(no_shortcuts: None) -> None:
     model = ArrayModel(_delta(value=4.0))
     result = model.transform((15, 15), (7.5, 7.5), expand=2.0)
     assert result.sum() == pytest.approx(4.0)
 
 
-def test_arraymodel_rotate_preserves_integral(no_shortcuts) -> None:
+def test_arraymodel_rotate_preserves_integral(no_shortcuts: None) -> None:
     model = ArrayModel(_delta(value=5.0))
     result = model.transform((15, 15), (7.5, 7.5), rotate=np.pi / 4)
     assert result.sum() == pytest.approx(5.0, abs=1e-6)
 
 
-def test_arraymodel_rotate_with_expand_preserves_integral(no_shortcuts) -> None:
+def test_arraymodel_rotate_with_expand_preserves_integral(no_shortcuts: None) -> None:
     model = ArrayModel(_delta(value=2.0))
     result = model.transform((17, 17), (8.5, 8.5), rotate=0.6, expand=2.0)
     assert result.sum() == pytest.approx(2.0, abs=1e-6)
 
 
-def test_arraymodel_outside_fill(no_shortcuts) -> None:
+def test_arraymodel_outside_fill(no_shortcuts: None) -> None:
     # A small source on a large grid leaves the corners filled with `outside`.
     model = ArrayModel(_delta(value=1.0), outside=9.0)
     result = model.transform((9, 9), (4.5, 4.5))
@@ -193,13 +193,13 @@ def test_arraymodel_outside_fill(no_shortcuts) -> None:
     assert result[-1, -1] == pytest.approx(9.0)
 
 
-def test_arraymodel_outside_default_is_zero(no_shortcuts) -> None:
+def test_arraymodel_outside_default_is_zero(no_shortcuts: None) -> None:
     model = ArrayModel(_delta())
     result = model.transform((9, 9), (4.5, 4.5))
     assert result[0, 0] == pytest.approx(0.0)
 
 
-def test_arraymodel_accepts_list_input(no_shortcuts) -> None:
+def test_arraymodel_accepts_list_input(no_shortcuts: None) -> None:
     model = ArrayModel([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]])
     result = model.transform((7, 7), (3.5, 3.5))
     assert result.sum() == pytest.approx(1.0)

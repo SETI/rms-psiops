@@ -2,13 +2,15 @@
 # tests/test_rotate.py
 ##########################################################################################
 
+from typing import Any
+
 import numpy as np
 import pytest
 
 from psiops.rotate import rotate
 
 
-def _full_pixel_weights_ok(debug: dict, shape: tuple[int, int],
+def _full_pixel_weights_ok(debug: dict[str, Any], shape: tuple[int, int],
                            tol: float = 1.e-8) -> float:
     """Return the maximum per-source-pixel total-overlap-area error.
 
@@ -31,9 +33,9 @@ def _full_pixel_weights_ok(debug: dict, shape: tuple[int, int],
 # Area-conservation tests
 ##########################################################################################
 
-def test_rotate_45_square_shape_and_weights(shortcuts) -> None:
+def test_rotate_45_square_shape_and_weights(shortcuts: bool) -> None:
     image = np.arange(10) + np.arange(10)[:, np.newaxis]
-    debug = {}
+    debug: dict[str, Any] = {}
     result = rotate(image, np.pi/4, _debug=debug)
     rotated = result[0]
     center = debug['new_center']
@@ -48,16 +50,16 @@ def test_rotate_45_square_shape_and_weights(shortcuts) -> None:
     assert np.max(np.abs(weight[7:9, 2:14] - 1)) < 1.e-8
 
 
-def test_rotate_45_square_area_conserved(shortcuts) -> None:
+def test_rotate_45_square_area_conserved(shortcuts: bool) -> None:
     image = np.arange(10) + np.arange(10)[:, np.newaxis]
-    debug = {}
+    debug: dict[str, Any] = {}
     rotate(image, np.pi/4, _debug=debug)
     assert _full_pixel_weights_ok(debug, image.shape) < 1.e-8
 
 
-def test_rotate_60_nonsquare_shape_and_weights(shortcuts) -> None:
+def test_rotate_60_nonsquare_shape_and_weights(shortcuts: bool) -> None:
     image = np.arange(10) + 3 * np.arange(20)[:, np.newaxis]
-    debug = {}
+    debug: dict[str, Any] = {}
     result = rotate(image, np.pi/3, _debug=debug)
     rotated = result[0]
     center = debug['new_center']
@@ -67,19 +69,19 @@ def test_rotate_60_nonsquare_shape_and_weights(shortcuts) -> None:
     assert np.sum(weight > 0.99) == 166
 
 
-def test_rotate_60_nonsquare_area_conserved(shortcuts) -> None:
+def test_rotate_60_nonsquare_area_conserved(shortcuts: bool) -> None:
     image = np.arange(10) + 3 * np.arange(20)[:, np.newaxis]
-    debug = {}
+    debug: dict[str, Any] = {}
     rotate(image, np.pi/3, _debug=debug)
     assert _full_pixel_weights_ok(debug, image.shape) < 1.e-8
 
 
-def test_rotate_random_angles_area_conserved(shortcuts) -> None:
+def test_rotate_random_angles_area_conserved(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = np.arange(10) + 2 * np.arange(20)[:, np.newaxis]
     for _k in range(300):
         angle = 2 * np.pi * rng.random()
-        debug = {}
+        debug: dict[str, Any] = {}
         rotate(image, angle, _debug=debug)
         if debug['area_list'] is None:
             continue  # exact pi/2 multiple: area list not available
@@ -90,9 +92,9 @@ def test_rotate_random_angles_area_conserved(shortcuts) -> None:
 # Masked-pixel handling
 ##########################################################################################
 
-def test_rotate_45_isolated_masked_pixels(shortcuts) -> None:
+def test_rotate_45_isolated_masked_pixels(shortcuts: bool) -> None:
     image = np.arange(10) + 2 * np.arange(10)[:, np.newaxis]
-    debug0 = {}
+    debug0: dict[str, Any] = {}
     result0 = rotate(image, np.pi/4, _debug=debug0)
     rotated0 = result0[0]
     rmask0 = debug0['new_mask']
@@ -101,7 +103,7 @@ def test_rotate_45_isolated_masked_pixels(shortcuts) -> None:
     mask[3, 3] = mask[5, 5] = mask[7, 7] = True
     image[mask] = -999
 
-    debug = {}
+    debug: dict[str, Any] = {}
     result = rotate(image, np.pi/4, mask, _debug=debug)
     rotated = result[0]
     rmask = debug['new_mask']
@@ -113,20 +115,20 @@ def test_rotate_45_isolated_masked_pixels(shortcuts) -> None:
     assert abs(np.sum(weight) - np.sum(~mask)) < 1.e-9
 
 
-def test_rotate_many_masked_pixels_unweighted(shortcuts) -> None:
+def test_rotate_many_masked_pixels_unweighted(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = np.arange(10) + 2 * np.arange(20)[:, np.newaxis]
     for _k in range(300):               # advance the RNG to match historical sequence
         _ = 2 * np.pi * rng.random()
 
     image = np.arange(10) + np.arange(10)[:, np.newaxis]
-    debug0 = {}
+    debug0: dict[str, Any] = {}
     result0 = rotate(image, np.pi/5, _debug=debug0)
     rotated0 = result0[0]
 
     mask = rng.random((10, 10)) < 0.8
     image[mask] = -9999
-    debug = {}
+    debug: dict[str, Any] = {}
     result = rotate(image, np.pi/5, mask, _debug=debug)
     rotated = result[0]
     rmask = debug['new_mask']
@@ -142,14 +144,14 @@ def test_rotate_many_masked_pixels_unweighted(shortcuts) -> None:
 # Rotations by exact multiples of pi/2
 ##########################################################################################
 
-def test_rotate_zero_three_layers_no_mask(shortcuts) -> None:
+def test_rotate_zero_three_layers_no_mask(shortcuts: bool) -> None:
     image = (np.arange(10) + 3 * np.arange(20)[:, np.newaxis]
              + np.arange(3)[:, np.newaxis, np.newaxis])
     rotated = rotate(image, 0.)[0]
     assert np.max(np.abs(image - rotated)) < 1.e-7
 
 
-def test_rotate_zero_three_layers_random_mask(shortcuts) -> None:
+def test_rotate_zero_three_layers_random_mask(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = (np.arange(10) + 3 * np.arange(20)[:, np.newaxis]
              + np.arange(3)[:, np.newaxis, np.newaxis])
@@ -160,7 +162,7 @@ def test_rotate_zero_three_layers_random_mask(shortcuts) -> None:
     assert np.max(np.abs(image[~rmask] - rotated[~rmask])) < 1.e-7
 
 
-def test_rotate_90_three_layers_random_mask(shortcuts) -> None:
+def test_rotate_90_three_layers_random_mask(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = (np.arange(10) + 3 * np.arange(20)[:, np.newaxis]
              + np.arange(3)[:, np.newaxis, np.newaxis])
@@ -174,7 +176,7 @@ def test_rotate_90_three_layers_random_mask(shortcuts) -> None:
     assert np.max(np.abs(test[~rmask] - rotated[~rmask])) < 1.e-7
 
 
-def test_rotate_near_90_three_layers_random_mask(shortcuts) -> None:
+def test_rotate_near_90_three_layers_random_mask(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = (np.arange(10) + 3 * np.arange(20)[:, np.newaxis]
              + np.arange(3)[:, np.newaxis, np.newaxis])
@@ -188,7 +190,7 @@ def test_rotate_near_90_three_layers_random_mask(shortcuts) -> None:
     assert np.max(np.abs(test[~rmask] - rotated[~rmask])) < 1.e-7
 
 
-def test_rotate_180_random_mask(shortcuts) -> None:
+def test_rotate_180_random_mask(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = np.arange(10) + 3 * np.arange(20)[:, np.newaxis]
     mask = rng.random(image.shape) < 0.3
@@ -201,7 +203,7 @@ def test_rotate_180_random_mask(shortcuts) -> None:
     assert np.max(np.abs(test[~rmask] - rotated[~rmask])) < 1.e-7
 
 
-def test_rotate_270_random_mask(shortcuts) -> None:
+def test_rotate_270_random_mask(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = np.arange(10) + 3 * np.arange(20)[:, np.newaxis]
     mask = rng.random(image.shape) < 0.3
@@ -218,14 +220,14 @@ def test_rotate_270_random_mask(shortcuts) -> None:
 # dtype, center, and shape options
 ##########################################################################################
 
-def test_rotate_float32_preserved(shortcuts) -> None:
+def test_rotate_float32_preserved(shortcuts: bool) -> None:
     array = np.arange(10)
     image = (array + array[:, np.newaxis]).astype('float32')
     rotated = rotate(image, np.pi/3)[0]
     assert image.dtype == rotated.dtype
 
 
-def test_rotate_half_integer_center(shortcuts) -> None:
+def test_rotate_half_integer_center(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = rng.random((10, 10))
     _, new_center = rotate(image, 0.3, origin=(3.5, 3.5))
@@ -233,7 +235,7 @@ def test_rotate_half_integer_center(shortcuts) -> None:
     assert new_center[1] % 1 == 0.5
 
 
-def test_rotate_integer_center(shortcuts) -> None:
+def test_rotate_integer_center(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = rng.random((10, 10))
     _, new_center = rotate(image, 0.4, origin=(3., 4.))
@@ -241,7 +243,7 @@ def test_rotate_integer_center(shortcuts) -> None:
     assert new_center[1] % 1 == 0.
 
 
-def test_rotate_new_shape_no_center(shortcuts) -> None:
+def test_rotate_new_shape_no_center(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = rng.random((10, 10))
     rotated, new_center = rotate(image, 0.3, shape=(20, 20))
@@ -254,12 +256,12 @@ def test_rotate_new_shape_no_center(shortcuts) -> None:
 ##########################################################################################
 
 @pytest.mark.parametrize('use_3d', [False, True])
-def test_rotate_zero_shortcuts_match(use_3d) -> None:
+def test_rotate_zero_shortcuts_match(use_3d: bool) -> None:
     from psiops._filter import _use_shortcuts
 
     rng = np.random.default_rng(9676)
     if use_3d:
-        image = rng.random((4, 10, 10))
+        image: np.ndarray = rng.random((4, 10, 10))
     else:
         image = np.arange(10)[:, np.newaxis] + np.arange(10)
 
@@ -309,7 +311,7 @@ def test_rotate_maskedarray() -> None:
     assert isinstance(rotated[0], np.ma.MaskedArray)
 
 
-def test_rotate_with_weights(shortcuts) -> None:
+def test_rotate_with_weights(shortcuts: bool) -> None:
     rng = np.random.default_rng(9676)
     image = rng.random((10, 10))
     weights = np.ones(image.shape)
@@ -319,7 +321,7 @@ def test_rotate_with_weights(shortcuts) -> None:
     assert rotated.shape == new_weights.shape
 
 
-def test_rotate_maskval(shortcuts) -> None:
+def test_rotate_maskval(shortcuts: bool) -> None:
     image = (np.arange(10) + np.arange(10)[:, np.newaxis]).astype(np.float64)
     image[4, 4] = -999.
     rotated, rmask, _ = rotate(image, 0.3, maskval=-999., returns='imc')
@@ -327,7 +329,7 @@ def test_rotate_maskval(shortcuts) -> None:
     assert np.all(rotated[~rmask] != -999.)
 
 
-def test_rotate_explicit_center_skips_new_center_default(shortcuts) -> None:
+def test_rotate_explicit_center_skips_new_center_default(shortcuts: bool) -> None:
     image = np.arange(10) + np.arange(10)[:, np.newaxis]
     # With an explicit center and no mask, the default return is image only.
     rotated = rotate(image, 0.3, center=(5, 5))

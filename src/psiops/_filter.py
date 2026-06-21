@@ -2,13 +2,10 @@
 # psiops/_filter.py
 ##########################################################################################
 
-from collections.abc import Callable
-
 import numpy as np
-import numpy.typing as npt
 import psutil
 
-from psiops._utils import _check_tuple, _ImageInfo
+from psiops._utils import _check_tuple
 
 ##########################################################################################
 # Filter support
@@ -18,7 +15,7 @@ from psiops._utils import _check_tuple, _ImageInfo
 _LAYERS_USED = 0
 _TILES_USED = 0
 
-def _apply_op_as_filter_info() -> tuple[int, int]:
+def _apply_op_as_filter_info():
     """For unit testing: call this after _apply_op_as_filter() to find out how many
     layers and tiles were used.
     """
@@ -27,29 +24,22 @@ def _apply_op_as_filter_info() -> tuple[int, int]:
     return (_LAYERS_USED, _TILES_USED)
 
 
-def _apply_op_as_filter(
-    op: Callable,
-    image: np.ndarray,
-    footprint: npt.ArrayLike | int | tuple[int, int],
-    *,
-    mask: np.ndarray | None,
-    weights: np.ndarray | None,
-    info: _ImageInfo,
-    **kwargs: object,
-) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
+def _apply_op_as_filter(op, image, footprint, *, mask, weights, info, **kwargs):
     """Apply this operation as a filter on the image over the specified footprint.
 
     Parameters:
-        op: The function performing the image operation.
-        image: Image array, in which the last two axes are spatial dimensions. This can
-            be a MaskedArray.
-        footprint: The 2-D boolean footprint array, or else an integer or tuple of two
-            integers defining the rectangular shape of the footprint.
-        mask: A boolean mask array, equal to True where image values are to be ignored.
-            The shape is broadcasted to the shape of `image` if necessary.
-        weights: Array of weight values where a weight of zero is equivalent to a mask
-            value of True. Values should never be negative.
-        info: The `_ImageInfo` object returned by `_check_image`.
+        op (callable): The function performing the image operation.
+        image (array): Image array, in which the last two axes are spatial dimensions.
+            This can be a MaskedArray.
+        footprint (array-like or int or tuple of two ints): The 2-D boolean footprint
+            array, or else an integer or tuple of two integers defining the rectangular
+            shape of the footprint.
+        mask (array, optional): A boolean mask array, equal to True where image values
+            are to be ignored. The shape is broadcasted to the shape of `image` if
+            necessary.
+        weights (array, optional): Array of weight values where a weight of zero is
+            equivalent to a mask value of True. Values should never be negative.
+        info (_ImageInfo): The `_ImageInfo` object returned by `_check_image`.
         **kwargs: Any other inputs to be passed to `op`.
 
     Returns:
@@ -116,8 +106,8 @@ def _apply_op_as_filter(
     # The auxiliary outputs (`new_mask` and `new_weights`) are allocated lazily from the
     # first computed slice, so their dtype always matches what `op` actually returns. They
     # remain None when `op` produces no mask or weights (e.g. the fully unmasked case).
-    new_mask: np.ndarray | None = None
-    new_weights: np.ndarray | None = None
+    new_mask = None
+    new_weights = None
 
     if weights is not None:
         weights = np.broadcast_to(weights, old_shape)
@@ -197,15 +187,7 @@ def _apply_op_as_filter(
     return (filtered, new_mask, new_weights)
 
 
-def _apply_op(
-    op: Callable,
-    image: np.ndarray,
-    footprint: np.ndarray,
-    mask: np.ndarray | None,
-    weights: np.ndarray | None,
-    info: _ImageInfo,
-    **kwargs: object,
-) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
+def _apply_op(op, image, footprint, mask, weights, info, **kwargs):
     """Same as _apply_op_as_filter() but with no memory check, layers, or tiles."""
 
     # Convert to 4-D using stride tricks
@@ -231,12 +213,7 @@ def _apply_op(
     return op(image3d, mask=mask3d, weights=weights3d, info=info, axis=-3, **kwargs)
 
 
-def _image_to_4d(
-    image: np.ndarray,
-    footprint: np.ndarray,
-    mask: np.ndarray | None,
-    weights: np.ndarray | None,
-) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
+def _image_to_4d(image, footprint, mask, weights):
     """The image and mask or weights array re-strided with a sliding window in the shape
     of the footprint.
 
@@ -244,10 +221,10 @@ def _image_to_4d(
     accomplished without using the memory that would otherwise be needed for a 4-D image.
 
     Parameters:
-        image: The image array.
-        footprint: The 2-D boolean footprint array.
-        mask: The mask array if any.
-        weights: The weights array if any.
+        image (array): The image array.
+        footprint (array): The 2-D boolean footprint array.
+        mask (array, optional): The mask array if any.
+        weights (array, optional): The weights array if any.
 
     Returns:
         A tuple (`image4d`, `mask4d`, `weights4d`):
@@ -305,54 +282,53 @@ def _image_to_4d(
 
 _USE_SHORTCUTS = True
 
-def _use_shortcuts(
-    status: bool | None = None,
-) -> bool | None:
+def _use_shortcuts(status=None):
     """Get or set whether shortcut optimizations are used.
 
     Parameters:
-        status: If None, returns the current setting. If True or False, sets the shortcut
-            status and returns None.
+        status (bool, optional): If None, the current setting is left unchanged. If True
+            or False, the shortcut status is updated to this value.
 
     Returns:
-        The current shortcut status if `status` is None; otherwise None.
+        The current shortcut status, after applying any update.
     """
 
     global _USE_SHORTCUTS
 
-    if status is None:
-        return _USE_SHORTCUTS
+    if status is not None:
+        _USE_SHORTCUTS = bool(status)
 
-    _USE_SHORTCUTS = bool(status)
+    return _USE_SHORTCUTS
 
 
 # None means "use the default": half of current total system memory, evaluated lazily.
-_USABLE_BYTES: int | None = None
+_USABLE_BYTES = None
 
-def _usable_bytes(
-    nbytes: int | None = None,
-) -> int | None:
+def _usable_bytes(nbytes=None):
     """Get or set the memory limit for array operations.
 
     Parameters:
-        nbytes: If None, returns the current memory limit in bytes. If a positive integer,
-            sets the limit to `min(nbytes, half of current total system memory)`. If zero,
-            resets to the default (half of total system memory, re-queried at that time).
+        nbytes (int, optional): If None, the memory limit is left unchanged. If a
+            positive integer, sets the limit to `min(nbytes, half of current total system
+            memory)`. If zero, resets to the default (half of total system memory,
+            re-queried at that time).
 
     Returns:
-        The current memory limit in bytes if `nbytes` is None; otherwise None.
+        The current memory limit in bytes, after applying any update. At its default, this
+        is half of the current total system memory.
     """
 
     global _USABLE_BYTES
 
-    if nbytes is None:
-        if _USABLE_BYTES is None:
-            return psutil.virtual_memory().total // 2
-        return _USABLE_BYTES
+    if nbytes is not None:
+        if nbytes:
+            _USABLE_BYTES = min(nbytes, psutil.virtual_memory().total // 2)
+        else:
+            _USABLE_BYTES = None  # next call re-queries system memory
 
-    if nbytes:
-        _USABLE_BYTES = min(nbytes, psutil.virtual_memory().total // 2)
-    else:
-        _USABLE_BYTES = None  # next call re-queries system memory
+    if _USABLE_BYTES is None:
+        return psutil.virtual_memory().total // 2
+
+    return _USABLE_BYTES
 
 ##########################################################################################

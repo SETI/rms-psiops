@@ -2,43 +2,35 @@
 # psiops/reshape.py
 ##########################################################################################
 
-import numpy as np
-
 from psiops._utils import _check_tuple
 from psiops.resample import resample
 
 
-def reshape(
-    image: np.ndarray,
-    shape: int | tuple[int, int],
-    mask: np.ndarray | None = None,
-    *,
-    maskval: float | None = None,
-    weights: np.ndarray | None = None,
-    nans: bool = False,
-    returns: str | None = None,
-) -> np.ndarray | list[np.ndarray]:
+def reshape(image, shape, mask=None, *, maskval=None, weights=None, nans=False,
+            returns=None):
     """This image resized to a new 2-D shape.
 
     This function employs resample() but with simplified inputs.
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be a MaskedArray.
-        shape: New shape for the last two (spatial) axes.
-        mask: Boolean mask array, equal to True where the values in `image` are to be
-            ignored. It is broadcasted to the shape of `image` if necessary.
-        maskval: A value that should be masked wherever it appears in `image`. This can
-            be used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with the
-            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
-            This can be provided in addition to or instead of the `mask` or `maskval`. It
-            is broadcasted to the shape of `image` if necessary. Values should never be
-            negative.
-        nans: True to check `image` for NaNs and interpret them as masked values.
-        returns: Used to override the default quantity or quantities to return, one of
-            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
-            "imw" (image, mask, and weight array).
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be a MaskedArray.
+        shape (int or tuple of two ints): New shape for the last two (spatial) axes.
+        mask (array, optional): Boolean mask array, equal to True where the values in
+            `image` are to be ignored. It is broadcasted to the shape of `image` if
+            necessary.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array, optional): Weight array specifying the possibly unequal weights
+            associated with the pixels in `image`. A weight of zero is equivalent to a
+            `mask` value of True. This can be provided in addition to or instead of the
+            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
+            Values should never be negative.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as
+            masked values.
+        returns (str, optional): Used to override the default quantity or quantities to
+            return, one of "i" (image only), "im" (image and mask), "iw" (image and
+            weight array), or "imw" (image, mask, and weight array).
 
     Returns:
         `reshaped` or (`reshaped`[, `new_mask`][, `new_weights`]):

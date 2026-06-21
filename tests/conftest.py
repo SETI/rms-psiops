@@ -3,13 +3,15 @@
 ##########################################################################################
 """Shared pytest fixtures for the psiops test suite."""
 
+from collections.abc import Iterator
+
 import pytest
 
 from psiops._filter import _use_shortcuts
 
 
 @pytest.fixture(autouse=True)
-def _restore_shortcuts():
+def _restore_shortcuts() -> Iterator[None]:
     """Restore the global shortcut setting after every test.
 
     Many tests toggle the module-level `_use_shortcuts` flag to exercise both the
@@ -23,7 +25,7 @@ def _restore_shortcuts():
 
 
 @pytest.fixture(params=[False, True], ids=['no_shortcuts', 'shortcuts'])
-def shortcuts(request):
+def shortcuts(request: pytest.FixtureRequest) -> bool:
     """Parametrize a test over both shortcut settings.
 
     A test that takes this fixture runs twice: once with shortcut optimizations

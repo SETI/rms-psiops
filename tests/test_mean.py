@@ -366,7 +366,7 @@ def test_mean_filter_mask_irregular_footprint() -> None:
             assert np.abs(a[i,j] - np.mean(values)) < 1.e-14
 
 
-def test_mean_filter_weights(shortcuts) -> None:
+def test_mean_filter_weights(shortcuts: bool) -> None:
     # A weighted mean filter must apply the weight values (regression: the shortcut
     # path used to ignore them and return the unweighted mean). Checked on both code
     # paths via the `shortcuts` fixture.

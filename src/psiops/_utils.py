@@ -6,7 +6,6 @@ import numbers
 from dataclasses import dataclass, field
 
 import numpy as np
-import numpy.typing as npt
 
 
 @dataclass
@@ -45,7 +44,7 @@ class _ImageInfo:
     returns: str = 'i'
     weights_is_copy: bool = False
 
-    def __post_init__(self) -> None:
+    def __post_init__(self):
         valid = {'i', 'im', 'iw', 'imw'}
         if self.extra_char:
             valid |= {v + self.extra_char for v in valid}
@@ -59,31 +58,24 @@ class _ImageInfo:
 # Shared argument helpers
 ##########################################################################################
 
-def _check_tuple(
-    item: object,
-    title: str,
-    *,
-    default: tuple[float, float] | None = None,
-    floats: bool = True,
-    negs: bool = False,
-    zeros: bool | None = None,
-    nones: bool = False,
-    shape: tuple[int, int] | None = None,
-) -> tuple[float, float]:
+def _check_tuple(item, title, *, default=None, floats=True, negs=False, zeros=None,
+                 nones=False, shape=None):
     """Validate an input as a single value or tuple of two values.
 
     Parameters:
-        item: The value to check.
-        title: Name of the parameter, used in error messages.
-        default: The default value to return as a tuple of two values.
-        floats: True to allow floating-point values.
-        negs: True to allow negative values.
-        zeros: True to allow zero values; by default this has the same value as `negs`.
-        nones: True to allow None as an input value. If `item` is None and `default` is
-            specified, `default` will be returned; if `item` is None but no `default` is
-            specified, a ValueError is raised.
-        shape: If specified, each element must be an integer multiple of the corresponding
-            element in `item`.
+        item (any): The value to check.
+        title (str): Name of the parameter, used in error messages.
+        default (tuple of two floats, optional): The default value to return as a
+            tuple of two values.
+        floats (bool, optional): True to allow floating-point values.
+        negs (bool, optional): True to allow negative values.
+        zeros (bool, optional): True to allow zero values; by default this has the
+            same value as `negs`.
+        nones (bool, optional): True to allow None as an input value. If `item` is None
+            and `default` is specified, `default` will be returned; if `item` is None but
+            no `default` is specified, a ValueError is raised.
+        shape (tuple of two ints, optional): If specified, each element must be an
+            integer multiple of the corresponding element in `item`.
 
     Returns:
         The validated, two-element tuple.
@@ -133,16 +125,15 @@ def _check_tuple(
     return item
 
 
-def _check_axis(
-    axis: int | tuple[int, ...] | None,
-    shape: tuple[int, ...],
-) -> tuple[int, ...]:
+def _check_axis(axis, shape):
     """Validate an input value for axis, given the shape of an image.
 
     Parameters:
-        axis: Axis index or a tuple of axis indices, which can be positive or negative.
-            None is replaced by tuple(range(len(shape))).
-        shape: Overall shape of an image array. All elements must be positive.
+        axis (int or tuple of ints, optional): Axis index or a tuple of axis indices,
+            which can be positive or negative. None is replaced by
+            tuple(range(len(shape))).
+        shape (tuple of ints): Overall shape of an image array. All elements must be
+            positive.
 
     Returns:
         Revised tuple of non-negative integers in the order given. Note that the last two
@@ -183,15 +174,12 @@ def _check_axis(
     return tuple(new_axis)
 
 
-def _pixel_area(
-    axes: tuple[int, ...],
-    shape: tuple[int, ...],
-) -> int:
+def _pixel_area(axes, shape):
     """The number of pixels along the specified axes.
 
     Parameters:
-        axes: Axis indices.
-        shape: Overall shape of the image array.
+        axes (tuple of ints): Axis indices.
+        shape (tuple of ints): Overall shape of the image array.
 
     Returns:
         Product of the lengths along the specified axes.
@@ -201,18 +189,15 @@ def _pixel_area(
     return int(np.prod(lengths))
 
 
-def _flatten_axes(
-    image: np.ndarray | None,
-    axes: int | tuple[int, ...],
-    shape: tuple[int, ...] | None = None,
-) -> np.ndarray | None:
+def _flatten_axes(image, axes, shape=None):
     """Move selected axes to the front and flatten them.
 
     Parameters:
-        image: Array to rearrange, or None.
-        axes: Axis index or tuple of axis indices to move to the front.
-        shape: If provided and `image` has a different shape, broadcast `image` to this
-            shape first.
+        image (array, optional): Array to rearrange, or None.
+        axes (int or tuple of ints): Axis index or tuple of axis indices to move to
+            the front.
+        shape (tuple of ints, optional): If provided and `image` has a different shape,
+            broadcast `image` to this shape first.
 
     Returns:
         The rearranged array with the selected axes moved to the front and flattened into
@@ -234,17 +219,14 @@ def _flatten_axes(
     return image
 
 
-def _merge_weights(
-    mask: np.ndarray | None,
-    weights: np.ndarray | None,
-    factors: npt.ArrayLike | None = None,
-) -> np.ndarray | None:
+def _merge_weights(mask, weights, factors=None):
     """Merge an optional mask, weights, and factors into a single weight array.
 
     Parameters:
-        mask: A mask array as returned by `_check_image`.
-        weights: A weight array as returned by `_check_image`.
-        factors: An extra weight factor that applies to entire 2-D images.
+        mask (array, optional): A mask array as returned by `_check_image`.
+        weights (array, optional): A weight array as returned by `_check_image`.
+        factors (array-like, optional): An extra weight factor that applies to entire
+            2-D images.
 
     Returns:
         None if all the inputs are None; otherwise, a weight array that can be

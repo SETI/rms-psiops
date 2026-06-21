@@ -9,8 +9,8 @@ from scipy.ndimage import gaussian_filter as _sgf
 from psiops.gaussian_filter import gaussian_filter
 
 
-def _scipy_ref(image: np.ndarray, sigma, mode: str, cval: float = 0.,
-               order=0) -> np.ndarray:
+def _scipy_ref(image: np.ndarray, sigma: float | tuple[float, float], mode: str,
+               cval: float = 0., order: int | tuple[int, int] = 0) -> np.ndarray:
     """SciPy reference with leading (non-spatial) axes left unfiltered."""
     if not isinstance(sigma, tuple):
         sigma = (sigma, sigma)

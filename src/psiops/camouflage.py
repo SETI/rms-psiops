@@ -12,16 +12,8 @@ from .gaussian_filter import gaussian_filter
 _EPS = 1.e-8
 
 
-def camouflage(
-    image: np.ndarray,
-    mask: np.ndarray | None = None,
-    *,
-    maskval: float | None = None,
-    weights: np.ndarray | None = None,
-    nans: bool = False,
-    size: float = 30,
-    returns: str = 'i',
-) -> np.ndarray | list[np.ndarray]:
+def camouflage(image, mask=None, *, maskval=None, weights=None, nans=False, size=30,
+               returns='i'):
     """Replace the masked pixels of an image based on the the nearby, unmasked pixels.
 
     Replacement values are obtained by Gaussian-filtering the unmasked pixels of the
@@ -29,27 +21,29 @@ def camouflage(
     filled, which helps the replaced pixels to blend in with their surroundings.
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be a MaskedArray.
-        mask: Boolean mask array, equal to True where the values in `image` are to be
-            ignored. It is broadcasted to the shape of `image` if necessary.
-        maskval: A value that should be masked wherever it appears in `image`. This can
-            be used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with
-            the pixels in `image`. A weight of zero is equivalent to a `mask` value of
-            True. This can be provided in addition to or instead of the `mask` or
-            `maskval`. It is broadcasted to the shape of `image` if necessary. Values
-            should never be negative.
-        nans: True to check `image` for NaNs and interpret them as masked values.
-        size: The approximate upper limit on the size in pixels of the masked areas to
-            be camouflaged. Areas that are somewhat larger will still be filled, but
-            with less accuracy. Areas that are much larger could remain masked due to
-            the underflow of the Gaussian. Note that camouflaging very large areas
-            (larger than 50-100 pixels) is time-consuming and does not always yield
-            satisfactory results.
-        returns: Used to override the default quantity or quantities to return, one of
-            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
-            "imw" (image, mask, and weight array). Default is "i".
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be a MaskedArray.
+        mask (array, optional): Boolean mask array, equal to True where the values in
+            `image` are to be ignored. It is broadcasted to the shape of `image` if
+            necessary.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array, optional): Weight array specifying the possibly unequal weights
+            associated with the pixels in `image`. A weight of zero is equivalent to a
+            `mask` value of True. This can be provided in addition to or instead of the
+            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
+            Values should never be negative.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as
+            masked values.
+        size (float, optional): The approximate upper limit on the size in pixels of the
+            masked areas to be camouflaged. Areas that are somewhat larger will still be
+            filled, but with less accuracy. Areas that are much larger could remain
+            masked due to the underflow of the Gaussian. Note that camouflaging very
+            large areas (larger than 50-100 pixels) is time-consuming and does not always
+            yield satisfactory results.
+        returns (str, optional): Used to override the default quantity or quantities to
+            return, one of "i" (image only), "im" (image and mask), "iw" (image and
+            weight array), or "imw" (image, mask, and weight array). Default is "i".
 
     Returns:
         `filled` or (`filled`[, `new_mask`][, `new_weights`]):

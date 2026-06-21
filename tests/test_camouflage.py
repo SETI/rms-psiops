@@ -9,7 +9,9 @@ import pytest
 from psiops.camouflage import camouflage
 
 
-def _hole_image(shape=(20, 20), value=1.0, badval=-999.0, lo=8, hi=12):
+def _hole_image(shape: tuple[int, int] = (20, 20), value: float = 1.0,
+                badval: float = -999.0, lo: int = 8,
+                hi: int = 12) -> tuple[np.ndarray, np.ndarray]:
     """Return a uniform image with a square hole and its boolean mask."""
 
     image = np.full(shape, value, dtype=np.float64)
@@ -19,14 +21,14 @@ def _hole_image(shape=(20, 20), value=1.0, badval=-999.0, lo=8, hi=12):
     return image, mask
 
 
-def test_no_mask_returns_image_unchanged():
+def test_no_mask_returns_image_unchanged() -> None:
     image = np.arange(100.0).reshape(10, 10)
     result = camouflage(image)
     assert np.array_equal(result, image)
     assert not isinstance(result, list)
 
 
-def test_no_mask_returns_im_gives_list():
+def test_no_mask_returns_im_gives_list() -> None:
     image = np.arange(100.0).reshape(10, 10)
     result = camouflage(image, returns='im')
     assert isinstance(result, list)
@@ -35,7 +37,7 @@ def test_no_mask_returns_im_gives_list():
     assert not result[1].any()
 
 
-def test_masked_hole_is_filled():
+def test_masked_hole_is_filled() -> None:
     image, mask = _hole_image()
     result = camouflage(image, mask)
     # The bad value must no longer appear anywhere.
@@ -43,21 +45,21 @@ def test_masked_hole_is_filled():
     assert np.all(np.isfinite(result))
 
 
-def test_filled_value_blends_with_surroundings():
+def test_filled_value_blends_with_surroundings() -> None:
     # A uniform surround of 1.0 means the filled hole should also be ~1.0.
     image, mask = _hole_image(value=1.0)
     result = camouflage(image, mask)
     assert np.allclose(result[mask], 1.0)
 
 
-def test_unmasked_pixels_are_preserved():
+def test_unmasked_pixels_are_preserved() -> None:
     image, mask = _hole_image(value=5.0)
     result = camouflage(image, mask)
     antimask = ~mask
     assert np.allclose(result[antimask], 5.0)
 
 
-def test_fill_value_interpolates_gradient():
+def test_fill_value_interpolates_gradient() -> None:
     # On a gradient, the filled center should lie between its neighbors' extremes.
     ramp = np.add.outer(np.arange(20.0), np.arange(20.0))
     mask = np.zeros((20, 20), dtype=bool)
@@ -69,7 +71,7 @@ def test_fill_value_interpolates_gradient():
     assert np.all(filled < 24.0)
 
 
-def test_returns_im_mask_clean_for_small_hole():
+def test_returns_im_mask_clean_for_small_hole() -> None:
     image, mask = _hole_image()
     image_out, new_mask = camouflage(image, mask, returns='im')
     # A small hole inside a large image is fully fillable.
@@ -77,7 +79,7 @@ def test_returns_im_mask_clean_for_small_hole():
     assert not np.any(image_out == -999.0)
 
 
-def test_returns_iw_provides_weights():
+def test_returns_iw_provides_weights() -> None:
     image, mask = _hole_image()
     _image_out, weights = camouflage(image, mask, returns='iw')
     assert weights.shape == image.shape
@@ -86,14 +88,14 @@ def test_returns_iw_provides_weights():
     assert np.all(weights[mask] > 0.0)
 
 
-def test_returns_imw_provides_three():
+def test_returns_imw_provides_three() -> None:
     image, mask = _hole_image()
     result = camouflage(image, mask, returns='imw')
     assert isinstance(result, list)
     assert len(result) == 3
 
 
-def test_maskval_path():
+def test_maskval_path() -> None:
     image = np.ones((15, 15), dtype=np.float64)
     image[7, 7] = -5.0
     result = camouflage(image, maskval=-5.0)
@@ -101,7 +103,7 @@ def test_maskval_path():
     assert not np.any(result == -5.0)
 
 
-def test_nans_path_fills_without_leaving_nan():
+def test_nans_path_fills_without_leaving_nan() -> None:
     image = np.ones((15, 15), dtype=np.float64)
     image[7, 7] = np.nan
     image_out, new_mask = camouflage(image, nans=True, returns='im')
@@ -110,7 +112,7 @@ def test_nans_path_fills_without_leaving_nan():
     assert not new_mask[7, 7]
 
 
-def test_weights_input_treated_like_mask():
+def test_weights_input_treated_like_mask() -> None:
     image = np.ones((15, 15), dtype=np.float64)
     weights = np.ones((15, 15))
     weights[7, 7] = 0.0
@@ -118,7 +120,7 @@ def test_weights_input_treated_like_mask():
     assert image_out[7, 7] == pytest.approx(1.0)
 
 
-def test_maskedarray_input_returns_maskedarray():
+def test_maskedarray_input_returns_maskedarray() -> None:
     mask = np.zeros((15, 15), dtype=bool)
     mask[7, 7] = True
     marr = np.ma.MaskedArray(np.ones((15, 15)), mask=mask)
@@ -127,7 +129,7 @@ def test_maskedarray_input_returns_maskedarray():
     assert result.data[7, 7] == pytest.approx(1.0)
 
 
-def test_integer_image_with_maskval_keeps_dtype():
+def test_integer_image_with_maskval_keeps_dtype() -> None:
     image = np.ones((10, 10), dtype=int)
     image[5, 5] = 99
     result = camouflage(image, maskval=99)
@@ -135,7 +137,7 @@ def test_integer_image_with_maskval_keeps_dtype():
     assert result[5, 5] != 99
 
 
-def test_large_hole_leaves_residual_mask():
+def test_large_hole_leaves_residual_mask() -> None:
     # A hole much larger than `size` cannot be fully filled (Gaussian underflow).
     image = np.ones((60, 60), dtype=np.float64)
     mask = np.zeros((60, 60), dtype=bool)
@@ -146,7 +148,7 @@ def test_large_hole_leaves_residual_mask():
     assert np.all(new_mask <= mask)
 
 
-def test_size_parameter_changes_footprint_count():
+def test_size_parameter_changes_footprint_count() -> None:
     # Both sizes should fill a single isolated pixel to the surround value.
     image = np.ones((12, 12), dtype=np.float64)
     mask = np.zeros((12, 12), dtype=bool)
@@ -156,7 +158,7 @@ def test_size_parameter_changes_footprint_count():
         assert result[6, 6] == pytest.approx(1.0)
 
 
-def test_multiple_separate_holes_all_filled():
+def test_multiple_separate_holes_all_filled() -> None:
     image = np.ones((20, 20), dtype=np.float64)
     mask = np.zeros((20, 20), dtype=bool)
     mask[3, 3] = True
@@ -166,17 +168,17 @@ def test_multiple_separate_holes_all_filled():
     assert np.allclose(result[mask], 1.0)
 
 
-def test_invalid_returns_raises():
+def test_invalid_returns_raises() -> None:
     with pytest.raises(ValueError):
         camouflage(np.ones((5, 5)), returns='x')
 
 
-def test_one_dimensional_image_raises():
+def test_one_dimensional_image_raises() -> None:
     with pytest.raises(ValueError):
         camouflage(np.ones(5))
 
 
-def test_does_not_mutate_input_image():
+def test_does_not_mutate_input_image() -> None:
     image, mask = _hole_image()
     snapshot = image.copy()
     _ = camouflage(image, mask)

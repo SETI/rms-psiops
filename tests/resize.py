@@ -6,12 +6,24 @@
 # cross-testing against several other functions, especially resample().
 ##########################################################################################
 
+from typing import overload
+
 import numpy as np
 
 from psiops._utils import _check_tuple
 
 
-def resize(image, shape, mask=None):
+@overload
+def resize(image: np.ndarray, shape: int | tuple[int, int],
+           mask: None = None) -> np.ndarray: ...
+@overload
+def resize(image: np.ndarray, shape: int | tuple[int, int],
+           mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]: ...
+def resize(
+    image: np.ndarray,
+    shape: int | tuple[int, int],
+    mask: np.ndarray | None = None,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """This image resized to a new 2-D shape.
 
     If the image array has more than two dimensions, the leading dimensions are preserved

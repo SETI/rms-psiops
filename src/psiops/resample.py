@@ -10,59 +10,52 @@ from psiops._validation import _check_image, _check_return
 from psiops.shift import shift
 
 
-def resample(
-    image: np.ndarray,
-    zoom_: float | tuple[float, float],
-    mask: np.ndarray | None = None,
-    *,
-    maskval: float | None = None,
-    weights: np.ndarray | None = None,
-    nans: bool = False,
-    origin: tuple[float, float] | None = None,
-    center: tuple[float, float] | None = None,
-    shape: tuple[int, int] | None = None,
-    minweight: float = 1.e-6,
-    returns: str | None = None,
-) -> np.ndarray | list[np.ndarray]:
+def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
+             origin=None, center=None, shape=None, minweight=1.e-6, returns=None):
     """General function for integer or non-integer zoom and shift.
 
     This function is more efficient and somewhat more precise than combining separate
     zoom()/unzoom() and shift() operations. It also supports non-integer zoom factors.
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be a MaskedArray.
-        zoom_: The zoom factor or tuple of two zoom factors. Values > 1 expand the image,
-            while values < 1 shrink the image.
-        mask: Boolean mask array, equal to True where the values in `image` are to be
-            ignored. It is broadcasted to the shape of `image` if necessary.
-        maskval: A value that should be masked wherever it appears in `image`. This can
-            be used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with the
-            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
-            This can be provided in addition to or instead of the `mask` or `maskval`. It
-            is broadcasted to the shape of `image` if necessary. Values should never be
-            negative.
-        nans: True to check `image` for NaNs and interpret them as masked values.
-        origin: Two coordinates defining the center location within the image array around
-            which the resampling is performed. If not specified, the midpoint of `image`
-            is used. Note that integer coordinates refer to the corners between pixels and
-            half-integers refer to pixel centers. In other words, (0.,0.) is the lower
-            corner of the image array and (0.5,0.5) is the center of the first pixel.
-        center: Two coordinates defining the transformed location of the origin in the
-            returned image array. If not specified, the center will be determined to align
-            (0,0) in the input `image` to (0,0) in the returned image. Note that integer
-            coordinates refer to the corners between pixels and half-integers refer to
-            pixel centers.
-        shape: The shape of the returned image. If not specified, the resampled image is
-            large enough to encompass the entire content of the input `image`.
-        minweight: The minimum weight within a pixel in the returned image that is treated
-            as significant. If the total weight (fraction of a source pixel) in a new
-            pixel is less than this value, it will be treated as masked.
-        returns: Used to override the default quantity or quantities to return, one of
-            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
-            "imw" (image, mask, and weight array). Append "c" to include the new center
-            coordinates of the returned image.
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be a MaskedArray.
+        zoom_ (float or tuple of two floats): The zoom factor or tuple of two zoom
+            factors. Values > 1 expand the image, while values < 1 shrink the image.
+        mask (array, optional): Boolean mask array, equal to True where the values in
+            `image` are to be ignored. It is broadcasted to the shape of `image` if
+            necessary.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array, optional): Weight array specifying the possibly unequal weights
+            associated with the pixels in `image`. A weight of zero is equivalent to a
+            `mask` value of True. This can be provided in addition to or instead of the
+            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
+            Values should never be negative.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as
+            masked values.
+        origin (tuple of two floats, optional): Two coordinates defining the center
+            location within the image array around which the resampling is performed. If
+            not specified, the midpoint of `image` is used. Note that integer coordinates
+            refer to the corners between pixels and half-integers refer to pixel centers.
+            In other words, (0.,0.) is the lower corner of the image array and (0.5,0.5)
+            is the center of the first pixel.
+        center (tuple of two floats, optional): Two coordinates defining the transformed
+            location of the origin in the returned image array. If not specified, the
+            center will be determined to align (0,0) in the input `image` to (0,0) in the
+            returned image. Note that integer coordinates refer to the corners between
+            pixels and half-integers refer to pixel centers.
+        shape (tuple of two ints, optional): The shape of the returned image. If not
+            specified, the resampled image is large enough to encompass the entire
+            content of the input `image`.
+        minweight (float, optional): The minimum weight within a pixel in the returned
+            image that is treated as significant. If the total weight (fraction of a
+            source pixel) in a new pixel is less than this value, it will be treated as
+            masked.
+        returns (str, optional): Used to override the default quantity or quantities to
+            return, one of "i" (image only), "im" (image and mask), "iw" (image and
+            weight array), or "imw" (image, mask, and weight array). Append "c" to
+            include the new center coordinates of the returned image.
 
     Returns:
         `resampled` or (`resampled`[, `new_mask`][, `new_weights`][, `new_center`]):

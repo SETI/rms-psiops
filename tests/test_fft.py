@@ -268,11 +268,23 @@ def test_autocorrelate_retile_moves_peak_to_center() -> None:
 ##########################################################################################
 
 @pytest.mark.parametrize('offset', [(0, 0), (2, 3), (-2, -3), (4, -1), (-4, 1)])
-def test_ialign_recovers_shift(offset) -> None:
+def test_ialign_recovers_shift(offset: tuple[int, int]) -> None:
     rng = np.random.default_rng(24)
     ref = rng.standard_normal((10, 10))
     image = ishift(ref, offset, mode='wrap')
     found = ialign(image, ref, 0)
+    recovered = ishift(image, found, mode='wrap')
+    assert np.allclose(recovered, ref)
+
+
+@pytest.mark.parametrize('offset', [(0, 0), (2, 3), (-3, 1)])
+def test_ialign_with_sigma_recovers_shift(offset: tuple[int, int]) -> None:
+    # A non-zero sigma unsharp-masks both images before correlating; the recovered
+    # offset must still align the image to the reference.
+    rng = np.random.default_rng(28)
+    ref = rng.standard_normal((12, 12))
+    image = ishift(ref, offset, mode='wrap')
+    found = ialign(image, ref, 1.5)
     recovered = ishift(image, found, mode='wrap')
     assert np.allclose(recovered, ref)
 

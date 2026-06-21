@@ -262,13 +262,14 @@ def test_minimum_list_input() -> None:
     assert np.all(minimum(image, axis=1) == np.min(image, axis=1))
     assert np.all(minimum(image, axis=(0,-1)) == np.min(image, axis=(0,2)))
 
-    image = list(image)     # works for non-arrays?
-    assert np.all(minimum(image) == np.min(image, axis=(0,1,2)))
+    image_list = list(image)     # works for non-arrays?
+    assert np.all(minimum(image_list) == np.min(image_list, axis=(0,1,2)))
 
 
 def test_minimum_errors() -> None:
 
-    image = np.arange(12).reshape(4,3)
+    exc_info: pytest.ExceptionInfo[Exception]
+    image: np.ndarray = np.arange(12).reshape(4,3)
     with pytest.raises(ValueError) as exc_info:
         _ = minimum(image)
     assert str(exc_info.value) == 'invalid image shape (4, 3); must be at least 3-D'
@@ -281,7 +282,7 @@ def test_minimum_errors() -> None:
 
 ##########################################################################################
 
-def test_minimum_filter_no_mask(shortcuts) -> None:
+def test_minimum_filter_no_mask(shortcuts: bool) -> None:
 
     image = np.arange(10) + np.arange(10)[:,None] + np.arange(4)[:,None,None]
     a = minimum_filter(image, 2, returns='i')
@@ -295,7 +296,7 @@ def test_minimum_filter_no_mask(shortcuts) -> None:
     assert np.abs(a - b).max() < 1.e-15
 
 
-def test_minimum_filter_mask(shortcuts) -> None:
+def test_minimum_filter_mask(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(8063)
     image = rng.random((100,100))
@@ -325,7 +326,7 @@ def test_minimum_filter_mask(shortcuts) -> None:
             assert np.abs(a[i,j] - np.min(values)) < 1.e-14
 
 
-def test_minimum_filter_footprint_forms(shortcuts) -> None:
+def test_minimum_filter_footprint_forms(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(21)
     image = rng.random((20,20))

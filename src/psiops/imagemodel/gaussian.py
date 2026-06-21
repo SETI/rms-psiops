@@ -3,7 +3,6 @@
 ##########################################################################################
 
 import numpy as np
-import numpy.typing as npt
 import scipy
 
 from . import ImageModel
@@ -14,45 +13,38 @@ class Gaussian(ImageModel):
 
     SQRT_HALF = np.sqrt(0.5)
 
-    def __init__(
-        self,
-        sigma: float = 1.,
-        integral: float = 1.,
-    ) -> None:
+    def __init__(self, sigma=1., integral=1.):
         """Constructor for a Gaussian ImageModel.
 
         Parameters:
-            sigma: The standard deviation of the Gaussian in units of pixels.
-            integral: The integral ("volume") of the ImageModel.
+            sigma (float, optional): The standard deviation of the Gaussian in units of
+                pixels.
+            integral (float, optional): The integral ("volume") of the ImageModel.
         """
 
         self._sigma = sigma
         self._integral = integral
 
-    def transform(
-        self,
-        shape: tuple[int, int],
-        center: tuple[float, float],
-        expand: float = 1.,
-        rotate: float = 0.,
-    ) -> np.ndarray:
+    def transform(self, shape, center, expand=1., rotate=0.):
         """This Gaussian ImageModel re-sampled for a particular grid of pixels while
         preserving its integral.
 
         Parameters:
-            shape: Two integers defining the shape of the returned array.
-            center: Two floating-point coordinates defining the model's origin coordinates
-                within the returned image array. Note that integers refer to the corners
-                between pixels and half-integers refer to pixel centers. In other words,
-                (0,0) is the lower corner of the image array and (0.5,0.5) is the center
-                of the first pixel.
-            expand: An expansion (zoom) factor to apply to the ImageModel. Values greater
-                than one increase the size of the ImageModel in both directions, but leave
-                the center location unchanged. Note that the model's amplitude scales with
-                1/expand**2 in order to preserve the integral.
-            rotate: The angle in radians by which to rotate the ImageModel. Rotations are
-                counterclockwise and are applied about the center of the ImageModel after
-                it has been expanded.
+            shape (tuple of two ints): Two integers defining the shape of the returned
+                array.
+            center (tuple of two floats): Two floating-point coordinates defining the
+                model's origin coordinates within the returned image array. Note that
+                integers refer to the corners between pixels and half-integers refer to
+                pixel centers. In other words, (0,0) is the lower corner of the image
+                array and (0.5,0.5) is the center of the first pixel.
+            expand (float, optional): An expansion (zoom) factor to apply to the
+                ImageModel. Values greater than one increase the size of the ImageModel in
+                both directions, but leave the center location unchanged. Note that the
+                model's amplitude scales with 1/expand**2 in order to preserve the
+                integral.
+            rotate (float, optional): The angle in radians by which to rotate the
+                ImageModel. Rotations are counterclockwise and are applied about the
+                center of the ImageModel after it has been expanded.
 
         Returns:
             A 2-D array of the specified shape, containing the ImageModel as centered,
@@ -66,12 +58,7 @@ class Gaussian(ImageModel):
                                                        sigma=sigma)
 
     @staticmethod
-    def _gaussian_integral(
-        xmin: npt.ArrayLike,
-        xmax: npt.ArrayLike,
-        xcenter: npt.ArrayLike = 0.,
-        sigma: npt.ArrayLike = 1.,
-    ) -> np.ndarray | float:
+    def _gaussian_integral(xmin, xmax, xcenter=0., sigma=1.):
         """The integral of a unit-area, 1-D Gaussian function.
 
         This uses the fact that the integral of a Gaussian from -infinity to x is equal
@@ -83,14 +70,14 @@ class Gaussian(ImageModel):
         inputs.
 
         Parameters:
-            xmin: The lower limit of the integration.
-            xmax: The upper limit of the integration.
-            xcenter: The center coordinate of the Gaussian.
-            sigma: The standard deviation of the Gaussian.
+            xmin (array-like): The lower limit of the integration.
+            xmax (array-like): The upper limit of the integration.
+            xcenter (array-like, optional): The center coordinate of the Gaussian.
+            sigma (array-like, optional): The standard deviation of the Gaussian.
 
         Returns:
-            The value(s) of the Gaussian integral. This is a scalar if the inputs are all
-            scalars; otherwise, it is an array with a shape defined by broadcasting
+            The value(s) of the Gaussian integral. This is a scalar if the inputs are
+            all scalars; otherwise, it is an array with a shape defined by broadcasting
             together the shapes of all the inputs.
         """
 
@@ -100,13 +87,7 @@ class Gaussian(ImageModel):
         return 0.5 * (scipy.special.erf(umax) - scipy.special.erf(umin))
 
     @staticmethod
-    def _gaussian_psf(
-        i: npt.ArrayLike,
-        j: npt.ArrayLike,
-        x0: float,
-        y0: float,
-        sigma: float,
-    ) -> np.ndarray | float:
+    def _gaussian_psf(i, j, x0, y0, sigma):
         """Pixel value(s) of a 2-D, unit-volume Gaussian PSF.
 
         Note that pixel coordinates are integers at the corners of the pixel grid and
@@ -115,11 +96,11 @@ class Gaussian(ImageModel):
         middle of the first pixel.
 
         Parameters:
-            i: Integer pixel coordinate on the first axis.
-            j: Integer pixel coordinate on the second axis.
-            x0: Center coordinate of the Gaussian along the first axis.
-            y0: Center coordinate of the Gaussian along the second axis.
-            sigma: The standard deviation of the Gaussian.
+            i (array-like): Integer pixel coordinate on the first axis.
+            j (array-like): Integer pixel coordinate on the second axis.
+            x0 (float): Center coordinate of the Gaussian along the first axis.
+            y0 (float): Center coordinate of the Gaussian along the second axis.
+            sigma (float): The standard deviation of the Gaussian.
 
         Returns:
             The value(s) of the 2-D Gaussian. This is a scalar if the inputs are all

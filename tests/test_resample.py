@@ -22,7 +22,7 @@ def _cube_image() -> np.ndarray:
 # Cross-checks against zoom() and unzoom()
 ##########################################################################################
 
-def test_resample_vs_zoom_isotropic(shortcuts) -> None:
+def test_resample_vs_zoom_isotropic(shortcuts: bool) -> None:
     image = _cube_image()
     zoomed = zoom(image, 3)
     resampled, rcenter = resample(image, 3)
@@ -30,7 +30,7 @@ def test_resample_vs_zoom_isotropic(shortcuts) -> None:
     assert rcenter == (15, 15)
 
 
-def test_resample_vs_zoom_anisotropic(shortcuts) -> None:
+def test_resample_vs_zoom_anisotropic(shortcuts: bool) -> None:
     image = _cube_image()
     zoomed = zoom(image, (2, 3))
     resampled, rcenter = resample(image, (2, 3))
@@ -38,7 +38,7 @@ def test_resample_vs_zoom_anisotropic(shortcuts) -> None:
     assert rcenter == (10, 15)
 
 
-def test_resample_vs_zoom_with_mask(shortcuts) -> None:
+def test_resample_vs_zoom_with_mask(shortcuts: bool) -> None:
     rng = np.random.default_rng(8107)
     image = _cube_image()
     mask = rng.standard_normal((10, 10)) < 0.3
@@ -51,7 +51,7 @@ def test_resample_vs_zoom_with_mask(shortcuts) -> None:
     assert rcenter == (10, 15)
 
 
-def test_resample_vs_unzoom_with_mask(shortcuts) -> None:
+def test_resample_vs_unzoom_with_mask(shortcuts: bool) -> None:
     rng = np.random.default_rng(8107)
     image = _cube_image()
     mask = rng.standard_normal((10, 10)) < 0.3
@@ -64,7 +64,7 @@ def test_resample_vs_unzoom_with_mask(shortcuts) -> None:
     assert rcenter == (2.5, 2.5)
 
 
-def test_resample_vs_zoom_unzoom_mixed(shortcuts) -> None:
+def test_resample_vs_zoom_unzoom_mixed(shortcuts: bool) -> None:
     rng = np.random.default_rng(8107)
     image = _cube_image()
     mask = rng.standard_normal((10, 10)) < 0.3
@@ -89,7 +89,7 @@ def _resize_image() -> np.ndarray:
     return array1 + array2[:, np.newaxis] + array3[:, np.newaxis, np.newaxis]
 
 
-def test_resample_vs_resize_shrink_square(shortcuts) -> None:
+def test_resample_vs_resize_shrink_square(shortcuts: bool) -> None:
     eps = 1.e-14
     image = _resize_image()
     resized = resize(image, (3, 3))
@@ -98,7 +98,7 @@ def test_resample_vs_resize_shrink_square(shortcuts) -> None:
     assert rcenter == (1.5, 1.5)
 
 
-def test_resample_vs_resize_shrink_square_masked(shortcuts) -> None:
+def test_resample_vs_resize_shrink_square_masked(shortcuts: bool) -> None:
     eps = 1.e-14
     rng = np.random.default_rng(8107)
     image = _resize_image()
@@ -110,7 +110,7 @@ def test_resample_vs_resize_shrink_square_masked(shortcuts) -> None:
     assert rcenter == (1.5, 1.5)
 
 
-def test_resample_vs_resize_rectangular(shortcuts) -> None:
+def test_resample_vs_resize_rectangular(shortcuts: bool) -> None:
     eps = 1.e-14
     image = _resize_image()
     resized = resize(image, (3, 5))
@@ -119,7 +119,7 @@ def test_resample_vs_resize_rectangular(shortcuts) -> None:
     assert rcenter == (1.5, 2.5)
 
 
-def test_resample_vs_resize_rectangular_masked(shortcuts) -> None:
+def test_resample_vs_resize_rectangular_masked(shortcuts: bool) -> None:
     eps = 1.e-14
     rng = np.random.default_rng(8107)
     image = _resize_image()
@@ -138,7 +138,7 @@ def _prime_image() -> np.ndarray:
     return array1 + array2[:, np.newaxis] + array3[..., np.newaxis, np.newaxis]
 
 
-def test_resample_vs_resize_primes(shortcuts) -> None:
+def test_resample_vs_resize_primes(shortcuts: bool) -> None:
     eps = 1.e-12
     image = _prime_image()
     resized = resize(image, (97, 11))
@@ -148,7 +148,7 @@ def test_resample_vs_resize_primes(shortcuts) -> None:
 
 
 @pytest.mark.parametrize('frac', [0.02, 0.3, 0.7, 0.9, 0.98])
-def test_resample_vs_resize_primes_masked(shortcuts, frac) -> None:
+def test_resample_vs_resize_primes_masked(shortcuts: bool, frac: float) -> None:
     eps = 1.e-12
     rng = np.random.default_rng(8107)
     image = _prime_image()
@@ -168,7 +168,7 @@ def _param_image() -> np.ndarray:
     return (np.arange(4) + 2 * np.arange(1, 7)[:, np.newaxis])[np.newaxis]
 
 
-def test_resample_default_origin(shortcuts) -> None:
+def test_resample_default_origin(shortcuts: bool) -> None:
     image = _param_image()
     ref, rmask, rcenter = resample(image, 1.5, returns='imc')
     assert not np.any(rmask)
@@ -177,7 +177,7 @@ def test_resample_default_origin(shortcuts) -> None:
     assert rcenter == (4.5, 3)
 
 
-def test_resample_explicit_origin(shortcuts) -> None:
+def test_resample_explicit_origin(shortcuts: bool) -> None:
     image = _param_image()
     ref = resample(image, 1.5)[0]
     resampled, rmask, rcenter = resample(image, 1.5, origin=(1, 1), returns='imc')
@@ -186,7 +186,7 @@ def test_resample_explicit_origin(shortcuts) -> None:
     assert rcenter == (1.5, 1.5)
 
 
-def test_resample_origin_and_center_aligned(shortcuts) -> None:
+def test_resample_origin_and_center_aligned(shortcuts: bool) -> None:
     image = _param_image()
     ref = resample(image, 1.5)[0]
     resampled, rmask, rcenter = resample(image, 1.5, origin=(2, 2), center=(3, 3),
@@ -196,7 +196,7 @@ def test_resample_origin_and_center_aligned(shortcuts) -> None:
     assert rcenter == (3, 3)
 
 
-def test_resample_origin_and_center_shifted(shortcuts) -> None:
+def test_resample_origin_and_center_shifted(shortcuts: bool) -> None:
     image = _param_image()
     ref = resample(image, 1.5)[0]
     resampled, rmask, rcenter = resample(image, 1.5, origin=(2, 2), center=(4, 4),
@@ -208,7 +208,7 @@ def test_resample_origin_and_center_shifted(shortcuts) -> None:
     assert rcenter == (4, 4)
 
 
-def test_resample_explicit_shape(shortcuts) -> None:
+def test_resample_explicit_shape(shortcuts: bool) -> None:
     image = _param_image()
     ref = resample(image, 1.5)[0]
     resampled, rmask, rcenter = resample(image, 1.5, shape=(11, 8), returns='imc')
@@ -219,7 +219,7 @@ def test_resample_explicit_shape(shortcuts) -> None:
     assert rcenter == (4.5, 3)
 
 
-def test_resample_shape_and_center(shortcuts) -> None:
+def test_resample_shape_and_center(shortcuts: bool) -> None:
     image = _param_image()
     ref = resample(image, 1.5)[0]
     resampled, rmask, rcenter = resample(image, 1.5, shape=(11, 8), center=(4.5, 3),
@@ -231,7 +231,7 @@ def test_resample_shape_and_center(shortcuts) -> None:
     assert rcenter == (4.5, 3)
 
 
-def test_resample_origin_and_shape(shortcuts) -> None:
+def test_resample_origin_and_shape(shortcuts: bool) -> None:
     image = _param_image()
     ref = resample(image, 1.5)[0]
     resampled, rmask, rcenter = resample(image, 1.5, origin=(0, 2), shape=(6, 6),
@@ -245,21 +245,21 @@ def test_resample_origin_and_shape(shortcuts) -> None:
 # dtype, returns, and error handling
 ##########################################################################################
 
-def test_resample_float32_preserved(shortcuts) -> None:
+def test_resample_float32_preserved(shortcuts: bool) -> None:
     array = np.arange(10).astype('float32')
     image = array + array[:, np.newaxis] + array[:, np.newaxis, np.newaxis]
     resampled = resample(image, (12, 9))[0]
     assert image.dtype == resampled.dtype
 
 
-def test_resample_returns_i_is_bare_array(shortcuts) -> None:
+def test_resample_returns_i_is_bare_array(shortcuts: bool) -> None:
     image = _cube_image()
     resampled = resample(image, 2, returns='i')
     assert isinstance(resampled, np.ndarray)
     assert resampled.shape == (10, 20, 20)
 
 
-def test_resample_returns_iwc(shortcuts) -> None:
+def test_resample_returns_iwc(shortcuts: bool) -> None:
     image = _cube_image()
     mask = np.zeros((10, 10), dtype='bool')
     mask[0, 0] = True
@@ -269,7 +269,7 @@ def test_resample_returns_iwc(shortcuts) -> None:
     assert center == (10, 10)
 
 
-def test_resample_maskedarray(shortcuts) -> None:
+def test_resample_maskedarray(shortcuts: bool) -> None:
     image = _cube_image().astype(np.float64)
     mask = np.zeros(image.shape, dtype='bool')
     mask[:, 0, 0] = True
@@ -278,7 +278,7 @@ def test_resample_maskedarray(shortcuts) -> None:
     assert isinstance(resampled, np.ma.MaskedArray)
 
 
-def test_resample_maskval(shortcuts) -> None:
+def test_resample_maskval(shortcuts: bool) -> None:
     image = _cube_image().astype(np.float64)
     image[:, 2, 2] = -999.
     # Use a zoom factor != 1 so the general resampling path is exercised; source pixel
@@ -288,7 +288,7 @@ def test_resample_maskval(shortcuts) -> None:
     assert np.all(resampled[:, 4:6, 4:6] == -999.)
 
 
-def test_resample_invalid_returns(shortcuts) -> None:
+def test_resample_invalid_returns(shortcuts: bool) -> None:
     image = _cube_image()
     with pytest.raises(ValueError):
         resample(image, 2, returns='xyz')
@@ -300,7 +300,7 @@ def test_resample_requires_3d() -> None:
         resample(image, 2)
 
 
-def test_resample_negative_dimensions(shortcuts) -> None:
+def test_resample_negative_dimensions(shortcuts: bool) -> None:
     rng = np.random.default_rng(8107)
     image = rng.random((3, 100, 100))
     with pytest.raises(ValueError) as exc_info:

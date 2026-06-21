@@ -13,22 +13,9 @@ HALFPI = np.pi/2.
 TWOPI = np.pi * 2.
 
 
-def rotate(
-    image: np.ndarray,
-    angle: float,
-    mask: np.ndarray | None = None,
-    *,
-    maskval: float | None = None,
-    weights: np.ndarray | None = None,
-    nans: bool = False,
-    origin: tuple[float, float] | None = None,
-    center: tuple[float, float] | None = None,
-    shape: tuple[int, int] | None = None,
-    minweight: float = 1.e-6,
-    eps: float = 1.e-12,
-    returns: str | None = None,
-    _debug: dict | None = None,
-) -> np.ndarray | list[np.ndarray]:
+def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
+           origin=None, center=None, shape=None, minweight=1.e-6, eps=1.e-12,
+           returns=None, _debug=None):
     """Rotate this image while retaining photometric precision.
 
     This function calculates the area of overlap between each pixel (assumed square) of
@@ -38,47 +25,53 @@ def rotate(
     content of the input is preserved, albeit at a slightly reduced spatial resolution.
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be a MaskedArray.
-        angle: The rotation angle in radians. If we regard the spatial coordinates as
-            (x,y), where the x-axis points rightward and the y-axis points upward, then
-            the rotation is counterclockwise.
-        mask: Boolean mask array, equal to True where the values in `image` are to be
-            ignored. It is broadcasted to the shape of `image` if necessary.
-        maskval: A value that should be masked wherever it appears in `image`. This can be
-            used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with the
-            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
-            This can be provided in addition to or instead of the `mask` or `maskval`. It
-            is broadcasted to the shape of `image` if necessary. Values should never be
-            negative.
-        nans: True to check `image` for NaNs and interpret them as masked values.
-        origin: Two coordinates defining the center location within the image array around
-            which the rotation is performed. If not specified, the midpoint of `image` is
-            used. Note that integer coordinates refer to the corners between pixels and
-            half-integers refer to pixel centers. In other words, (0,0) is the lower
-            corner of the image array and (0.5,0.5) is the center of the first pixel.
-        center: Two coordinates defining the transformed location of the origin in the
-            returned image array. If not specified, the center will be determined to align
-            (0,0) in the input `image` to (0,0) in the returned image. Note that integer
-            coordinates refer to the corners between pixels and half-integers refer to
-            pixel centers.
-        shape: The shape of the returned image. If not specified, the resampled image is
-            large enough to encompass the entire content of the input `image`.
-        minweight: The minimum weight within a pixel in the returned image that is treated
-            as significant. If the total weight (fraction of a source pixel) in a new
-            pixel is less than this value, it will be treated as masked.
-        eps: The positional error tolerance in units of pixels when determining the
-            overlap between the original pixels of `image` and the new, rotated pixels.
-        returns: Used to override the default quantity or quantities to return, one of
-            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
-            "imw" (image, mask, and weight array). Append "c" to include the new center
-            coordinates of the returned image.
-        _debug: If provided, this dict is populated with internal state after the call,
-            useful for testing and debugging. Keys: 'area_list', 'imod_list', 'jmod_list'
-            (parallel lists of per-pixel overlap areas and source row/column indices from
-            the inner loop, or None when the angle is an exact multiple of π/2),
-            'new_center', 'new_mask', and 'new_weights'.
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be a MaskedArray.
+        angle (float): The rotation angle in radians. If we regard the spatial
+            coordinates as (x,y), where the x-axis points rightward and the y-axis points
+            upward, then the rotation is counterclockwise.
+        mask (array, optional): Boolean mask array, equal to True where the values in
+            `image` are to be ignored. It is broadcasted to the shape of `image` if
+            necessary.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array, optional): Weight array specifying the possibly unequal weights
+            associated with the pixels in `image`. A weight of zero is equivalent to a
+            `mask` value of True. This can be provided in addition to or instead of the
+            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
+            Values should never be negative.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as
+            masked values.
+        origin (tuple of two floats, optional): Two coordinates defining the center
+            location within the image array around which the rotation is performed. If not
+            specified, the midpoint of `image` is used. Note that integer coordinates
+            refer to the corners between pixels and half-integers refer to pixel centers.
+            In other words, (0,0) is the lower corner of the image array and (0.5,0.5) is
+            the center of the first pixel.
+        center (tuple of two floats, optional): Two coordinates defining the transformed
+            location of the origin in the returned image array. If not specified, the
+            center will be determined to align (0,0) in the input `image` to (0,0) in the
+            returned image. Note that integer coordinates refer to the corners between
+            pixels and half-integers refer to pixel centers.
+        shape (tuple of two ints, optional): The shape of the returned image. If not
+            specified, the resampled image is large enough to encompass the entire content
+            of the input `image`.
+        minweight (float, optional): The minimum weight within a pixel in the returned
+            image that is treated as significant. If the total weight (fraction of a
+            source pixel) in a new pixel is less than this value, it will be treated as
+            masked.
+        eps (float, optional): The positional error tolerance in units of pixels when
+            determining the overlap between the original pixels of `image` and the new,
+            rotated pixels.
+        returns (str, optional): Used to override the default quantity or quantities to
+            return, one of "i" (image only), "im" (image and mask), "iw" (image and weight
+            array), or "imw" (image, mask, and weight array). Append "c" to include the
+            new center coordinates of the returned image.
+        _debug (dict, optional): If provided, this dict is populated with internal state
+            after the call, useful for testing and debugging. Keys: 'area_list',
+            'imod_list', 'jmod_list' (parallel lists of per-pixel overlap areas and source
+            row/column indices from the inner loop, or None when the angle is an exact
+            multiple of π/2), 'new_center', 'new_mask', and 'new_weights'.
 
     Returns:
         `rotated` or (`rotated`[, `new_mask`][, `new_weights`][, `new_center`]):
@@ -351,24 +344,22 @@ def rotate(
                          return_dtype=out_dtype)
 
 
-def _intersection(
-    grid: np.ndarray,
-    corners: np.ndarray,
-    eps: float,
-) -> np.ndarray:
+def _intersection(grid, corners, eps):
     """The intersection areas of two grids of unit squares.
 
     The input arrays have shape (...,4,2), where the second-to-last axis identifies
     corners of the square indexed 0-3, and the last coordinate is 0 for x, 1 for y.
 
     Parameters:
-        grid: The (x,y) coordinates of the corners of unit squares. These squares must be
-            oriented with sides parallel to the coordinate system. Shape is (..., 4, 2).
-        corners: The (x,y) coordinates of the corners of a second set of unit squares.
-            These can be oriented arbitrarily but must all have the same orientation.
-            Shape is (..., 4, 2).
-        eps: The positional error tolerance in units of pixels when determining the
-            overlap between the original pixels of `image` and the new, rotated pixels.
+        grid (array): The (x,y) coordinates of the corners of unit squares. These squares
+            must be oriented with sides parallel to the coordinate system. Shape is
+            (..., 4, 2).
+        corners (array): The (x,y) coordinates of the corners of a second set of unit
+            squares. These can be oriented arbitrarily but must all have the same
+            orientation. Shape is (..., 4, 2).
+        eps (float): The positional error tolerance in units of pixels when determining
+            the overlap between the original pixels of `image` and the new, rotated
+            pixels.
 
     Returns:
         The area of overlap of each square in the first grid with its counterpart in the
@@ -429,20 +420,16 @@ def _intersection(
     return area
 
 
-def _edge_points(
-    grid: np.ndarray,
-    corners: np.ndarray,
-    eps: float,
-) -> np.ndarray:
+def _edge_points(grid, corners, eps):
     """Ordered array of crossing points where the grid square intersects the rotated
     square.
 
     Parameters:
-        grid: The corners of unit squares aligned with the (x,y) coordinate grid. Shape
-            is (..., 4, 2).
-        corners: The corners of unit squares that have arbitrary rotation. Shape is
-            (..., 4, 2), with the same leading dimensions as `grid`.
-        eps: Positional tolerance in pixel units.
+        grid (array): The corners of unit squares aligned with the (x,y) coordinate grid.
+            Shape is (..., 4, 2).
+        corners (array): The corners of unit squares that have arbitrary rotation. Shape
+            is (..., 4, 2), with the same leading dimensions as `grid`.
+        eps (float): Positional tolerance in pixel units.
 
     Returns:
         Intersection (x,y) coordinates in an array of shape (..., 8, 2). The first
@@ -547,18 +534,15 @@ def _edge_points(
     return points
 
 
-def _grid_outside_corner_mask(
-    grid: np.ndarray,
-    corners: np.ndarray,
-    eps: float,
-) -> np.ndarray:
+def _grid_outside_corner_mask(grid, corners, eps):
     """Mask of grid corners that are outside the rotated square defined by `corners`.
 
     Parameters:
-        grid: The corners of unit squares aligned with the coordinate axes. Shape is
+        grid (array): The corners of unit squares aligned with the coordinate axes. Shape
+            is (..., 4, 2).
+        corners (array): The corners of arbitrarily oriented unit squares. Shape is
             (..., 4, 2).
-        corners: The corners of arbitrarily oriented unit squares. Shape is (..., 4, 2).
-        eps: Positional tolerance in pixel units.
+        eps (float): Positional tolerance in pixel units.
 
     Returns:
         Boolean array of shape (..., 4) that is True where a grid corner lies outside the
@@ -578,18 +562,14 @@ def _grid_outside_corner_mask(
     return (u < -eps) | (u > 1+eps) | (v < -eps) | (v > 1+eps)
 
 
-def _inside_points(
-    grid: np.ndarray,
-    corners: np.ndarray,
-    eps: float,
-) -> tuple[np.ndarray, np.ndarray]:
+def _inside_points(grid, corners, eps):
     """Corners of the rotated square that lie inside the axis-aligned grid square.
 
     Parameters:
-        grid: The corners of unit squares aligned with the coordinate axes. Shape is
-            (..., 4, 2).
-        corners: The corners of the rotated unit squares. Shape is (..., 4, 2).
-        eps: Positional tolerance in pixel units.
+        grid (array): The corners of unit squares aligned with the coordinate axes. Shape
+            is (..., 4, 2).
+        corners (array): The corners of the rotated unit squares. Shape is (..., 4, 2).
+        eps (float): Positional tolerance in pixel units.
 
     Returns:
         A tuple (`points`, `count`):

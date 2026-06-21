@@ -5,16 +5,14 @@
 import numpy as np
 
 
-def circle(
-    radius: float,
-) -> np.ndarray:
+def circle(radius):
     """A circular footprint (boolean array) of the specified radius.
 
     The shape is always odd to ensure that using it in a filter does not contribute an
     offset to the image geometry.
 
     Parameters:
-        radius: The radius in pixels.
+        radius (float): The radius in pixels.
 
     Returns:
         A 2-D boolean array containing True wherever the distance from the footprint

@@ -265,13 +265,14 @@ def test_maximum_list_input() -> None:
     assert np.all(maximum(image, axis=1) == np.max(image, axis=1))
     assert np.all(maximum(image, axis=(0,-1)) == np.max(image, axis=(0,2)))
 
-    image = list(image)     # works for non-arrays?
-    assert np.all(maximum(image) == np.max(image, axis=(0,1,2)))
+    image_list = list(image)     # works for non-arrays?
+    assert np.all(maximum(image_list) == np.max(image_list, axis=(0,1,2)))
 
 
 def test_maximum_errors() -> None:
 
-    image = np.arange(12).reshape(4,3)
+    exc_info: pytest.ExceptionInfo[Exception]
+    image: np.ndarray = np.arange(12).reshape(4,3)
     with pytest.raises(ValueError) as exc_info:
         _ = maximum(image)
     assert str(exc_info.value) == 'invalid image shape (4, 3); must be at least 3-D'
@@ -283,7 +284,7 @@ def test_maximum_errors() -> None:
 
 ##########################################################################################
 
-def test_maximum_filter_no_mask(shortcuts) -> None:
+def test_maximum_filter_no_mask(shortcuts: bool) -> None:
 
     image = np.arange(10) + np.arange(10)[:,None] + np.arange(4)[:,None,None]
     a = maximum_filter(image, 2, returns='i')
@@ -297,7 +298,7 @@ def test_maximum_filter_no_mask(shortcuts) -> None:
     assert np.abs(a - b).max() < 1.e-15
 
 
-def test_maximum_filter_mask(shortcuts) -> None:
+def test_maximum_filter_mask(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(8063)
     image = rng.random((100,100))
@@ -327,7 +328,7 @@ def test_maximum_filter_mask(shortcuts) -> None:
             assert np.abs(a[i,j] - np.max(values)) < 1.e-14
 
 
-def test_maximum_filter_footprint_forms(shortcuts) -> None:
+def test_maximum_filter_footprint_forms(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(21)
     image = rng.random((20,20))

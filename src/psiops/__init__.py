@@ -68,34 +68,50 @@ __all__ = [
     'stdev_filter',
     'variance',
     'variance_filter',
+    # Modeling
+    'ArrayModel',
+    'Gaussian',
+    'ImageModel',
+    'SmearedModel',
+    'Stretch',
+    'SummedModel',
+    # Other operations
+    'autocorrelate',
+    'correlate',
+    'fft',
+    'fft_power',
+    'ialign',
+    'ifft',
 ]
 
 # Spatial transforms
 # Stack operations and spatial filters
 from psiops.gaussian_filter import gaussian_filter
-from psiops.ishift import ishift
-from psiops.maximum import maximum, maximum_filter
-from psiops.mean import mean, mean_filter
-from psiops.median import median, median_filter
-from psiops.minimum import minimum, minimum_filter
+from psiops.ishift   import ishift
+from psiops.maximum  import maximum, maximum_filter
+from psiops.mean     import mean, mean_filter
+from psiops.median   import median, median_filter
+from psiops.minimum  import minimum, minimum_filter
 from psiops.resample import resample
-from psiops.reshape import reshape
-from psiops.rotate import rotate
-from psiops.shift import shift
-from psiops.stdev import stdev, stdev_filter
-from psiops.unzoom import unzoom
+from psiops.reshape  import reshape
+from psiops.rotate   import rotate
+from psiops.shift    import shift
+from psiops.stdev    import stdev, stdev_filter
+from psiops.unzoom   import unzoom
 from psiops.variance import variance, variance_filter
-from psiops.zoom import zoom
+from psiops.zoom     import zoom
 
 # Modeling
-# from psiops.imagemodel            import ImageModel
-# from psiops.imagemodel.arraymodel import ArrayModel
-# from psiops.imagemodel.gaussian   import Gaussian
+from psiops.imagemodel              import ImageModel
+from psiops.imagemodel.arraymodel   import ArrayModel
+from psiops.imagemodel.gaussian     import Gaussian
+from psiops.imagemodel.smearedmodel import SmearedModel
+from psiops.imagemodel.summedmodel  import SummedModel
+from psiops.stretch                 import Stretch
 # from psiops.fitting  import Fitting
 # from psiops.scaling  import Scaling
-# from psiops.scaling2 import Scaling2
-#
-# # Other operations
-# from psiops.fft      import fft, ifft, fft_power, correlate, autocorrelate, ialign
+
+# Other operations
+from psiops.fft import fft, ifft, fft_power, correlate, autocorrelate, ialign
 
 ##########################################################################################

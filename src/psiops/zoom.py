@@ -8,16 +8,8 @@ from psiops._utils import _check_tuple
 from psiops._validation import _check_image, _check_return
 
 
-def zoom(
-    image: np.ndarray,
-    zoom_: int | tuple[int, int],
-    mask: np.ndarray | None = None,
-    *,
-    maskval: float | None = None,
-    weights: np.ndarray | None = None,
-    nans: bool = False,
-    returns: str | None = None,
-) -> np.ndarray | list[np.ndarray]:
+def zoom(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
+         returns=None):
     """Zoom up an image array by an integer factor.
 
     This algorithm uses pixel replication without interpolation in order to ensure that
@@ -25,22 +17,25 @@ def zoom(
     factors.
 
     Parameters:
-        image: Image array, in which the last two axes are the spatial dimensions. This
-            can be a MaskedArray.
-        zoom_: The positive integer zoom factor or tuple of two integer zoom factors.
-        mask: Boolean mask array, equal to True where the values in `image` are to be
-            ignored. It is broadcasted to the shape of `image` if necessary.
-        maskval: A value that should be masked wherever it appears in `image`. This can
-            be used instead of or in addition to the `mask`.
-        weights: Weight array specifying the possibly unequal weights associated with the
-            pixels in `image`. A weight of zero is equivalent to a `mask` value of True.
-            This can be provided in addition to or instead of the `mask` or `maskval`. It
-            is broadcasted to the shape of `image` if necessary. Values should never be
-            negative.
-        nans: True to check `image` for NaNs and interpret them as masked values.
-        returns: Used to override the default quantity or quantities to return, one of
-            "i" (image only), "im" (image and mask), "iw" (image and weight array), or
-            "imw" (image, mask, and weight array).
+        image (array): Image array, in which the last two axes are the spatial
+            dimensions. This can be a MaskedArray.
+        zoom_ (int or tuple of two ints): The positive integer zoom factor or tuple of
+            two integer zoom factors.
+        mask (array, optional): Boolean mask array, equal to True where the values in
+            `image` are to be ignored. It is broadcasted to the shape of `image` if
+            necessary.
+        maskval (float, optional): A value that should be masked wherever it appears in
+            `image`. This can be used instead of or in addition to the `mask`.
+        weights (array, optional): Weight array specifying the possibly unequal weights
+            associated with the pixels in `image`. A weight of zero is equivalent to a
+            `mask` value of True. This can be provided in addition to or instead of the
+            `mask` or `maskval`. It is broadcasted to the shape of `image` if necessary.
+            Values should never be negative.
+        nans (bool, optional): True to check `image` for NaNs and interpret them as masked
+            values.
+        returns (str, optional): Used to override the default quantity or quantities to
+            return, one of "i" (image only), "im" (image and mask), "iw" (image and
+            weight array), or "imw" (image, mask, and weight array).
 
     Returns:
         `zoomed` or (`zoomed`[, `new_mask`][, `new_weights`]):
@@ -86,15 +81,12 @@ def zoom(
     return _check_return(zoomed, new_mask, new_weights, info)
 
 
-def _zoom_array(
-    array: np.ndarray,
-    zoom_: tuple[int, int],
-) -> np.ndarray:
+def _zoom_array(array, zoom_):
     """Zoom a single array using stride tricks.
 
     Parameters:
-        array: Array to zoom.
-        zoom_: Two-element tuple of positive integer zoom factors.
+        array (array): Array to zoom.
+        zoom_ (tuple of two ints): Two-element tuple of positive integer zoom factors.
 
     Returns:
         A zoomed copy of `array`.

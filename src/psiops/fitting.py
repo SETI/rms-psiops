@@ -9,16 +9,12 @@ rotation. The image can be re-scaled based on a Stretch object.
 """
 
 import math
-from collections.abc import Sequence
 
 import numpy as np
-import numpy.typing as npt
 from scipy.optimize import least_squares
 
 from ._utils import _check_tuple, _merge_weights
 from ._validation import _check_image
-from .imagemodel import ImageModel
-from .stretch import Stretch
 
 
 class Fitting:
@@ -79,49 +75,39 @@ class Fitting:
         s_sigma (array or scalar): The uncertainty in `scaling`.
     """
 
-    def __init__(
-        self,
-        model: ImageModel,
-        stretch: Stretch,
-    ) -> None:
+    def __init__(self, model, stretch):
         """Constructor for a Fitting.
 
         Parameters:
-            model: The ImageModel to fit to the target image.
-            stretch: The Stretch properties to fit to the target image.
+            model (ImageModel): The ImageModel to fit to the target image.
+            stretch (Stretch): The Stretch properties to fit to the target image.
         """
 
         self.imagemodel = model
         self.stretch = stretch
 
-    def set_target(
-        self,
-        target: np.ndarray,
-        *,
-        mask: np.ndarray | None = None,
-        maskval: float | None = None,
-        weights: np.ndarray | None = None,
-        nans: bool = False,
-        corner: tuple[int, int] = (0, 0),
-        shape: tuple[int, int] | None = None,
-    ) -> None:
+    def set_target(self, target, *, mask=None, maskval=None, weights=None, nans=False,
+                   corner=(0, 0), shape=None):
         """Set the target image for this Fitting.
 
         Parameters:
-            target: The 2-D target image, which this Stretch object should match.
-            mask: Boolean mask array, equal to True where the values in `target` are to
-                be ignored.
-            maskval: A value that should be masked wherever it appears in `target`. This
-                can be used instead of or in addition to the `mask`.
-            weights: Weight array specifying the possibly unequal weights associated with
-                the pixels in `target`. A weight of zero is equivalent to a `mask` value
-                of True. This can be provided in addition to or instead of the `mask` or
-                `maskval`. Values should never be negative.
-            nans: True to check `target` for NaNs and interpret them as masked values.
-            corner: The lower coordinates of a slice of `target`, to be provided if only
-                part of `target` is to be fitted.
-            shape: The shape of a slice of `target`, to be provided if only part of
-                `target` is to be fitted.
+            target (array): The 2-D target image, which this Stretch object should
+                match.
+            mask (array, optional): Boolean mask array, equal to True where the values
+                in `target` are to be ignored.
+            maskval (float, optional): A value that should be masked wherever it appears
+                in `target`. This can be used instead of or in addition to the `mask`.
+            weights (array, optional): Weight array specifying the possibly unequal
+                weights associated with the pixels in `target`. A weight of zero is
+                equivalent to a `mask` value of True. This can be provided in addition
+                to or instead of the `mask` or `maskval`. Values should never be
+                negative.
+            nans (bool, optional): True to check `target` for NaNs and interpret them
+                as masked values.
+            corner (tuple of two ints, optional): The lower coordinates of a slice of
+                `target`, to be provided if only part of `target` is to be fitted.
+            shape (tuple of two ints, optional): The shape of a slice of `target`, to be
+                provided if only part of `target` is to be fitted.
         """
 
         # Interpret the image inputs
@@ -164,14 +150,11 @@ class Fitting:
         self.stretch.set_target(self.target, mask=self.mask, maskval=maskval,
                                 weights=self.weights, nans=nans)
 
-    def remask(
-        self,
-        mask: np.ndarray,
-    ) -> None:
+    def remask(self, mask):
         """Overlay a new mask atop the mask originally defined via `set_target`.
 
         Parameters:
-            mask: New boolean mask to overlay. Must have shape `self.shape`.
+            mask (array): New boolean mask to overlay. Must have shape `self.shape`.
 
         Raises:
             ValueError: If `mask` shape does not match `self.shape`.
@@ -186,16 +169,14 @@ class Fitting:
             self.mask = self.mask | mask
 
     @staticmethod
-    def _func(
-        x: np.ndarray,
-        fitting: 'Fitting',
-    ) -> np.ndarray:
+    def _func(x, fitting):
         """Function called by SciPy.optimize.least_squares(), returning the vector of
         residuals.
 
         Parameters:
-            x: Current parameter values as provided by the optimizer.
-            fitting: The Fitting instance whose model and stretch are evaluated.
+            x (array): Current parameter values as provided by the optimizer.
+            fitting (Fitting): The Fitting instance whose model and stretch are
+                evaluated.
 
         Returns:
             The 1-D array of residuals from the current stretch fit.
@@ -224,13 +205,8 @@ class Fitting:
         fitting.stretch.fit()
         return fitting.stretch.residuals_1d
 
-    def fit(
-        self,
-        params: npt.ArrayLike,
-        flags: Sequence[bool] = (True, True, False, False),
-        limits: Sequence[float] = (10., 10., 0.1, 0.2),
-        lsq_dict: dict | None = None,
-    ) -> None:
+    def fit(self, params, flags=(True, True, False, False), limits=(10., 10., 0.1, 0.2),
+            lsq_dict=None):
         """Perform one step of nonlinear least-squares fitting to obtain the
         transformation and stretch parameters.
 
@@ -259,15 +235,17 @@ class Fitting:
         * `corr` (float): The correlation coefficient between `dx` and `dy`.
 
         Parameters:
-            params: The initial guesses at the transformation parameters (x, y, zoom,
-                rotate). Here, `(x,y)` are the pixel offsets along the two image axes,
-                `zoom` is a expansion factor on the ImageModel's scale, and `rotate` is a
-                rotation angle in radians.
-            flags: Flags indicating whether or not a parameter is to be fitted.
-            limits: Limits on how far a parameter may deviate from its initial value.
-                Ignored where `flags` is False. Use zero to let a parameter vary without
-                limit.
-            lsq_dict: Additional input options for `scipy.optimize.least_squares`.
+            params (array-like): The initial guesses at the transformation parameters
+                (x, y, zoom, rotate). Here, `(x,y)` are the pixel offsets along the two
+                image axes, `zoom` is a expansion factor on the ImageModel's scale, and
+                `rotate` is a rotation angle in radians.
+            flags (sequence, optional): Flags indicating whether or not a parameter is to
+                be fitted.
+            limits (sequence, optional): Limits on how far a parameter may deviate from
+                its initial value. Ignored where `flags` is False. Use zero to let a
+                parameter vary without limit.
+            lsq_dict (dict, optional): Additional input options for
+                `scipy.optimize.least_squares`.
         """
 
         self.guesses = np.array(params)
@@ -291,15 +269,13 @@ class Fitting:
 
         self._fill_stats(result)
 
-    def _fill_stats(
-        self,
-        result: object,
-    ) -> None:
+    def _fill_stats(self, result):
         """Fill in quality-of-fit attributes from the OptimizeResult object returned by
         least_squares().
 
         Parameters:
-            result: The OptimizeResult object returned by `scipy.optimize.least_squares`.
+            result (object): The OptimizeResult object returned by
+                `scipy.optimize.least_squares`.
         """
 
         self._result = result
@@ -367,41 +343,42 @@ class Fitting:
     ######################################################################################
 
     @property
-    def model(self) -> np.ndarray:
+    def model(self):
         """The 2-D best-fit model."""
         return self.stretch.model
 
     @property
-    def background(self) -> np.ndarray:
+    def background(self):
         """The model background array that best fits the target image."""
         return self.stretch.background
 
     @property
-    def scaling(self) -> np.ndarray:
-        """The model scale factor array that multiplies the image to best fits the target.
+    def scaling(self):
+        """The model scale factor array that multiplies the image to best fits the
+        target.
 
-        Note that this returned result neglects the scaling of any second- or higher-order
-        exponent of the image in the Stretch.
+        Note that this returned result neglects the scaling of any second- or
+        higher-order exponent of the image in the Stretch.
         """
         return self.stretch.scaling
 
     @property
-    def residuals(self) -> np.ndarray:
+    def residuals(self):
         """The 2-D array of residuals image minus model."""
         return self.stretch.residuals
 
     @property
-    def m_sigma(self) -> np.ndarray:
+    def m_sigma(self):
         """Statistical uncertainty in the 2-D model."""
         return self.stretch.m_sigma
 
     @property
-    def b_sigma(self) -> np.ndarray:
+    def b_sigma(self):
         """Statistical uncertainty in the 2-D background."""
         return self.stretch.b_sigma
 
     @property
-    def s_sigma(self) -> np.ndarray:
+    def s_sigma(self):
         """Statistical uncertainty in the 2-D array of scale factors."""
         return self.stretch.s_sigma
 

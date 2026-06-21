@@ -158,6 +158,7 @@ def test_set_target_with_weights_normalizes() -> None:
     weights[1, 1] = 4.0
     f.set_target(target, weights=weights)
     # Weights are normalized so that the maximum is 1.
+    assert f.weights is not None
     assert f.weights.max() == pytest.approx(1.0)
     assert f.weights[1, 1] == pytest.approx(1.0)
 
@@ -235,6 +236,7 @@ def test_remask_overlays_existing_mask() -> None:
     new[4, 4] = True
     f.remask(new)
     # Both the original and the new masked pixels remain masked.
+    assert f.mask is not None
     assert f.mask[0, 0]
     assert f.mask[4, 4]
     assert f.mask.sum() == 2
@@ -381,7 +383,9 @@ def test_fill_stats_recomputes_when_x_changed() -> None:
     f.fit([5.0, 5.0, 1.0, 0.0])
 
     class _Result:
-        pass
+        x: np.ndarray
+        cost: float
+        jac: np.ndarray
 
     result = _Result()
     result.x = f._result.x + 0.01           # differs from cached self._x
@@ -389,7 +393,7 @@ def test_fill_stats_recomputes_when_x_changed() -> None:
     result.jac = f._result.jac
     f._fill_stats(result)
     # After recompute, the cached x matches the new result.
-    assert np.all(f._x == result.x)
+    assert np.all(f._x == result.x)  # type: ignore[attr-defined]
 
 
 ##########################################################################################
