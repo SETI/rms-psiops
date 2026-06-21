@@ -455,7 +455,7 @@ def _edge_points(
     i = np.arange(4)
     j = np.arange(1, 5) % 4
 
-    # From https://en.wikipedia.org/wiki/Line–line_intersection
+    # From https://en.wikipedia.org/wiki/Line-line_intersection
     c1 = grid[..., i, np.newaxis, :]
     c2 = grid[..., j, np.newaxis, :]
     c3 = corners[..., np.newaxis, i, :]

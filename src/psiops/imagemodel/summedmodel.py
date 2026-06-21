@@ -60,10 +60,9 @@ class SummedModel(ImageModel):
         """
 
         images = np.empty((self._nmodels,) + shape)
-        k = 0
-        for model, factor in zip(self._models, self._factors):
+        for k, (model, factor) in enumerate(zip(self._models, self._factors,
+                                                strict=True)):
             images[k] = factor * model.transform(shape, center, expand, rotate)
-            k += 1
 
         return np.sum(images, axis=0)
 

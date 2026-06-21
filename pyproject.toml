@@ -158,12 +158,19 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "A", "N", "PT", "RUF"]
 # SIM105 - Use contextlib.suppress for suppressions.
 # SIM108 - Use ternary operator for simple if/else.
 # RUF005 - Prefer iterable unpacking over `+` concatenation (tuple/list building).
-extend-ignore = ["PT011", "SIM105", "SIM108", "RUF005"]
+# E741 - Ambiguous variable names (e.g. single-letter `l`) are acceptable here.
+extend-ignore = ["PT011", "SIM105", "SIM108", "RUF005", "E741"]
 
 [tool.ruff.lint.per-file-ignores]
 # test_shift.py holds a large machine-generated ANSWERS table of regression data
 # (regenerate via PRINT_ANSWERS); its rows exceed the line limit and are not hand-edited.
 "tests/test_shift.py" = ["E501"]
+# __all__ is intentionally grouped by category with comments, not alphabetized.
+"src/psiops/__init__.py" = ["RUF022"]
+# The nested integer-type check reads more clearly than a single combined `if`.
+"src/psiops/_utils.py" = ["SIM102"]
+# The two shape-mismatch branches are kept separate for clarity.
+"src/psiops/_validation.py" = ["SIM114"]
 
 [tool.pymarkdown.plugins.md013]
 # Line length (disable so README/CONTRIBUTING can use longer lines).

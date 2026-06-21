@@ -201,7 +201,7 @@ def _median(
     hi = total + min(omit, 0)
     new_weights = np.maximum(hi - lo, 0)
     midweight = (lo + hi) / 2.
-    index_below = np.sum(cumweights <  midweight, axis=0)   # noqa
+    index_below = np.sum(cumweights <  midweight, axis=0)
     index_above = np.sum(cumweights <= midweight, axis=0)
     index_above = np.minimum(index_above, image.shape[0] - 1)
 
