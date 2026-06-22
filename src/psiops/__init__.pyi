@@ -282,7 +282,6 @@ class ArrayModel(ImageModel):
     ) -> np.ndarray: ...
 
 class Gaussian(ImageModel):
-    SQRT_HALF: float
     def __init__(self, sigma: float = ..., integral: float = ...) -> None: ...
     def transform(
         self,

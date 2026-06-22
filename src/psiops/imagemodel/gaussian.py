@@ -11,7 +11,7 @@ from . import ImageModel
 class Gaussian(ImageModel):
     """A ImageModel defined by a symmetric 2-D Gaussian."""
 
-    SQRT_HALF = np.sqrt(0.5)
+    _SQRT_HALF = np.sqrt(0.5)
 
     def __init__(self, sigma=1., integral=1.):
         """Constructor for a Gaussian ImageModel.
@@ -81,7 +81,7 @@ class Gaussian(ImageModel):
             together the shapes of all the inputs.
         """
 
-        scale = Gaussian.SQRT_HALF / sigma
+        scale = Gaussian._SQRT_HALF / sigma
         umin = (xmin - xcenter) * scale
         umax = (xmax - xcenter) * scale
         return 0.5 * (scipy.special.erf(umax) - scipy.special.erf(umin))

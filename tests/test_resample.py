@@ -327,6 +327,22 @@ def test_resample_2d_returns_modes(shortcuts: bool) -> None:
         assert all(r.shape == (20, 20) for r in results)
 
 
+def test_resample_shrink_tiny_source_onto_large_grid(shortcuts: bool) -> None:
+    # Regression: shrinking a small source onto a much larger output grid used to raise in
+    # the index-uniqueness reassignment, because there were no spare source indices to
+    # absorb the many out-of-range output pixels. The out-of-range read indices are now
+    # clamped (their weight is zero), so the source is placed and the rest is masked.
+    image = np.ones((3, 5))
+    result, mask = resample(image, 0.5, origin=(1.5, 2.5), center=(25., 35.),
+                            shape=(60, 80), returns='im')
+    assert result.shape == (60, 80)
+    assert mask.shape == (60, 80)
+    assert mask.any()           # the small source covers only part of the large grid
+    assert not mask.all()
+    # The whole shrunk source lands inside the grid, so signal scales by exactly zoom**2.
+    assert result[~mask].sum() == pytest.approx(image.sum() * 0.5**2, rel=1e-6)
+
+
 def test_resample_negative_dimensions(shortcuts: bool) -> None:
     rng = np.random.default_rng(8107)
     image = rng.random((3, 100, 100))

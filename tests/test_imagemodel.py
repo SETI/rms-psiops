@@ -29,6 +29,16 @@ def no_shortcuts() -> None:
     _use_shortcuts(False)
 
 
+def _weighted_center(array: np.ndarray) -> tuple[float, float]:
+    """The weighted center coordinates of the given array."""
+    xrange = np.arange(0.5, array.shape[0])[:,np.newaxis]
+    yrange = np.arange(0.5, array.shape[1])[np.newaxis]
+    array_sum = np.sum(array)
+    x_center = np.sum(xrange * array) / array_sum
+    y_center = np.sum(yrange * array) / array_sum
+    return (float(x_center), float(y_center))
+
+
 ##########################################################################################
 # ImageModel (abstract base)
 ##########################################################################################
@@ -136,6 +146,25 @@ def test_gaussian_psf_offset_shifts_peak() -> None:
     assert np.unravel_index(psf.argmax(), psf.shape) == (0, 0)
 
 
+def test_gaussian_weighted_center() -> None:
+    # The grid must be large enough (and the centers kept well inside it) that truncation
+    # of the Gaussian tails at the edges does not bias the weighted centroid above the
+    # tolerance. The same sub-pixel center offsets are tested, relocated to the interior.
+    centers = [(50.0, 60.0), (50.5, 60.5), (50.1, 60.7), (50.01, 60.99), (50.75, 60.999)]
+    for sigma in (1., 2., 3.):
+        model = Gaussian(sigma=sigma)
+        for expand in (1., 1.2, 1.4):
+            for rotate in (0., 1.):
+                for center in centers:
+                    array = model.transform(shape=(100, 120), center=center,
+                                            expand=expand, rotate=rotate)
+                    test_center = _weighted_center(array)
+                    dx = center[0] - test_center[0]
+                    dy = center[1] - test_center[1]
+                    offset = np.sqrt(dx**2 + dy**2)
+                    assert offset < 3.e-9
+
+
 ##########################################################################################
 # ArrayModel
 ##########################################################################################
@@ -212,6 +241,24 @@ def test_arraymodel_accepts_list_input(no_shortcuts: None) -> None:
     model = ArrayModel([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]])
     result = model.transform((7, 7), (3.5, 3.5))
     assert result.sum() == pytest.approx(1.0)
+
+
+def test_arraymodel_weighted_center(no_shortcuts: None) -> None:
+    # transform() places the array's `origin` at `center`, so the output's weighted
+    # centroid lands at center + (array_centroid - origin). This positioning is exact;
+    # expand/rotate of a small discrete source add discretization error (covered by the
+    # integral-preservation tests), so they are not exercised here.
+    arr = np.ones((3, 5))
+    c0 = np.array(_weighted_center(arr))            # source centroid = (1.5, 2.5)
+    centers = [(25.0, 35.0), (25.5, 35.5), (25.1, 35.7), (25.01, 35.99), (25.75, 35.999)]
+    for origin in (None, (1.5, 2.5), (1.1, 2.4)):
+        o = c0 if origin is None else np.array(origin, dtype=float)
+        model = ArrayModel(arr, origin=origin)
+        for center in centers:
+            array = model.transform((50, 70), center)       # expand=1, rotate=0
+            measured = np.array(_weighted_center(array))
+            predicted = np.array(center) + (c0 - o)
+            assert np.hypot(*(measured - predicted)) < 1e-9
 
 
 ##########################################################################################
