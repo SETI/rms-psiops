@@ -19,6 +19,13 @@ General properties:
   of the zoom factors being applied along the two image axes. SciPy functions do not have
   these properties, making them unreliable for many scientific purposes.
 
+  At the boundary, a pixel beyond the image edge is assumed to equal the nearest in-image
+  pixel (edge replication), so edge pixels retain their intensity rather than darkening
+  toward zero. Pixel sums are therefore preserved for content surrounded by the image; a
+  compact source whose own edge values are nonzero can have its integral grow slightly as
+  those edges replicate outward, so pad such a source with a zero border if exact integral
+  conservation is required.
+
   All of the underlying algorithms are designed for numerical efficiency and should
   generally operate quickly. Unnecessary loops are rigorously avoided.
 
