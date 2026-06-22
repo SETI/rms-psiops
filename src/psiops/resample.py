@@ -159,25 +159,33 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
             resampled[..., new_ijmin[0]:new_ijmax[0], new_ijmin[1]:new_ijmax[1]] = \
                 image[..., old_ijmin[0]:old_ijmax[0], old_ijmin[1]:old_ijmax[1]]
 
-        new_weights = None
-        if weights is not None:
-            new_weights = np.zeros(resampled.shape, dtype=image.dtype)
-            if overlap:
-                new_weights[..., new_ijmin[0]:new_ijmax[0], new_ijmin[1]:new_ijmax[1]] = \
-                    weights[..., old_ijmin[0]:old_ijmax[0], old_ijmin[1]:old_ijmax[1]]
+        # Build the coverage/weight array, pre-zeroed so the boundary rows or columns left
+        # uncovered by the integer offset are flagged (weight 0). Within the placed region
+        # use the supplied weights, or 1 when unweighted. (Previously this was built only
+        # when weights were supplied, dropping the boundary mask for unweighted input.)
+        new_weights = np.zeros(resampled.shape, dtype=image.dtype)
+        if overlap:
+            fill = 1. if weights is None else \
+                weights[..., old_ijmin[0]:old_ijmax[0], old_ijmin[1]:old_ijmax[1]]
+            new_weights[..., new_ijmin[0]:new_ijmax[0], new_ijmin[1]:new_ijmax[1]] = fill
 
         # At this point our arrays have the required integer shift and possibly one extra
-        # row or column. Apply the fractional shift as needed. The masked-mode shift
-        # derives weights from the boundary mask even when no input weights were given.
+        # row or column. Apply the fractional shift as needed; the masked-mode shift
+        # attenuates the coverage weights at the shifted boundary.
         resampled, new_weights = shift(resampled, offset=ijfrac, weights=new_weights,
                                        mode='masked', maskval=maskval, nans=nans,
                                        returns='iw')
 
         # Now trim off any extra pixels
         resampled = resampled[..., :new_xy_shape[0], :new_xy_shape[1]]
-        if new_weights is not None:
-            new_weights = new_weights[..., :new_xy_shape[0], :new_xy_shape[1]]
+        new_weights = new_weights[..., :new_xy_shape[0], :new_xy_shape[1]]
 
+        # An unweighted input returns a boolean coverage mask (matching the general path),
+        # True wherever the new pixel received no coverage; a weighted input returns the
+        # propagated weights and lets _check_return derive any mask from them.
+        if weights is None:
+            return _check_return(resampled, new_weights == 0., None, info=info,
+                                 extra=new_center)
         return _check_return(resampled, None, new_weights, info=info, extra=new_center)
 
     # Handle weighting along x-axis and then the y-axis

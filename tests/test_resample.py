@@ -394,4 +394,19 @@ def test_resample_unit_zoom_with_weights() -> None:
     assert weighted.shape == (1, 10, 13)
     assert np.isclose(new_weights.max(), 2.0)
 
+
+def test_resample_unit_zoom_unweighted_boundary_mask(shortcuts: bool) -> None:
+    # Regression: the zoom_==(1,1) shortcut used to drop the boundary mask when no weights
+    # were supplied, leaving output pixels with no source coverage unmasked (and the mask
+    # came back 2-D). Both the shortcut and general paths must flag the exposed boundary.
+    image = np.arange(80, dtype=float).reshape(1, 8, 10)
+
+    # Integer offset (2, 3): the source fills output rows 2:10 and cols 3:13; the rest of
+    # the (10, 13) output has no coverage and must be masked.
+    _, mask = resample(image, 1, center=(6, 8), returns='im')
+    assert mask.shape == (1, 10, 13)
+    assert mask[:, :2, :].all()             # top rows have no source coverage
+    assert mask[:, :, :3].all()             # left columns have no source coverage
+    assert not mask[:, 2:, 3:].any()        # the covered region is unmasked
+
 ##########################################################################################
