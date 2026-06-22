@@ -180,16 +180,13 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
         resampled = resampled[..., :new_xy_shape[0], :new_xy_shape[1]]
         new_weights = new_weights[..., :new_xy_shape[0], :new_xy_shape[1]]
 
-        # Match the general path. Its unweighted sub-path returns the un-renormalized
-        # weighted sum, so partially-covered boundary pixels keep their reduced flux; but
-        # shift() renormalizes to intensity. Multiply the coverage back in to recover the
-        # flux, and return a boolean coverage mask. (Uncovered pixels are 0/0 -> NaN from
-        # shift; np.where forces them to 0, matching the general path and avoiding NaN
-        # arithmetic.) A weighted input renormalizes in both paths, so its weights are
-        # returned as-is and _check_return derives any mask from them.
+        # shift() renormalizes the partially-covered boundary, so edge pixels keep their
+        # intensity (equivalent to assuming an off-edge pixel equals the nearest in-image
+        # pixel, not zero). Unweighted input returns a boolean coverage mask; weighted
+        # input returns the propagated weights and lets _check_return derive any mask.
         if weights is None:
             new_mask = new_weights == 0.
-            resampled = np.where(new_mask, 0., resampled) * new_weights
+            resampled[new_mask] = 0.        # fully-uncovered pixels are masked; zero them
             return _check_return(resampled, new_mask, None, info=info, extra=new_center)
         return _check_return(resampled, None, new_weights, info=info, extra=new_center)
 
@@ -282,7 +279,7 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
     if weights is None:
         arrays = image
         buffer = np.zeros(new_shape, dtype=out_dtype)
-        new_mask = np.ones(new_xy_shape, dtype=np.bool_)
+        wbuffer = np.zeros(new_xy_shape, dtype=out_dtype)
         count = 1
     else:
         arrays = np.empty((2, *image.shape), dtype=out_dtype)
@@ -342,11 +339,17 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
             buffer[..., nx[:, np.newaxis], ny] += wxy * arrays[..., ox[:, np.newaxis], oy]
 
             if count == 1:
-                # Set the mask to False anywhere the weight is nonzero
-                new_mask[nx[:, np.newaxis], ny] &= (wxy == 0.)
+                # Accumulate the coverage weight, used below to renormalize and to mask
+                wbuffer[nx[:, np.newaxis], ny] += wxy
 
     if count == 1:
-        resampled = buffer
+        # Renormalize so partially-covered edge pixels keep their intensity (equivalent to
+        # assuming an off-edge pixel equals the nearest in-image pixel, not zero). Fully
+        # uncovered pixels give 0/0 -> NaN, as in the weighted and shortcut paths.
+        new_mask = wbuffer == 0.
+        with np.errstate(invalid='ignore', divide='ignore'):
+            resampled = buffer / wbuffer
+        resampled[..., new_mask] = 0.       # fully-uncovered pixels are masked; zero them
         new_weights = None
         if new_mask.shape != resampled.shape:
             new_mask = np.broadcast_to(new_mask, resampled.shape)

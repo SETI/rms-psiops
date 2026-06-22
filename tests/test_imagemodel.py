@@ -249,11 +249,13 @@ def test_arraymodel_weighted_center(no_shortcuts: None) -> None:
     # transform() places the array's `origin` at `center`, so the output's weighted
     # centroid lands at center + (array_centroid - origin). This positioning is exact;
     # expand/rotate of a small discrete source add discretization error (covered by the
-    # integral-preservation tests), so they are not exercised here.
-    arr = np.ones((3, 5))
-    c0 = np.array(_weighted_center(arr))            # source centroid = (1.5, 2.5)
+    # integral-preservation tests), so they are not exercised here. A zero border keeps
+    # the edge-replicating boundary from inflating the integral (the border value is 0).
+    arr = np.zeros((5, 7))
+    arr[1:4, 1:6] = 1.0                             # 3x5 block of ones with a zero border
+    c0 = np.array(_weighted_center(arr))            # source centroid = (2.5, 3.5)
     centers = [(25.0, 35.0), (25.5, 35.5), (25.1, 35.7), (25.01, 35.99), (25.75, 35.999)]
-    for origin in (None, (1.5, 2.5), (1.1, 2.4)):
+    for origin in (None, (2.5, 3.5), (2.1, 3.4)):
         o = c0 if origin is None else np.array(origin, dtype=float)
         model = ArrayModel(arr, origin=origin)
         for center in centers:
@@ -313,14 +315,18 @@ def test_summedmodel_weighted_center(no_shortcuts: None) -> None:
     # centroids. ArrayModel components are placed at distinct offsets via `origin` (a
     # component's centroid lands at center + (array_centroid - origin)); with expand=1 and
     # rotate=0 the positioning is exact, so the centroid matches the closed-form weighted
-    # mean. Each entry below is (array, origin, factor).
-    block = np.ones((3, 3))
-    lopsided = np.array([[1., 1., 1.], [1., 2., 1.], [1., 1., 4.]])   # off-center
+    # mean. Each entry below is (array, origin, factor). A zero border keeps the
+    # edge-replicating boundary from inflating the integral (the border value is 0). The
+    # origins are shifted by (1, 1) to match the bordered arrays.
+    block = np.zeros((5, 5))
+    block[1:4, 1:4] = 1.0                                # 3x3 ones with a zero border
+    lopsided = np.zeros((5, 5))
+    lopsided[1:4, 1:4] = [[1., 1., 1.], [1., 2., 1.], [1., 1., 4.]]   # off-center variant
     configs = [
-        [(block, (1.5, 1.5), 1.0), (block, (0.5, 1.5), 1.0)],
-        [(block, (1.5, 1.5), 3.0), (block, (1.5, 2.5), 1.0), (block, (2.5, 1.5), 1.0)],
-        [(block, (1.5, 1.5), 2.0), (lopsided, (1.5, 1.5), 1.0)],
-        [(block, (1.0, 2.0), 2.0), (lopsided, (2.0, 1.0), -0.5)],     # negative factor
+        [(block, (2.5, 2.5), 1.0), (block, (1.5, 2.5), 1.0)],
+        [(block, (2.5, 2.5), 3.0), (block, (2.5, 3.5), 1.0), (block, (3.5, 2.5), 1.0)],
+        [(block, (2.5, 2.5), 2.0), (lopsided, (2.5, 2.5), 1.0)],
+        [(block, (2.0, 3.0), 2.0), (lopsided, (3.0, 2.0), -0.5)],     # negative factor
     ]
     centers = [(25.0, 35.0), (25.5, 35.7), (25.1, 35.99), (25.99, 35.01)]
     for comps in configs:

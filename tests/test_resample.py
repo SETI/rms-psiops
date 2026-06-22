@@ -332,14 +332,17 @@ def test_resample_shrink_tiny_source_onto_large_grid(shortcuts: bool) -> None:
     # the index-uniqueness reassignment, because there were no spare source indices to
     # absorb the many out-of-range output pixels. The out-of-range read indices are now
     # clamped (their weight is zero), so the source is placed and the rest is masked.
-    image = np.ones((3, 5))
-    result, mask = resample(image, 0.5, origin=(1.5, 2.5), center=(25., 35.),
+    image = np.zeros((7, 9))
+    image[2:5, 2:7] = 1.0   # 3x5 ones with a 2-pixel zero border, wide enough that the
+                            # shrink window never reaches the array edge
+    result, mask = resample(image, 0.5, origin=(3.5, 4.5), center=(25., 35.),
                             shape=(60, 80), returns='im')
     assert result.shape == (60, 80)
     assert mask.shape == (60, 80)
     assert mask.any()           # the small source covers only part of the large grid
     assert not mask.all()
     # The whole shrunk source lands inside the grid, so signal scales by exactly zoom**2.
+    # The zero border keeps the edge-replicating boundary from inflating the integral.
     assert result[~mask].sum() == pytest.approx(image.sum() * 0.5**2, rel=1e-6)
 
 
@@ -411,10 +414,10 @@ def test_resample_unit_zoom_unweighted_boundary_mask(shortcuts: bool) -> None:
 
 
 def test_resample_unit_zoom_shortcut_matches_general() -> None:
-    # The zoom_==(1,1) shortcut must give the same answer as the general path. It used to
-    # renormalize partially-covered boundary pixels, fabricating flux, while the general
-    # unweighted path returns the un-renormalized weighted sum. Compare both paths across
-    # integer/fractional offsets and unweighted, weighted, and masked input.
+    # The zoom_==(1,1) shortcut must give the same answer as the general path. Both
+    # renormalize partially-covered boundary pixels so edge pixels keep their intensity
+    # (off-edge == nearest in-image pixel). Compare both paths across integer/fractional
+    # offsets and unweighted, weighted, and masked input.
     rng = np.random.default_rng(2024)
     image = rng.random((1, 6, 7))
     for center in [(3.3, 4.7), (3.0, 4.0), (3.5, 3.0)]:
