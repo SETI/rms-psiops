@@ -170,6 +170,22 @@ valid pixels that contributed.
    list. By default the center is included whenever it was not supplied as input.
 
 
+Thread safety
+~~~~~~~~~~~~~
+
+The operations are safe to call concurrently from multiple threads, as long as each call
+works on its own arrays. Every function computes on the inputs you pass it and shares no
+mutable per-call state, and NumPy releases the GIL while it does the heavy array work, so
+threads run in parallel and the returned arrays are always correct.
+
+A few module-level settings — the shortcut optimizations, the working-memory limit used to
+tile large arrays, and some internal diagnostic counters — are **process-global**. They are
+read during normal operation but are not meant to be changed from several threads at once;
+doing so will not corrupt your results, but the diagnostic counters become unreliable. If you
+parallelize heavy workloads, prefer multiple processes (the usual approach for NumPy/SciPy
+code), which sidesteps all shared state.
+
+
 Spatial transforms
 ------------------------------------------
 

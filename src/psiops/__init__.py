@@ -29,6 +29,14 @@ General properties:
 - Most operations can be performed on an arbitrarily-shaped array of images all at once.
   The last two axes of the array are assumed to be the spatial axes of the image.
 
+- The operations are safe to call concurrently from multiple threads as long as each call
+  works on its own arrays: every function computes on the inputs it is given, shares no
+  mutable per-call state, and NumPy releases the GIL for the heavy array work. A few
+  module-level settings (the shortcut optimizations, the working-memory limit used to tile
+  large arrays, and some internal diagnostic counters) are process-global; they are not
+  meant to be changed from several threads at once. For heavy parallel workloads, prefer
+  multiple processes, the usual approach for NumPy/SciPy code.
+
 Important note: There are many places in this library where one can specify a fractional
 location within the pixel grid of an image. Throughout, we follow the convention that
 integer coordinates refer to the corners between pixels and half-integers refer to pixel
