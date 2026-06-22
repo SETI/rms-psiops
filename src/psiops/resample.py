@@ -180,12 +180,17 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
         resampled = resampled[..., :new_xy_shape[0], :new_xy_shape[1]]
         new_weights = new_weights[..., :new_xy_shape[0], :new_xy_shape[1]]
 
-        # An unweighted input returns a boolean coverage mask (matching the general path),
-        # True wherever the new pixel received no coverage; a weighted input returns the
-        # propagated weights and lets _check_return derive any mask from them.
+        # Match the general path. Its unweighted sub-path returns the un-renormalized
+        # weighted sum, so partially-covered boundary pixels keep their reduced flux; but
+        # shift() renormalizes to intensity. Multiply the coverage back in to recover the
+        # flux, and return a boolean coverage mask. (Uncovered pixels are 0/0 -> NaN from
+        # shift; np.where forces them to 0, matching the general path and avoiding NaN
+        # arithmetic.) A weighted input renormalizes in both paths, so its weights are
+        # returned as-is and _check_return derives any mask from them.
         if weights is None:
-            return _check_return(resampled, new_weights == 0., None, info=info,
-                                 extra=new_center)
+            new_mask = new_weights == 0.
+            resampled = np.where(new_mask, 0., resampled) * new_weights
+            return _check_return(resampled, new_mask, None, info=info, extra=new_center)
         return _check_return(resampled, None, new_weights, info=info, extra=new_center)
 
     # Handle weighting along x-axis and then the y-axis

@@ -409,4 +409,25 @@ def test_resample_unit_zoom_unweighted_boundary_mask(shortcuts: bool) -> None:
     assert mask[:, :, :3].all()             # left columns have no source coverage
     assert not mask[:, 2:, 3:].any()        # the covered region is unmasked
 
+
+def test_resample_unit_zoom_shortcut_matches_general() -> None:
+    # The zoom_==(1,1) shortcut must give the same answer as the general path. It used to
+    # renormalize partially-covered boundary pixels, fabricating flux, while the general
+    # unweighted path returns the un-renormalized weighted sum. Compare both paths across
+    # integer/fractional offsets and unweighted, weighted, and masked input.
+    rng = np.random.default_rng(2024)
+    image = rng.random((1, 6, 7))
+    for center in [(3.3, 4.7), (3.0, 4.0), (3.5, 3.0)]:
+        for kwargs in ({}, {'weights': rng.random((1, 6, 7)) + 0.1},
+                       {'mask': rng.random((1, 6, 7)) < 0.25}):
+            results = []
+            for use in (False, True):
+                _use_shortcuts(use)
+                results.append(resample(image, 1, origin=(3., 3.5), center=center,
+                                        shape=(6, 7), returns='imw', **kwargs))
+            (gi, gm, gw), (si, sm, sw) = results
+            assert np.array_equal(sm, gm)
+            assert np.allclose(si, gi, equal_nan=True)
+            assert np.allclose(sw, gw, equal_nan=True)
+
 ##########################################################################################
