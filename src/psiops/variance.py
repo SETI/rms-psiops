@@ -141,7 +141,12 @@ def _variance(image, mask, weights, info, axis, *, factors=None, vartype='reliab
         ddof = 0 if vartype == 'biased' else 1
 
         if mask is None and weights is None:
-            var_image = np.var(image, axis=axis, ddof=ddof)
+            # An under-populated reduction (count <= ddof, e.g. an unbiased variance of a
+            # single sample) is undefined and yields NaN; suppress NumPy's "Degrees of
+            # freedom <= 0" warning, as in the masked path below.
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                var_image = np.var(image, axis=axis, ddof=ddof)
             return (var_image, None, None)
 
         if weights is None:
