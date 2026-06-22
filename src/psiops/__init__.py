@@ -36,14 +36,9 @@ centers. In other words, (0,0) is the lower corner of the image array and (0.5,0
 center of the first pixel.
 """
 
-import os
-import sys
-import warnings
+import functools
 
-# Turn off all RuntimeWarnings by default. User can override if they wish.
-if not sys.warnoptions:
-    warnings.simplefilter('ignore', category=RuntimeWarning)
-    os.environ['PYTHONWARNINGS'] = 'ignore::RuntimeWarning'  # also affect subprocesses
+import numpy as np
 
 __all__ = [
     # Spatial transforms
@@ -113,5 +108,44 @@ from psiops.stretch                 import Stretch
 
 # Other operations
 from psiops.fft import fft, ifft, fft_power, correlate, autocorrelate, ialign
+
+##########################################################################################
+# Divide-by-zero warning suppression
+##########################################################################################
+
+# Wherever fully masked or zero-weight pixels appear, this library intentionally produces
+# 0/0 or x/0, yielding NaN or inf as documented. NumPy reports these as a "divide by zero
+# encountered" or "invalid value encountered in divide" RuntimeWarning. We suppress them
+# at the NumPy error-state source -- which holds even when warnings are turned into errors
+# (e.g. `-W error` or pytest's `filterwarnings = ["error"]`) -- by wrapping each public
+# entry point in `np.errstate(...)`, rather than scattering the same guard at every
+# division. Only `divide`/`invalid` are affected; all other RuntimeWarnings, and the
+# user's own code, are left untouched.
+
+
+def _suppress_divide_warnings(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with np.errstate(divide='ignore', invalid='ignore'):
+            return func(*args, **kwargs)
+    return wrapper
+
+
+_globals = globals()
+for _name in __all__:
+    _obj = _globals[_name]
+    if not isinstance(_obj, type):              # a module-level function
+        _globals[_name] = _suppress_divide_warnings(_obj)
+
+for _cls, _methods in (                         # the model/fit classes that divide
+    (ArrayModel, ('transform',)),
+    (Gaussian, ('transform',)),
+    (SmearedModel, ('transform',)),
+    (SummedModel, ('transform',)),
+    (Stretch, ('set_image', 'set_target', 'fit')),
+    (Fitting, ('set_target', 'fit')),
+):
+    for _method in _methods:
+        setattr(_cls, _method, _suppress_divide_warnings(getattr(_cls, _method)))
 
 ##########################################################################################
