@@ -298,16 +298,6 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
         elif steps == 3:
             origin = (origin[1], rot_image.shape[-1] - origin[0])
 
-        # resample() requires at least three dimensions, so temporarily add a leading
-        # axis for 2-D inputs and squeeze it back off the results afterward.
-        squeeze = rot_image.ndim < 3
-        if squeeze:
-            rot_image = rot_image[np.newaxis]
-            if rot_mask is not None:
-                rot_mask = rot_mask[np.newaxis]
-            if rot_weights is not None:
-                rot_weights = rot_weights[np.newaxis]
-
         # Use resample to create the new image. Force the general (non-shortcut) resample
         # path: the zoom==1 shortcut is unsuitable here because it does not return the new
         # mask that this branch requires. The flag is restored in all cases.
@@ -322,13 +312,6 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
                                                       minweight=minweight, returns='imw')
         finally:
             _use_shortcuts(saved_shortcuts)
-
-        if squeeze:
-            rotated = rotated[0]
-            if new_mask is not None and new_mask.ndim > 2:
-                new_mask = new_mask[0]
-            if new_weights is not None and new_weights.ndim > 2:
-                new_weights = new_weights[0]
 
         if _debug is not None:
             _debug['area_list'] = None
