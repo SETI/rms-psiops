@@ -70,6 +70,7 @@ __all__ = [
     'variance_filter',
     # Modeling
     'ArrayModel',
+    'Fitting',
     'Gaussian',
     'ImageModel',
     'SmearedModel',
@@ -102,14 +103,13 @@ from psiops.variance import variance, variance_filter
 from psiops.zoom     import zoom
 
 # Modeling
+from psiops.fitting                 import Fitting
 from psiops.imagemodel              import ImageModel
 from psiops.imagemodel.arraymodel   import ArrayModel
 from psiops.imagemodel.gaussian     import Gaussian
 from psiops.imagemodel.smearedmodel import SmearedModel
 from psiops.imagemodel.summedmodel  import SummedModel
 from psiops.stretch                 import Stretch
-# from psiops.fitting  import Fitting
-# from psiops.scaling  import Scaling
 
 # Other operations
 from psiops.fft import fft, ifft, fft_power, correlate, autocorrelate, ialign

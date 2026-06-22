@@ -18,7 +18,7 @@ from ._validation import _check_image
 
 
 class Fitting:
-    """Class defining a spatial transformation and optional stretch of of an ImageModel to
+    """Class defining a spatial transformation and optional stretch of an ImageModel to
     best match an image.
 
     The spatial transformation can include a pixel offset, symmetric zoom factor, and
@@ -65,8 +65,6 @@ class Fitting:
         model (array): The stretched 2-D image, obtained by applying the Stretch to the
             transformed `imagemodel`.
         residuals (array): The 2-D array of residuals, `target` minus `model`.
-        residuals_1d (array): A 1-D array containing only the unmasked pixels of
-            `residuals`.
         background (array or scalar): The background 2-D array or value for this Stretch.
         scaling (array or scalar): The 2-D array or value that multiplies `image` in
             this Stretch.
@@ -354,7 +352,7 @@ class Fitting:
 
     @property
     def scaling(self):
-        """The model scale factor array that multiplies the image to best fits the
+        """The model scale factor array that multiplies the image to best fit the
         target.
 
         Note that this returned result neglects the scaling of any second- or

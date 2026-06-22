@@ -386,6 +386,154 @@ removed and transient bad pixels have been rejected, while ``combined_mask`` fla
 any location that was invalid in every exposure.
 
 
+Fourier transforms and correlation
+------------------------------------------
+
+:func:`~psiops.fft` and :func:`~psiops.ifft` compute the forward and inverse 2-D FFT
+over the last two axes of an array, and :func:`~psiops.fft_power` returns the power
+spectrum. Pass ``retile=True`` to move the zero-frequency term to the center of the
+output (convenient for display), and ``real=True`` to keep only the real component.
+
+.. code-block:: python
+
+   image = np.random.default_rng(8).random((128, 128))
+
+   spectrum = psiops.fft(image)
+   restored = psiops.ifft(spectrum, real=True)         # recovers the original image
+   power = psiops.fft_power(image, retile=True)         # zero frequency at the center
+
+:func:`~psiops.correlate` cross-correlates an image against a reference (with
+``normalize=True`` scaling the result to the range −1 to 1), and
+:func:`~psiops.autocorrelate` is the special case of an image with itself.
+:func:`~psiops.ialign` uses the correlation peak to report the integer offset that
+best aligns two images — handy for registering frames before stacking.
+
+.. code-block:: python
+
+   reference = psiops.shift(image, (5, -3), mode='wrap', returns='i')
+
+   corr = psiops.correlate(image, reference, normalize=True)
+   offset = psiops.ialign(image, reference, sigma=2.0)   # -> (5, -3)
+
+The ``sigma`` argument to :func:`~psiops.ialign` unsharp-masks both images before
+correlating, which sharpens the peak when the images contain large-scale gradients.
+
+
+Image models
+------------------------------------------
+
+An :class:`~psiops.ImageModel` describes a continuous, photometrically normalized
+source that can be rendered onto any pixel grid. Every model exposes one method,
+``transform(shape, center, expand=1.0, rotate=0.0)``, which returns a 2-D array of the
+requested ``shape`` with the model centered at ``center`` (in the pixel-corner/center
+convention above), optionally magnified by ``expand`` and rotated by ``rotate``
+radians. The model's integral is preserved.
+
+:class:`~psiops.Gaussian` is a symmetric 2-D Gaussian of a given ``sigma`` and total
+``integral``:
+
+.. code-block:: python
+
+   psf = psiops.Gaussian(sigma=2.0).transform((31, 31), center=(15.5, 15.5))
+   # psf.sum() == 1.0  (unit integral by default)
+
+:class:`~psiops.ArrayModel` wraps an arbitrary 2-D array, resampling it (flux-
+conserving) onto the output grid. Use ``origin`` to choose which point of the source
+array is placed at ``center``, and ``outside`` to set the fill value beyond the
+array's footprint:
+
+.. code-block:: python
+
+   template = np.zeros((11, 11))
+   template[5, 5] = 1.0
+   model = psiops.ArrayModel(template, origin=(5.5, 5.5))
+   rendered = model.transform((64, 64), center=(40.0, 25.0), expand=1.5, rotate=0.3)
+
+:class:`~psiops.SmearedModel` averages a model along a ``(dx, dy)`` smear vector to
+emulate motion blur, and :class:`~psiops.SummedModel` adds several models with
+per-model scale factors (for example a narrow core plus a broad halo):
+
+.. code-block:: python
+
+   trailed = psiops.SmearedModel(psiops.Gaussian(sigma=1.5), smear=(6.0, 0.0))
+   trail = trailed.transform((41, 41), center=(20.5, 20.5))
+
+   combo = psiops.SummedModel(
+       [psiops.Gaussian(sigma=1.0), psiops.Gaussian(sigma=4.0)],
+       factors=[1.0, 0.3],
+   )
+   psf = combo.transform((41, 41), center=(20.5, 20.5))
+
+
+Stretching to match an image
+------------------------------------------
+
+A :class:`~psiops.Stretch` finds the photometric transformation — a per-pixel
+background plus a scaling of an image — that best matches a target, using fast linear
+least squares. The ``orders`` argument gives the polynomial order of each component:
+``[0, 0]`` is a constant background plus a constant scale factor, while higher orders
+let the background and scaling vary smoothly across the image. (An order of ``-1``
+omits a component.)
+
+.. code-block:: python
+
+   image = np.random.default_rng(9).random((50, 50))
+   target = 3.0 * image + 1.5                     # a known scale and offset
+
+   stretch = psiops.Stretch([0, 0])               # constant background + constant scale
+   stretch.set_image(image)
+   stretch.set_target(target)
+   stretch.fit()
+
+   stretch.scaling       # ~ 3.0
+   stretch.background    # ~ 1.5
+   stretch.model         # the best-fit reconstruction of target
+   stretch.rms           # residual RMS (~ 0 for this exact example)
+
+``set_target`` accepts the usual ``mask``, ``maskval``, ``weights``, and ``nans``
+options, so invalid target pixels are excluded from the fit. The fitted coefficients
+and their uncertainties are available as ``coeffs``, ``covar``, and the ``m_sigma`` /
+``b_sigma`` / ``s_sigma`` properties.
+
+
+Fitting a model to an image
+------------------------------------------
+
+A :class:`~psiops.Fitting` pairs an :class:`~psiops.ImageModel` with a
+:class:`~psiops.Stretch` and solves for the geometric transformation — pixel offset
+``(x, y)``, ``zoom``, and ``rotate`` — that, together with the stretch, best matches a
+target image. It is the tool for measuring the position (and optionally the scale and
+orientation) of a source whose shape you can model, such as centroiding a star against
+a PSF.
+
+.. code-block:: python
+
+   # A star observed at a sub-pixel location, with some background
+   truth = psiops.Gaussian(sigma=2.0)
+   target = 5.0 * truth.transform((64, 64), center=(31.2, 28.7)) + 0.1
+
+   model = psiops.Gaussian(sigma=2.0)
+   stretch = psiops.Stretch([0, 0])               # background + amplitude
+   # Seed the stretch with a same-shape render so it knows the target geometry.
+   stretch.set_image(model.transform((64, 64), center=(31.0, 29.0)))
+
+   fitting = psiops.Fitting(model, stretch)
+   fitting.set_target(target)
+
+   # Initial guess (x, y, zoom, rotate); by default only x and y are fitted.
+   fitting.fit([31.0, 29.0, 1.0, 0.0])
+
+   fitting.x, fitting.y          # best-fit center -> (31.2, 28.7)
+   fitting.rms                   # residual RMS
+   fitting.dx, fitting.dy        # one-sigma uncertainties on x and y
+   fitting.model                 # the best-fit model image
+
+The ``flags`` argument to ``fit`` selects which of the four parameters are free (the
+default fits only ``x`` and ``y``), and ``limits`` bounds how far each may move from
+its initial guess. Use ``set_target(..., corner=..., shape=...)`` to fit only a
+sub-region of a larger image.
+
+
 Where to go next
 ------------------------------------------
 

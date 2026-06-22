@@ -383,6 +383,68 @@ class Stretch:
     @property
     def s_sigma(self) -> np.ndarray: ...
 
+class Fitting:
+    imagemodel: ImageModel
+    stretch: Stretch
+    target: np.ndarray
+    mask: np.ndarray | None
+    weights: np.ndarray | None
+    corner: tuple[int, int]
+    shape: tuple[int, int]
+    params: np.ndarray
+    transformed: np.ndarray
+    x: float
+    y: float
+    zoom: float
+    rotate: float
+    guesses: np.ndarray
+    flags: np.ndarray
+    limits: np.ndarray
+    nparams: int
+    lsq_dict: dict
+    dof: int
+    weight_sum: float
+    chi_sq: float
+    rms: float
+    covar: np.ndarray
+    dx: float
+    dy: float
+    corr: float
+    def __init__(self, model: ImageModel, stretch: Stretch) -> None: ...
+    def set_target(
+        self,
+        target: np.ndarray,
+        *,
+        mask: np.ndarray | None = ...,
+        maskval: float | None = ...,
+        weights: np.ndarray | None = ...,
+        nans: bool = ...,
+        corner: tuple[int, int] = ...,
+        shape: tuple[int, int] | None = ...,
+    ) -> None: ...
+    def remask(self, mask: np.ndarray) -> None: ...
+    def fit(
+        self,
+        params: npt.ArrayLike,
+        flags: Sequence[bool] = ...,
+        limits: Sequence[float] = ...,
+        lsq_dict: dict | None = ...,
+    ) -> None: ...
+    @property
+    def model(self) -> np.ndarray: ...
+    @property
+    def background(self) -> np.ndarray: ...
+    @property
+    def scaling(self) -> np.ndarray: ...
+    @property
+    def residuals(self) -> np.ndarray: ...
+    @property
+    def m_sigma(self) -> np.ndarray: ...
+    @property
+    def b_sigma(self) -> np.ndarray: ...
+    @property
+    def s_sigma(self) -> np.ndarray: ...
+
 ##########################################################################################
 # Other operations
 ##########################################################################################
