@@ -28,8 +28,9 @@ end to end. The same pass also added 2-D support to `resample`/`reshape`, simpli
 `ArrayModel.transform`, fixed a `resample` shrink-path crash, and expanded the imagemodel tests
 (see §13). A further pass **narrowed the divide-by-zero warning suppression to the NumPy
 error-state source, centralized zero-size-input rejection in `_check_image`, and exported and
-documented the `Fitting` class** (see §14). The remaining work is short: the `returns` DSL
-discoverability (won't-fix) and thread-safety documentation.
+documented the `Fitting` class** (see §14), and documented the thread-safety contract (§5).
+With that, every actionable finding has been addressed; the only item left open is the
+`returns` DSL discoverability, a deliberate design choice marked won't-fix.
 
 ---
 
@@ -208,11 +209,18 @@ discoverability (won't-fix) and thread-safety documentation.
   `psutil.virtual_memory().total // 2` lazily on first read, on explicit limit-setting, and on
   reset — so each call reflects current system memory. No psutil call at import time.
 
-- **Finding (medium — thread safety)**: Module-level mutable state (`_USE_SHORTCUTS`,
-  `_LAYERS_USED`, `_TILES_USED`, `_USABLE_BYTES`) is modified via setter functions using
-  `global` statements with no locking. Concurrent calls from multiple threads would race.
-  **Evidence**: `_utils.py`. **Suggestion**: Document that the library is not thread-safe, or
-  use `threading.local()` for test-control state.
+- ~~**Finding (medium — thread safety)**: Module-level mutable state (`_USE_SHORTCUTS`,
+  `_LAYERS_USED`, `_TILES_USED`, `_USABLE_BYTES`, in `_filter.py`) is modified via `global`
+  setters with no locking.~~ ✓ **Documented** (2026-06-22). On review, the *results* are
+  already thread-safe: this state is read-only during normal computation, Python global reads
+  are atomic under the GIL, and `np.errstate` (the divide-by-zero decorator) is thread-local.
+  The flagged globals are process-global test/tuning/diagnostic controls; the package docstring
+  and a new User's Guide "Thread safety" section now document that operations may be called
+  concurrently on independent arrays but those globals are not to be mutated from several
+  threads at once. The one residual write during normal operation — `rotate()` briefly toggling
+  `_use_shortcuts` to force `resample`'s general path — affects only which (equally correct)
+  code path runs, not results; threading an explicit per-call override into `resample` to
+  remove it remains an optional follow-up.
 
 - ~~**Finding (low)**: The nested 3×3 loop in `rotate()` accumulates `area_list`,
   `imod_list`, `jmod_list` into Python lists in the hot path, only to use them in testing
@@ -520,9 +528,10 @@ This pass brought `scripts/run-all-checks.sh` to fully green and added a user-fa
 10. ~~**Narrow or remove the import-time `RuntimeWarning` suppression** in `__init__.py`.~~
     ✓ **Done** (2026-06-22): replaced by a source-level `np.errstate` decorator at the public
     entry points; only divide-by-zero/invalid are suppressed (§7, §14).
-11. **Thread safety** (§5): the module-level mutable flags (`_USE_SHORTCUTS`, `_LAYERS_USED`,
-    `_TILES_USED`, `_USABLE_BYTES`) are still unguarded — document the library as not
-    thread-safe, or move the test-control state to `threading.local()`.
+11. ~~**Thread safety** (§5): the module-level mutable flags are unguarded.~~ ✓ **Done**
+    (2026-06-22): results are thread-safe by construction; the process-global test/tuning flags
+    are now documented as not for concurrent mutation (§5). An optional `rotate`/`resample`
+    refactor to remove the one internal global toggle remains available but is not required.
 12. ~~**Packaging metadata** (§8): `pyproject.toml` `description` is still `"TODO"`.~~ ✓ **Done**
     (2026-06-22): real description added, license-classifier conflict removed, and
     `setuptools>=77` pinned; Pyroma now rates 10/10 (§8, §13). The commented-out
