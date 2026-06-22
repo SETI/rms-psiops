@@ -158,6 +158,8 @@ def test_gaussian_weighted_center() -> None:
                 for center in centers:
                     array = model.transform(shape=(100, 120), center=center,
                                             expand=expand, rotate=rotate)
+                    # The integral is conserved (Gaussian default integral is 1.0).
+                    assert array.sum() == pytest.approx(1.0, rel=1e-12)
                     test_center = _weighted_center(array)
                     dx = center[0] - test_center[0]
                     dy = center[1] - test_center[1]
@@ -256,6 +258,8 @@ def test_arraymodel_weighted_center(no_shortcuts: None) -> None:
         model = ArrayModel(arr, origin=origin)
         for center in centers:
             array = model.transform((50, 70), center)       # expand=1, rotate=0
+            # The ArrayModel preserves the source integral (arr.sum()).
+            assert array.sum() == pytest.approx(arr.sum(), rel=1e-12)
             measured = np.array(_weighted_center(array))
             predicted = np.array(center) + (c0 - o)
             assert np.hypot(*(measured - predicted)) < 1e-12
@@ -333,6 +337,8 @@ def test_summedmodel_weighted_center(no_shortcuts: None) -> None:
                 den += weight
             expected = num / den
             array = summed.transform((60, 80), center, expand=1., rotate=0.)
+            # `den` is the factor*integral-weighted total, i.e. the conserved integral.
+            assert array.sum() == pytest.approx(den, rel=1e-12)
             offset = np.hypot(*(np.array(_weighted_center(array)) - expected))
             assert offset < 1.e-12
 
@@ -412,6 +418,8 @@ def test_smearedmodel_weighted_center() -> None:
                     for center in centers:
                         array = model.transform(shape=(100, 120), center=center,
                                                 expand=expand, rotate=rotate)
+                        # The integral is conserved (base Gaussian integral is 1.0).
+                        assert array.sum() == pytest.approx(1.0, rel=1e-12)
                         test_center = _weighted_center(array)
                         dx = center[0] - test_center[0]
                         dy = center[1] - test_center[1]
