@@ -54,12 +54,13 @@ axes intact.
 
 .. note::
 
-   The stack operations and :func:`~psiops.resample`/:func:`~psiops.reshape`
-   require the array to be at least three-dimensional, because they need at least
-   one non-spatial axis (or, for resampling, a well-defined image stack) to work
-   with. The pure spatial transforms :func:`~psiops.shift`,
-   :func:`~psiops.ishift`, :func:`~psiops.zoom`, :func:`~psiops.unzoom`, and
-   :func:`~psiops.rotate` also accept a plain 2-D image. When in doubt, a 3-D
+   The stack operations (:func:`~psiops.mean`, :func:`~psiops.median`,
+   :func:`~psiops.minimum`, :func:`~psiops.maximum`, :func:`~psiops.variance`, and
+   :func:`~psiops.stdev`) require the array to be at least three-dimensional,
+   because they need at least one non-spatial axis to combine across. The spatial
+   transforms :func:`~psiops.shift`, :func:`~psiops.ishift`, :func:`~psiops.zoom`,
+   :func:`~psiops.unzoom`, :func:`~psiops.rotate`, :func:`~psiops.resample`, and
+   :func:`~psiops.reshape` also accept a plain 2-D image. When in doubt, a 3-D
    array of shape ``(n, rows, cols)`` works everywhere.
 
 
@@ -231,7 +232,7 @@ image into an output array of a chosen shape and center.
 
 .. code-block:: python
 
-   image = np.random.default_rng(1).random((1, 100, 100))
+   image = np.random.default_rng(1).random((100, 100))
 
    # Enlarge by 1.5x along both axes
    resampled, new_center = psiops.resample(image, 1.5)
@@ -253,8 +254,8 @@ columns. It is a convenience wrapper around :func:`~psiops.resample`.
 
 .. code-block:: python
 
-   image = np.random.default_rng(2).random((1, 100, 100))
-   resized = psiops.reshape(image, (50, 75))   # shape (1, 50, 75)
+   image = np.random.default_rng(2).random((100, 100))
+   resized = psiops.reshape(image, (50, 75))   # shape (50, 75)
 
 
 Rotating
