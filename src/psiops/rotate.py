@@ -4,7 +4,6 @@
 
 import numpy as np
 
-from psiops._filter import _use_shortcuts
 from psiops._utils import _check_tuple, _merge_weights
 from psiops._validation import _check_image, _check_return
 from psiops.resample import resample
@@ -298,20 +297,16 @@ def rotate(image, angle, mask=None, *, maskval=None, weights=None, nans=False,
         elif steps == 3:
             origin = (origin[1], rot_image.shape[-1] - origin[0])
 
-        # Use resample to create the new image. Force the general (non-shortcut) resample
-        # path: the zoom==1 shortcut is unsuitable here because it does not return the new
-        # mask that this branch requires. The flag is restored in all cases.
-        saved_shortcuts = _use_shortcuts()
-        try:
-            _use_shortcuts(False)
-            rotated, new_mask, new_weights = resample(rot_image, 1, mask=rot_mask,
-                                                      maskval=maskval,
-                                                      weights=rot_weights, origin=origin,
-                                                      center=new_center,
-                                                      shape=new_xy_shape,
-                                                      minweight=minweight, returns='imw')
-        finally:
-            _use_shortcuts(saved_shortcuts)
+        # Use resample (a pure shift at zoom 1) to reposition the rotated image and make
+        # the new mask. Force the general path with an explicit per-call override instead
+        # of mutating the shared global flag: the zoom==1 shortcut takes a different,
+        # boundary-sensitive path, so this keeps rotate's result independent of the global
+        # shortcut setting (and thread-safe).
+        rotated, new_mask, new_weights = resample(rot_image, 1, mask=rot_mask,
+                                                  maskval=maskval, weights=rot_weights,
+                                                  origin=origin, center=new_center,
+                                                  shape=new_xy_shape, minweight=minweight,
+                                                  returns='imw', _shortcuts=False)
 
         if _debug is not None:
             _debug['area_list'] = None

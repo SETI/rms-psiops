@@ -39,6 +39,7 @@ def resample(
     shape: tuple[int, int] | None = ...,
     minweight: float = ...,
     returns: str | None = ...,
+    _shortcuts: bool | None = ...,
 ) -> np.ndarray | list[np.ndarray]: ...
 def reshape(
     image: np.ndarray,

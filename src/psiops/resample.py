@@ -11,7 +11,8 @@ from psiops.shift import shift
 
 
 def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
-             origin=None, center=None, shape=None, minweight=1.e-6, returns=None):
+             origin=None, center=None, shape=None, minweight=1.e-6, returns=None,
+             _shortcuts=None):
     """General function for integer or non-integer zoom and shift.
 
     This function is more efficient and somewhat more precise than combining separate
@@ -119,7 +120,10 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
 
     # Use shift() if there's no zoom, because it's much faster. Note that zoom_==1 can be
     # a common occurrence.
-    if zoom_ == (1, 1) and _use_shortcuts():
+    # `_shortcuts` is a private per-call override of the module shortcut flag, so rotate()
+    # can force the general path without mutating shared global state.
+    use_shortcuts = _use_shortcuts() if _shortcuts is None else _shortcuts
+    if zoom_ == (1, 1) and use_shortcuts:
         offset = np.array(new_center) - np.array(origin)
 
         # Start by copying the image into the new output array within one pixel of its
