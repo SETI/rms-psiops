@@ -258,7 +258,7 @@ def test_arraymodel_weighted_center(no_shortcuts: None) -> None:
             array = model.transform((50, 70), center)       # expand=1, rotate=0
             measured = np.array(_weighted_center(array))
             predicted = np.array(center) + (c0 - o)
-            assert np.hypot(*(measured - predicted)) < 1e-9
+            assert np.hypot(*(measured - predicted)) < 1e-12
 
 
 ##########################################################################################
@@ -301,6 +301,40 @@ def test_summedmodel_three_components() -> None:
     model = SummedModel(parts, [1.0, 2.0, 3.0])
     result = model.transform((41, 41), (20.5, 20.5))
     assert result.sum() == pytest.approx(6.0, abs=1e-3)
+
+
+def test_summedmodel_weighted_center(no_shortcuts: None) -> None:
+    # SummedModel evaluates every component at the same `center` and sums factor*model, so
+    # its weighted centroid is the factor*integral-weighted mean of the components'
+    # centroids. ArrayModel components are placed at distinct offsets via `origin` (a
+    # component's centroid lands at center + (array_centroid - origin)); with expand=1 and
+    # rotate=0 the positioning is exact, so the centroid matches the closed-form weighted
+    # mean. Each entry below is (array, origin, factor).
+    block = np.ones((3, 3))
+    lopsided = np.array([[1., 1., 1.], [1., 2., 1.], [1., 1., 4.]])   # off-center
+    configs = [
+        [(block, (1.5, 1.5), 1.0), (block, (0.5, 1.5), 1.0)],
+        [(block, (1.5, 1.5), 3.0), (block, (1.5, 2.5), 1.0), (block, (2.5, 1.5), 1.0)],
+        [(block, (1.5, 1.5), 2.0), (lopsided, (1.5, 1.5), 1.0)],
+        [(block, (1.0, 2.0), 2.0), (lopsided, (2.0, 1.0), -0.5)],     # negative factor
+    ]
+    centers = [(25.0, 35.0), (25.5, 35.7), (25.1, 35.99), (25.99, 35.01)]
+    for comps in configs:
+        models = [ArrayModel(arr, origin=origin) for arr, origin, _ in comps]
+        factors = [factor for _, _, factor in comps]
+        summed = SummedModel(models, factors)
+        for center in centers:
+            num = np.zeros(2)
+            den = 0.0
+            for arr, origin, factor in comps:
+                c0 = np.array(_weighted_center(arr))
+                weight = factor * arr.sum()
+                num += weight * (np.array(center) + (c0 - np.array(origin)))
+                den += weight
+            expected = num / den
+            array = summed.transform((60, 80), center, expand=1., rotate=0.)
+            offset = np.hypot(*(np.array(_weighted_center(array)) - expected))
+            assert offset < 1.e-12
 
 
 ##########################################################################################
