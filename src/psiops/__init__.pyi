@@ -39,7 +39,7 @@ def resample(
     shape: tuple[int, int] | None = ...,
     minweight: float = ...,
     returns: str | None = ...,
-) -> np.ndarray | list[np.ndarray]: ...
+) -> np.ndarray | list[np.ndarray | tuple[float, float]]: ...
 def reshape(
     image: np.ndarray,
     shape: int | tuple[int, int],
@@ -65,7 +65,7 @@ def rotate(
     eps: float = ...,
     returns: str | None = ...,
     _debug: dict | None = ...,
-) -> np.ndarray | list[np.ndarray]: ...
+) -> np.ndarray | list[np.ndarray | tuple[float, float]]: ...
 def shift(
     image: np.ndarray,
     offset: float | tuple[float, float],

@@ -290,11 +290,10 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
         count = 2
 
     # The buffered scatter below silently drops duplicate write indices, so the write
-    # ("new") index on each axis must stay unique; when an index falls outside the grid
-    # it is zero-weighted and reassigned to a spare slot from these sets. Read ("old")
-    # indices only need to be in range, so they are simply clamped (weight is already 0).
-    new_xset = set(range(new_xy_shape[0]))
-    new_yset = set(range(new_xy_shape[1]))
+    # ("new") index on each axis must stay unique. In-range write indices are already
+    # unique; out-of-range writes carry zero weight, so they are simply dropped (parking
+    # them in spare slots fails when `shape` crops the grid smaller than the source).
+    # Read ("old") indices only need to be in range, so they are clamped (weight is 0).
 
     # Construct the new arrays
     for i in range(xweight.shape[1]):
@@ -303,12 +302,13 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
         wx = xweight[:, i].copy()
 
         if old_dx == 0:
-            # Expanding: the write index `nx` iterates and must remain unique, so move
-            # out-of-range entries to spare slots (always available since new >= old).
-            xmask = (nx < 0) | (nx >= new_xy_shape[0])
-            wx[xmask] = 0.
-            unweighted = np.array(list(new_xset - set(nx)))
-            nx[xmask] = unweighted[:xmask.sum()]
+            # Expanding: the write index `nx` iterates and must remain unique. Drop the
+            # out-of-range (zero-weight) entries rather than reassigning them, so no spare
+            # in-range slots are required even when `shape` crops the output.
+            keep = (nx >= 0) & (nx < new_xy_shape[0])
+            nx = nx[keep]
+            ox = ox[keep]
+            wx = wx[keep]
         else:
             # Shrinking: the write index `nx` is already unique (it is `arange`); only
             # the read index `ox` may stray out of range, so clamp it to a valid,
@@ -324,11 +324,12 @@ def resample(image, zoom_, mask=None, *, maskval=None, weights=None, nans=False,
             wy = yweight[:, j].copy()
 
             if old_dy == 0:
-                # Expanding along y: keep the write index `ny` unique (see above).
-                ymask = (ny < 0) | (ny >= new_xy_shape[1])
-                wy[ymask] = 0.
-                unweighted = np.array(list(new_yset - set(ny)))
-                ny[ymask] = unweighted[:ymask.sum()]
+                # Expanding along y: keep the write index `ny` unique by dropping the
+                # out-of-range, zero-weight entries (see above).
+                keep = (ny >= 0) & (ny < new_xy_shape[1])
+                ny = ny[keep]
+                oy = oy[keep]
+                wy = wy[keep]
             else:
                 # Shrinking along y: clamp the out-of-range, zero-weighted read index.
                 ymask = (oy < 0) | (oy >= old_xy_shape[1])

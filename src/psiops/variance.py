@@ -233,7 +233,7 @@ def variance_filter(image, footprint, *, mask=None, maskval=None, weights=None,
               `ddof=0` in `numpy.std()`.
             * "unbiased" or "frequency": The divisor is one less than that for the
               "biased" variance, providing an unbiased estimate. For uniform weights, this
-              is equivalent to using `ddof=0` in `numpy.std()`. For non-uniform weights,
+              is equivalent to using `ddof=1` in `numpy.std()`. For non-uniform weights,
               this treats each weight factor as equivalent to the frequency or number of
               measurements with the associated value.
             * "reliability": This provides an unbiased estimate of the variance if

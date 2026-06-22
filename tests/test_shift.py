@@ -143,30 +143,35 @@ def _diag_setup() -> tuple[np.ndarray, np.ndarray]:
 
 def test_shift_small_shifts_all_modes() -> None:
 
-    for status in (False, True):
-        _use_shortcuts(status)
+    original_status = _use_shortcuts()
+    try:
+        for status in (False, True):
+            _use_shortcuts(status)
 
-        image, mask = _diag_setup()
+            image, mask = _diag_setup()
 
-        # small shifts, all modes, masked and unmasked
-        for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
+            # small shifts, all modes, masked and unmasked
+            for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
 
-            shifted = shift(image, 0, mode=mode)
-            assert np.all(shifted == image)
+                shifted = shift(image, 0, mode=mode)
+                assert np.all(shifted == image)
 
-            shifted = shift(image, (0,0.5), mode=mode)
-            assert np.all(shifted[...,1:] == image[...,1:] - 0.5)
+                shifted = shift(image, (0,0.5), mode=mode)
+                assert np.all(shifted[...,1:] == image[...,1:] - 0.5)
 
-            shifted = shift(image, (0,-0.25), mode=mode)
-            assert np.all(shifted[...,:-1] == image[...,:-1] + 0.25)
+                shifted = shift(image, (0,-0.25), mode=mode)
+                assert np.all(shifted[...,:-1] == image[...,:-1] + 0.25)
 
-            shifted = shift(image, -0.75, mode=mode)
-            assert np.all(shifted[...,:-1,:-1] == image[...,:-1,:-1] + 1.5)
+                shifted = shift(image, -0.75, mode=mode)
+                assert np.all(shifted[...,:-1,:-1] == image[...,:-1,:-1] + 1.5)
 
-            # with diagonal mask
-            shifted, smask = shift(image, 0, mask, mode=mode, cval=0)
-            assert np.all(shifted[~mask] == image[~mask])
-            assert np.all(smask == mask)
+                # with diagonal mask
+                shifted, smask = shift(image, 0, mask, mode=mode, cval=0)
+                assert np.all(shifted[~mask] == image[~mask])
+                assert np.all(smask == mask)
+    finally:
+        _use_shortcuts(original_status)
+
 
 def test_shift_constant_cval_none() -> None:
 

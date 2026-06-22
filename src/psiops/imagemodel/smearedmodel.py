@@ -58,11 +58,10 @@ class SmearedModel(ImageModel):
         """
 
         center = np.array(center)
+        images = np.zeros(shape)
+        for offset in self._offsets:
+            images += self._model.transform(shape, center + offset, expand, rotate)
 
-        images = np.empty((self._nsteps,) + tuple(shape))
-        for k, offset in enumerate(self._offsets):
-            images[k] = self._model.transform(shape, center + offset, expand, rotate)
-
-        return np.mean(images, axis=0)
+        return images / self._nsteps
 
 ##########################################################################################

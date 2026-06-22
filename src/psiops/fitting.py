@@ -143,7 +143,7 @@ class Fitting:
             self.weights = None
         else:
             self.weights = weights[islice, jslice]
-            self.weights = self.weights / np.max(self.weights)
+            self.weights = self.weights / np.max(self.weights)  # pass div-by-zero forward
 
         self.stretch.set_target(self.target, mask=self.mask, maskval=maskval,
                                 weights=self.weights, nans=nans)
@@ -158,6 +158,9 @@ class Fitting:
             ValueError: If `mask` shape does not match `self.shape`.
         """
 
+        if not hasattr(self, 'target'):
+            raise ValueError('target must be defined before remask()')
+
         if mask.shape != self.shape:
             raise ValueError(f'new mask shape must be {self.shape}')
 
@@ -165,6 +168,8 @@ class Fitting:
             self.mask = mask
         else:
             self.mask = self.mask | mask
+
+        self.stretch.set_target(self.target, mask=self.mask, weights=self.weights)
 
     @staticmethod
     def _func(x, fitting):
@@ -274,6 +279,10 @@ class Fitting:
         Parameters:
             result (object): The OptimizeResult object returned by
                 `scipy.optimize.least_squares`.
+
+        Raises:
+            LinAlgError: If matrix inversion fails due to a near-singular Jacobian or too
+                many free parameters.
         """
 
         self._result = result
@@ -296,7 +305,7 @@ class Fitting:
         if self.weights is None:
             self.weight_sum = unmasked
             self.dof = unmasked - self.nparams - self.stretch.ncoeffs
-            self.chi_sq = result.cost
+            self.chi_sq = 2 * result.cost
             self.rms = np.sqrt(self.chi_sq / (self.dof - 1))
         else:
             antimask = np.logical_not(self.mask)
@@ -326,7 +335,7 @@ class Fitting:
         # matrix J^T J. Scatter this nparams x nparams result into a full 4x4 matrix
         # at the positions of the fitted parameters, leaving the rows and columns of
         # the unfitted parameters equal to zero.
-        cov_fitted = np.linalg.inv(result.jac.T @ result.jac)
+        cov_fitted = np.linalg.inv(result.jac.T @ result.jac)   # forward LinAlgError
         cov_full = np.zeros((4, 4))
         index = np.where(fitted)[0]
         cov_full[np.ix_(index, index)] = cov_fitted

@@ -6,7 +6,7 @@
 # then opens docs/_build/html/index.html using the platform default handler.
 #
 # Usage:
-#   ./scripts/read_docs.sh
+#   ./scripts/read-docs.sh
 #
 # Environment:
 #   VENV or VENV_PATH    Path to virtualenv (default: $PROJECT_ROOT/venv)

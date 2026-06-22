@@ -22,8 +22,8 @@ class Gaussian(ImageModel):
             integral (float, optional): The integral ("volume") of the ImageModel.
         """
 
-        self._sigma = sigma
-        self._integral = integral
+        self._sigma = float(sigma)
+        self._integral = float(integral)
 
     def transform(self, shape, center, expand=1., rotate=0.):
         """This Gaussian ImageModel re-sampled for a particular grid of pixels while

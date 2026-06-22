@@ -2,6 +2,8 @@
 # psiops/reshape.py
 ##########################################################################################
 
+import numpy as np
+
 from psiops._utils import _check_tuple
 from psiops.resample import resample
 
@@ -57,17 +59,17 @@ def reshape(image, shape, mask=None, *, maskval=None, weights=None, nans=False,
     shape = _check_tuple(shape, 'new shape', floats=False, negs=False, zeros=False,
                          default=None)
     zoom_ = (shape[0] / image.shape[-2], shape[1] / image.shape[-1])
-    result = resample(image, zoom_=zoom_, mask=mask,  maskval=maskval, weights=weights,
+    result = resample(image, zoom_=zoom_, mask=mask, maskval=maskval, weights=weights,
                       nans=nans, shape=shape, center=None, returns=returns)
 
-    # `reshape` does not expose the new center, so strip it off. `resample` appends the
-    # center only when its `returns` defaults are used (i.e. `returns` is None here); an
-    # explicit `returns` string never includes it.
-    if returns is not None:
+    # `reshape` does not expose the new center, so strip it off
+    if isinstance(result, np.ndarray):
         return result
-
-    if len(result) == 2:        # only the image and the appended center
+    if not isinstance(result[-1], np.ndarray):
+        result = result[:-1]
+    if len(result) == 1:
         return result[0]
-    return result[:-1]          # drop the trailing center
+    return result
+
 
 ##########################################################################################

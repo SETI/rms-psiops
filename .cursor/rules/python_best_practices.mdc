@@ -21,7 +21,7 @@ Apply these rules to ALL new and modified Python code. This project is a Python 
 
 - Do not include backwards-compatibility code unless explicitly requested.
 - Always write simple, clear code; avoid unnecessary complexity.
-- Hardcode magic constants. Define them as module-level constants, in a config module, or via environment variables.
+- Define magic constants as module-level constants, in a config module, or via environment variables.
 - Catch exceptions at the smallest granularity possible. Do not wrap large blocks in a single `try`/`except`.
 - **Libraries:** Let exceptions propagate unless you are adding context, converting to a library-specific exception, or the exception represents a recoverable internal state. When re-raising, use `raise ... from` to preserve the full traceback for debugging.
 - **Applications:** Do not allow uncaught exceptions to reach the top level; use a top-level handler (e.g. in the main loop or HTTP framework) so that failures are logged and the process stays predictable. In both cases, always provide full exception information for debugging (e.g. traceback, `raise ... from` when re-raising).
@@ -60,10 +60,6 @@ Apply these rules to ALL new and modified Python code. This project is a Python 
 ### Mypy
 
 - Run `mypy` on the full codebase (including tests) after changes. Fix all errors before delivering.
-- Never add global type exclusions. "Global type exclusions" means:
-  - Module-level `# type: ignore` without a specific error code.
-  - `ignore_errors = True` in mypy config.
-  - Broad `exclude` patterns that skip entire packages.
 - In exceptional, unfixable cases use a minimal line-level ignore: `# type: ignore[error-code]  # <brief justification>`.
 
 ### Ruff / Linting

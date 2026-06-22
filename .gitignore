@@ -49,7 +49,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-*.py,cover
+*.py.cover
 .hypothesis/
 .pytest_cache/
 cover/
@@ -129,6 +129,7 @@ celerybeat.pid
 .venv*
 env/
 venv*/
+.envrc
 ENV/
 env.bak/
 venv.bak/

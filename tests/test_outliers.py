@@ -36,10 +36,16 @@ def _masked_gaussian_filter(image: np.ndarray, sigma: float,
     arr = np.asarray(image, dtype=float)
     axis_sigma = (arr.ndim - 2) * (0.0,) + (float(sigma), float(sigma))
 
-    if mask is None:
+    if mask is None and weights is None:
         return ndi.gaussian_filter(arr, axis_sigma, mode='constant', cval=0.0)
 
-    valid = np.logical_not(np.broadcast_to(mask, arr.shape)).astype(float)
+    if mask is None:
+        valid = np.ones(arr.shape, dtype=float)
+    else:
+        valid = np.logical_not(np.broadcast_to(mask, arr.shape)).astype(float)
+    if weights is not None:
+        valid = valid * np.broadcast_to(weights, arr.shape).astype(float)
+
     numerator = ndi.gaussian_filter(arr * valid, axis_sigma, mode='constant', cval=0.0)
     denominator = ndi.gaussian_filter(valid, axis_sigma, mode='constant', cval=0.0)
     with np.errstate(invalid='ignore', divide='ignore'):

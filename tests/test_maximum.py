@@ -344,7 +344,7 @@ def test_maximum_filter_footprint_forms(shortcuts: bool) -> None:
     assert np.all(a_int == a_bool)
 
 
-def test_maximum_filter_weights() -> None:
+def test_maximum_filter_weights(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(23)
     image = rng.random((30,30))
