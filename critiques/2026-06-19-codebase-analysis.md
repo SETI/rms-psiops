@@ -1,6 +1,6 @@
 # Codebase analysis: rms-psiops
 
-*Generated: 2026-06-19 — Updated: 2026-06-21*
+*Generated: 2026-06-19 — Updated: 2026-06-22*
 
 ## Summary
 
@@ -20,10 +20,14 @@ weighted-filter shortcuts ignoring weights, `keepdims` dropped on the bare-image
 
 A lint-and-type cleanup pass (2026-06-21) then **cleared the entire lint/type backlog: `ruff
 check src tests` is fully green, `mypy src` is clean across all 30 source files, and a hand-
-maintained `__init__.pyi` type stub now pins the public API signatures** (see §12). The
-remaining work is a short list of medium/low items: ~33 `mypy` errors confined to `tests/`,
-the `returns` DSL discoverability (won't-fix), thread-safety documentation, and a couple of
-packaging-metadata placeholders.
+maintained `__init__.pyi` type stub now pins the public API signatures** (see §12).
+
+A follow-up pass (2026-06-22) **completed and enforced test type annotations, fixed the
+packaging metadata (Pyroma now rates 10/10), and made `scripts/run-all-checks.sh` fully green**
+end to end. The same pass also added 2-D support to `resample`/`reshape`, simplified
+`ArrayModel.transform`, fixed a `resample` shrink-path crash, and expanded the imagemodel tests
+(see §13). The remaining work is a short list of medium/low items: the `returns` DSL
+discoverability (won't-fix), thread-safety documentation, and two small `__init__.py` cleanups.
 
 ---
 
@@ -181,10 +185,12 @@ packaging-metadata placeholders.
   autouse fixture that restores the global `_use_shortcuts` flag after every test, so the
   split tests are order- and parallel-independent.
 
-- **Finding (low — largely addressed)**: Tests have no type annotations on functions.
-  **Evidence**: ~443 of 503 test functions now carry `-> None`; ~60 functions in the newer
-  `test_camouflage`/`test_outliers`/`test_stretch` suites still omit it. **Suggestion**: add
-  `-> None` to the remaining handful for full compliance with the project rule.
+- ~~**Finding (low — largely addressed)**: Tests have no type annotations on functions;
+  ~60 functions in the newer suites still omit `-> None`.~~ ✓ **Fixed** (2026-06-22). Every
+  test function and helper now carries full parameter and return annotations (including
+  fixture and parametrized-test parameters), and the `tests.*` mypy override that relaxed
+  `disallow_untyped_defs`/`check_untyped_defs` was removed, so the test suite is now held to
+  the same strict config as `src`. `mypy src tests` is clean across all 56 files (see §13).
 
 - ✓ **(superseded)** The `tests/resize.py` discovery concern is now covered under §1: the
   file is an intentional, uncollected reference helper; `unittester.py` (which imported it) has
@@ -272,9 +278,14 @@ packaging-metadata placeholders.
   `.github/workflows/ci.yml` running ruff, mypy, pytest, and pyroma across Python 3.11–3.13,
   with Codecov upload on 3.11.
 
-- **Finding (low)**: `pyproject.toml` description is `"TODO"` and `[project.scripts]` has a
-  commented-out placeholder. These must be resolved before publishing to PyPI. **Evidence**:
-  `pyproject.toml:8, 99`.
+- ~~**Finding (low)**: `pyproject.toml` description is `"TODO"`, and a license-config conflict
+  made Pyroma fail to build the package metadata at all (0/10).~~ ✓ **Fixed** (2026-06-22).
+  Filled in a real `description`; removed the redundant `License :: OSI Approved :: Apache
+  Software License` classifier (PEP 639 forbids pairing a license expression with a license
+  classifier — the actual build error); and pinned `setuptools>=77` in `[build-system]` so the
+  SPDX `license = "Apache-2.0"` string is accepted. Pyroma now rates **10/10**. (The
+  commented-out `[project.scripts]` placeholder remains, harmless until a console entry point
+  is actually needed.)
 
 - ~~**Finding (low)**: `dev` optional dependencies include `"psiops"` itself, which is
   redundant when installing with `pip install -e ".[dev]"`. **Evidence**:
@@ -421,7 +432,40 @@ A focused pass cleared the lint/type backlog from item #7 and added a public-API
   the 90-column limit (no trailing comma after the last parameter), and `, optional` was
   added to the docstring type of every defaulted parameter. Ruff-clean; tests unaffected.
 - **Remaining**: ~33 `mypy` errors confined to `tests/` (see #7) and the `-> None` test
-  annotations (#8).
+  annotations (#8). ✓ **Both since resolved on 2026-06-22 — see §13.**
+
+---
+
+## 13. Test-annotation enforcement, packaging, and 2-D resampling (2026-06-22)
+
+This pass brought `scripts/run-all-checks.sh` to fully green and added a user-facing capability.
+
+- **Test annotations completed and enforced.** Every test function, helper, and fixture now
+  carries full parameter and return annotations (fixture parameters like `shortcuts: bool`,
+  parametrized parameters, and the `resize()` reference helper via `@overload`). The residual
+  ~33 test-only `mypy` errors were fixed (e.g. `pytest.ExceptionInfo[Exception]` declarations
+  for reused `exc_info`, `np.ndarray` annotations for reassigned arrays, `assert x is not None`
+  narrowing). The `tests.*` mypy override relaxing `disallow_untyped_defs`/`check_untyped_defs`
+  was removed, so tests are now held to the same strict config as `src`; `mypy src tests` is
+  clean across all 56 files. ✓
+- **Packaging metadata fixed → Pyroma 10/10.** Real `description`; removed the redundant Apache
+  license classifier (PEP 639 forbids pairing a license expression with a classifier); and
+  `setuptools>=77` pinned so the SPDX `license = "Apache-2.0"` string is accepted (§8).
+  `scripts/run-all-checks.sh` now passes end to end (ruff, mypy, pytest, Sphinx `-W`, Pyroma,
+  PyMarkdown). ✓
+- **`resample`/`reshape` accept 2-D images.** The `three=True` requirement was removed from
+  `resample` (and `reshape`, which delegates to it), so a plain 2-D image is now valid; output
+  is identical to the previous single-layer 3-D path. `ArrayModel.transform` was simplified to
+  drop its temporary leading-axis wrap/unwrap. The User's Guide was updated to match. ✓
+- **`resample` shrink-path crash fixed.** Shrinking a small source onto a much larger output
+  grid raised a `ValueError` because the index-uniqueness reassignment ran out of spare source
+  indices; out-of-range, zero-weighted read indices are now clamped instead. A faster,
+  size-agnostic rewrite of the accumulation core (separable sparse weight-matrix matmul, ~5–11×
+  faster in benchmarks) is tracked separately as GitHub issue #1. ✓
+- **Imagemodel tests expanded.** New `test_{gaussian,arraymodel,smearedmodel,summedmodel}_`
+  `weighted_center` verify both the weighted centroid and integral conservation to tight
+  tolerances (1e-12 for the exact-positioning models, 3e-9 for the truncation-limited Gaussian
+  ones), plus a `resample` shrink regression test. Total coverage remains ~97%.
 
 ---
 
@@ -438,13 +482,13 @@ A focused pass cleared the lint/type backlog from item #7 and added a public-API
 **Still open (medium/low):**
 
 7. ~~**Lint and type debt**: `ruff check src tests` reports ~184 findings and `mypy` reports a
-   few hundred errors.~~ ✓ **Largely done** (2026-06-21). `ruff check src tests` is fully green
-   and `mypy src` is clean (see §12). **Remaining**: ~33 `mypy` errors confined to `tests/`
-   (test-only `attr-defined`/`assignment`/`var-annotated` issues in `test_fitting`,
-   `test_rotate`, `test_minimum`, `test_maximum`, `test_median`) — these and the missing
-   `-> None` annotations (#8) are the only items keeping `scripts/run-all-checks.sh` from full
-   green. Note: `pyroma` also still fails on the `description = "TODO"` placeholder (#12).
-8. **Add `-> None` to the ~60 remaining test functions** in the newer test suites (§4).
+   few hundred errors.~~ ✓ **Done.** `ruff check src tests` is fully green (2026-06-21) and, as
+   of 2026-06-22, `mypy src tests` is clean across all 56 files (the residual test-only errors
+   were fixed and the `tests.*` relaxation removed). `scripts/run-all-checks.sh` now passes end
+   to end (see §12, §13).
+8. ~~**Add `-> None` to the ~60 remaining test functions** in the newer test suites (§4).~~
+   ✓ **Done** (2026-06-22): all test functions, helpers, fixtures, and parametrized parameters
+   are now annotated, enforced by the strict mypy config (§13).
 9. **Decide the fate of the commented-out `__init__.py` block** (§1): export the
    now-tested modules or delete the dead lines; remove the non-existent `scaling`/`scaling2`
    references.
@@ -453,6 +497,7 @@ A focused pass cleared the lint/type backlog from item #7 and added a public-API
 11. **Thread safety** (§5): the module-level mutable flags (`_USE_SHORTCUTS`, `_LAYERS_USED`,
     `_TILES_USED`, `_USABLE_BYTES`) are still unguarded — document the library as not
     thread-safe, or move the test-control state to `threading.local()`.
-12. **Packaging metadata** (§8): `pyproject.toml` `description` is still `"TODO"`; fill it in
-    (and resolve the commented-out `[project.scripts]` placeholder) before any PyPI release.
-    The `README.md` now has real content that can seed the description.
+12. ~~**Packaging metadata** (§8): `pyproject.toml` `description` is still `"TODO"`.~~ ✓ **Done**
+    (2026-06-22): real description added, license-classifier conflict removed, and
+    `setuptools>=77` pinned; Pyroma now rates 10/10 (§8, §13). The commented-out
+    `[project.scripts]` placeholder remains, harmless until an entry point is needed.
