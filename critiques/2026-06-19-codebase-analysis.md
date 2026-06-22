@@ -29,8 +29,11 @@ end to end. The same pass also added 2-D support to `resample`/`reshape`, simpli
 (see §13). A further pass **narrowed the divide-by-zero warning suppression to the NumPy
 error-state source, centralized zero-size-input rejection in `_check_image`, and exported and
 documented the `Fitting` class** (see §14), and documented the thread-safety contract (§5).
-With that, every actionable finding has been addressed; the only item left open is the
-`returns` DSL discoverability, a deliberate design choice marked won't-fix.
+A final pass **made `resample`'s `zoom==1` shortcut and general paths produce identical
+results, settling the edge-pixel boundary convention (nearest-pixel replication), and removed
+the last global-flag mutation from `rotate`** (see §15). With that, every actionable finding
+has been addressed; the only item left open is the `returns` DSL discoverability, a deliberate
+design choice marked won't-fix.
 
 ---
 
@@ -217,10 +220,10 @@ With that, every actionable finding has been addressed; the only item left open 
   The flagged globals are process-global test/tuning/diagnostic controls; the package docstring
   and a new User's Guide "Thread safety" section now document that operations may be called
   concurrently on independent arrays but those globals are not to be mutated from several
-  threads at once. The one residual write during normal operation — `rotate()` briefly toggling
-  `_use_shortcuts` to force `resample`'s general path — affects only which (equally correct)
-  code path runs, not results; threading an explicit per-call override into `resample` to
-  remove it remains an optional follow-up.
+  threads at once. The one residual write during normal operation — `rotate()` toggling
+  `_use_shortcuts` to force `resample`'s general path — has since been removed (§15): the
+  shortcut and general paths now give identical results, so `rotate()` calls `resample`
+  plainly and `_USE_SHORTCUTS` is no longer mutated anywhere outside the test suite.
 
 - ~~**Finding (low)**: The nested 3×3 loop in `rotate()` accumulates `area_list`,
   `imod_list`, `jmod_list` into Python lists in the hot path, only to use them in testing
@@ -502,6 +505,32 @@ This pass brought `scripts/run-all-checks.sh` to fully green and added a user-fa
 
 ---
 
+## 15. resample shortcut/general consistency and edge handling (2026-06-22)
+
+- **The `zoom==1` shortcut now matches the general path exactly.** `resample`'s fast path
+  (relocating the image with `shift()`) had drifted from the full algorithm for unweighted
+  input in two ways: it dropped the boundary mask entirely (returning an all-False, 2-D mask,
+  so the new mask was lost — which `rotate` depended on), and it renormalized partially-
+  covered edge pixels while the general path returned the un-renormalized sum. Both are fixed:
+  the shortcut builds a proper coverage array and masks the uncovered boundary, and the
+  general unweighted path now renormalizes as well. The two paths produce identical image,
+  mask, and weights for `zoom==1` (max |Δ| ~ 1e-16), guarded by a direct parity test —
+  upholding the principle that the shortcut flag must never change the answer.
+- **Boundary semantics: edge replication.** A pixel beyond the image edge is taken to equal
+  the nearest in-image pixel, so edge pixels keep their intensity rather than darkening to
+  zero (implemented by renormalizing partially-covered pixels). Bulk flux is unchanged; only
+  partially-covered edge pixels differ. A compact source whose own edge values are nonzero can
+  have its integral grow as those edges replicate outward, so the integral-conservation tests
+  now pad such sources with a zero border. The assumption is documented in the package
+  docstring.
+- **`rotate` simplified.** The stale "resample requires three dimensions" leading-axis
+  wrap/squeeze was removed (resample handles 2-D directly), and — now that the shortcut and
+  general paths agree — `rotate` no longer toggles the global `_use_shortcuts` flag, calling
+  `resample` plainly. `_USE_SHORTCUTS` is no longer mutated during normal operation, closing
+  the last thread-safety residual noted in §5.
+
+---
+
 ## Recommended priorities (remaining)
 
 1. ~~**Fix the critical bugs.**~~ ✓ Done.
@@ -530,8 +559,9 @@ This pass brought `scripts/run-all-checks.sh` to fully green and added a user-fa
     entry points; only divide-by-zero/invalid are suppressed (§7, §14).
 11. ~~**Thread safety** (§5): the module-level mutable flags are unguarded.~~ ✓ **Done**
     (2026-06-22): results are thread-safe by construction; the process-global test/tuning flags
-    are now documented as not for concurrent mutation (§5). An optional `rotate`/`resample`
-    refactor to remove the one internal global toggle remains available but is not required.
+    are now documented as not for concurrent mutation (§5), and the one internal global
+    toggle (`rotate()`'s `_use_shortcuts` flip) has been removed, so `_USE_SHORTCUTS` is no
+    longer written outside the test suite (§15).
 12. ~~**Packaging metadata** (§8): `pyproject.toml` `description` is still `"TODO"`.~~ ✓ **Done**
     (2026-06-22): real description added, license-classifier conflict removed, and
     `setuptools>=77` pinned; Pyroma now rates 10/10 (§8, §13). The commented-out
