@@ -388,4 +388,13 @@ def test_mean_filter_weights(shortcuts: bool) -> None:
     plain = mean_filter(image, 3)
     assert not np.isclose(a[i, j], plain[i, j])
 
+
+def test_mean_zero_size_raises(shortcuts: bool) -> None:
+    # A reduction over a zero-size array is undefined and must raise, not NaN.
+    empty = np.ones((0, 4, 4))
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        mean(empty)
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        mean(empty, mask=np.zeros((0, 4, 4), dtype=bool))
+
 ##########################################################################################

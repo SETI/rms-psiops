@@ -366,4 +366,13 @@ def test_variance_filter_bad_vartype() -> None:
         _ = variance_filter(image, 3, vartype='nope')
     assert str(exc_info.value) == "unrecognized value for vartype: 'nope'"
 
+
+def test_variance_zero_size_raises(shortcuts: bool) -> None:
+    # A reduction over a zero-size array is undefined and must raise, not NaN.
+    empty = np.ones((0, 4, 4))
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        variance(empty)
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        variance(empty, mask=np.zeros((0, 4, 4), dtype=bool))
+
 ##########################################################################################

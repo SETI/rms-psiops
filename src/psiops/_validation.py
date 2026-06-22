@@ -106,6 +106,9 @@ def _check_image(image, mask=None, maskval=None, weights=None, *, nans=False,
     if image.ndim < 2:
         raise ValueError(f'invalid image shape {image.shape}; must be at least 2-D')
 
+    if image.size == 0:
+        raise ValueError(f'invalid image shape {image.shape}; size cannot be zero')
+
     # Check the image dtype
     if image.dtype.kind not in 'fuicb':
         raise TypeError(f'image dtype {image.dtype} is not numeric')

@@ -419,4 +419,13 @@ def test_median_filter_weights(shortcuts: bool) -> None:
     plain = median_filter(image, 3)
     assert not np.allclose(a, plain)
 
+
+def test_median_zero_size_raises(shortcuts: bool) -> None:
+    # A reduction over a zero-size array is undefined and must raise, not NaN.
+    empty = np.ones((0, 4, 4))
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        median(empty)
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        median(empty, mask=np.zeros((0, 4, 4), dtype=bool))
+
 ##########################################################################################

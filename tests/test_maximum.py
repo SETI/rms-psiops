@@ -355,4 +355,13 @@ def test_maximum_filter_weights() -> None:
     # The summed weight over a 3x3 interior window equals the local 3x3 weight sum
     assert np.isclose(aw[10,10], np.sum(weights[9:12, 9:12]))
 
+
+def test_maximum_zero_size_raises(shortcuts: bool) -> None:
+    # A reduction over a zero-size array is undefined and must raise, not NaN.
+    empty = np.ones((0, 4, 4))
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        maximum(empty)
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        maximum(empty, mask=np.zeros((0, 4, 4), dtype=bool))
+
 ##########################################################################################

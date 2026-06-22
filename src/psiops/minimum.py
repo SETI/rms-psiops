@@ -59,6 +59,7 @@ def minimum(image, mask=None, *, maskval=None, weights=None, nans=False, axis=No
 
     Raises:
         ValueError: If `image` has fewer than three dimensions, or if `axis` is invalid.
+        ValueError: If `image` is empty (has zero size).
         ValueError: If `mask` or `weights` have shapes incompatible with `image`.
         ValueError: If `returns` is not a valid option.
         TypeError: If `image` dtype is not numeric.

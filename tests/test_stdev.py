@@ -424,4 +424,13 @@ def test_stdev_filter_bad_stdtype() -> None:
         _ = stdev_filter(image, 3, stdtype='nope')
     assert str(exc_info.value) == "unrecognized value for stdtype: 'nope'"
 
+
+def test_stdev_zero_size_raises(shortcuts: bool) -> None:
+    # A reduction over a zero-size array is undefined and must raise, not NaN.
+    empty = np.ones((0, 4, 4))
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        stdev(empty)
+    with pytest.raises(ValueError, match='size cannot be zero'):
+        stdev(empty, mask=np.zeros((0, 4, 4), dtype=bool))
+
 ##########################################################################################

@@ -89,6 +89,7 @@ def variance(image, mask=None, *, maskval=None, weights=None, nans=False, axis=N
         ValueError: If `vartype` is not one of "biased", "unbiased", "frequency", or
             "reliability".
         ValueError: If any inputs are invalid or incompatible.
+        ValueError: If `image` is empty (has zero size).
         TypeError: If `image` dtype is not numeric.
     """
 

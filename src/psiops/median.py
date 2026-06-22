@@ -73,6 +73,7 @@ def median(image, mask=None, *, maskval=None, weights=None, nans=False, axis=Non
 
     Raises:
         ValueError: If `image` has fewer than two dimensions, or if `axis` is invalid.
+        ValueError: If `image` is empty (has zero size).
         ValueError: If `mask` or `weights` have shapes incompatible with `image`.
         ValueError: If `returns` is not a valid option.
         TypeError: If `image` dtype is not numeric.
@@ -121,10 +122,7 @@ def _median(image, mask, weights, info, axis, factors=None, omit=0):
     # Handle the case without leading factors
     if factors is None and omit == 0 and _use_shortcuts():
         if mask is None and weights is None:
-            # An empty reduction axis yields NaN; suppress NumPy's "Mean of empty slice".
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore', RuntimeWarning)
-                median_image = np.median(image, axis=axis)
+            median_image = np.median(image, axis=axis)
             return (median_image, None, None)
 
         if weights is None:
