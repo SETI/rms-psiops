@@ -121,7 +121,10 @@ def _median(image, mask, weights, info, axis, factors=None, omit=0):
     # Handle the case without leading factors
     if factors is None and omit == 0 and _use_shortcuts():
         if mask is None and weights is None:
-            median_image = np.median(image, axis=axis)
+            # An empty reduction axis yields NaN; suppress NumPy's "Mean of empty slice".
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                median_image = np.median(image, axis=axis)
             return (median_image, None, None)
 
         if weights is None:

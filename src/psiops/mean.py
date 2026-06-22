@@ -2,6 +2,8 @@
 # psiops/mean.py
 ##########################################################################################
 
+import warnings
+
 import numpy as np
 
 from psiops._filter import _apply_op_as_filter, _use_shortcuts
@@ -107,7 +109,10 @@ def _mean(image, mask, weights, info, axis, factors=None):
     # Handle the unweighted cases
     if factors is None and _use_shortcuts():
         if mask is None and weights is None:
-            mean_image = np.mean(image, axis=axis)
+            # An empty reduction axis yields NaN; suppress NumPy's "Mean of empty slice".
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                mean_image = np.mean(image, axis=axis)
             return (mean_image, None, None)
 
         if weights is None:
@@ -127,7 +132,10 @@ def _mean(image, mask, weights, info, axis, factors=None):
 
     # With no mask, weights, or factors, every pixel has uniform weight: a plain mean.
     if weights is None:
-        mean_image = np.mean(image, axis=axis)
+        # An empty reduction axis yields NaN; suppress NumPy's "Mean of empty slice".
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            mean_image = np.mean(image, axis=axis)
         return (mean_image, None, None)
 
     weights = np.broadcast_to(weights, image.shape)
