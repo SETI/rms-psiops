@@ -361,4 +361,27 @@ def test_smearedmodel_accepts_array_smear() -> None:
     result = model.transform((41, 41), (20.5, 20.5))
     assert result.sum() == pytest.approx(2.0, abs=1e-3)
 
+
+def test_smearedmodel_weighted_center() -> None:
+    # Smearing averages copies of the model at offsets that are symmetric about the center
+    # (the offsets sum to zero), so the weighted centroid of a smeared Gaussian stays at
+    # `center`. The grid is large (and the centers kept inside it) so truncation of the
+    # smeared Gaussian's tails does not bias the centroid above tolerance.
+    centers = [(50.0, 60.0), (50.5, 60.5), (50.1, 60.7), (50.01, 60.99), (50.75, 60.999)]
+    smears = [(0.0, 0.0), (4.0, 0.0), (0.0, 5.0), (3.0, -4.0), (-6.0, 2.0)]
+    for sigma in (1., 2., 3.):
+        base = Gaussian(sigma=sigma)
+        for smear in smears:
+            model = SmearedModel(base, smear)
+            for expand in (1., 1.4):
+                for rotate in (0., 1.):
+                    for center in centers:
+                        array = model.transform(shape=(100, 120), center=center,
+                                                expand=expand, rotate=rotate)
+                        test_center = _weighted_center(array)
+                        dx = center[0] - test_center[0]
+                        dy = center[1] - test_center[1]
+                        offset = np.sqrt(dx**2 + dy**2)
+                        assert offset < 3.e-9
+
 ##########################################################################################
