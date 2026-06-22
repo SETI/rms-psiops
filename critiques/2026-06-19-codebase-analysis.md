@@ -26,8 +26,10 @@ A follow-up pass (2026-06-22) **completed and enforced test type annotations, fi
 packaging metadata (Pyroma now rates 10/10), and made `scripts/run-all-checks.sh` fully green**
 end to end. The same pass also added 2-D support to `resample`/`reshape`, simplified
 `ArrayModel.transform`, fixed a `resample` shrink-path crash, and expanded the imagemodel tests
-(see §13). The remaining work is a short list of medium/low items: the `returns` DSL
-discoverability (won't-fix), thread-safety documentation, and two small `__init__.py` cleanups.
+(see §13). A further pass **narrowed the divide-by-zero warning suppression to the NumPy
+error-state source, centralized zero-size-input rejection in `_check_image`, and exported and
+documented the `Fitting` class** (see §14). The remaining work is short: the `returns` DSL
+discoverability (won't-fix) and thread-safety documentation.
 
 ---
 
@@ -42,13 +44,11 @@ discoverability (won't-fix), thread-safety documentation, and two small `__init_
   `_check_return`), and `_filter.py` (filter dispatch, tiling, memory management, test-control
   flags). All 13 source modules and 4 test files updated accordingly.
 
-- **Finding (low — partially addressed)**: Several modules are commented out in `__init__.py`
-  (`fft`, `fitting`, `stretch`, `imagemodel`, `scaling`). **Evidence**: `__init__.py:92–100`.
-  As of 2026-06-20 every one of these modules is now **fully tested** (≥ 89% coverage, most at
-  100%) and its latent bugs fixed, so the code behind the comments is exercised and works.
-  **Remaining**: decide whether to export them (uncomment + add to `__all__`) or remove the
-  dead block. The `scaling`/`scaling2` lines refer to modules that do not exist and should be
-  deleted regardless.
+- ~~**Finding (low — partially addressed)**: Several modules are commented out in
+  `__init__.py` (`fft`, `fitting`, `stretch`, `imagemodel`, `scaling`).~~ ✓ **Fixed**
+  (2026-06-22). `fft`, `stretch`, and `imagemodel` were exported earlier; `Fitting` is now
+  un-commented and added to `__all__` and the `__init__.pyi` stub, and the dead reference to
+  the non-existent `scaling` module was deleted. No commented-out import block remains (§14).
 
 - ~~**Finding (medium)**: `tests/resize.py` and `tests/unittester.py` are legacy test
   infrastructure not discovered by pytest.~~ ✓ **Partially fixed.** `tests/unittester.py` has
@@ -254,15 +254,15 @@ discoverability (won't-fix), thread-safety documentation, and two small `__init_
 - **Finding (low)**: No subprocess, `eval`, credentials, or path traversal issues found.
   Security posture is clean.
 
-- **Finding (low — partially addressed)**: `RuntimeWarning` is globally suppressed for all
+- ~~**Finding (low — partially addressed)**: `RuntimeWarning` is globally suppressed for all
   users at import time via `warnings.simplefilter('ignore', ...)` and
-  `os.environ['PYTHONWARNINGS']`. **Evidence**: `__init__.py:43–46`. As of 2026-06-20 the
-  recommended local suppression is now in place at each operation that legitimately produces
-  expected NaNs (`mean`/`variance`/`stdev`/`median`/`unzoom`/`resample`/`shift` use
-  `np.errstate` / `warnings.catch_warnings` around the specific divisions and reductions).
-  **Remaining**: the broad import-time suppression in `__init__.py` could now be removed (or
-  narrowed) so that genuine divide-by-zero warnings in *calling* code are no longer hidden,
-  relying on the per-operation suppression instead.
+  `os.environ['PYTHONWARNINGS']`.~~ ✓ **Fixed** (2026-06-22). The blanket import-time
+  suppression and the `PYTHONWARNINGS` env var (which leaked into subprocesses) were removed.
+  A decorator now wraps every public entry point in
+  `np.errstate(divide='ignore', invalid='ignore')`, suppressing only the library's intentional
+  divide-by-zero/invalid results at the NumPy error-state source — which holds even when
+  warnings are errors — so all other `RuntimeWarning`s and the user's own code now surface
+  (§14).
 
 ---
 
@@ -469,6 +469,31 @@ This pass brought `scripts/run-all-checks.sh` to fully green and added a user-fa
 
 ---
 
+## 14. Warning policy, zero-size inputs, and the Fitting export (2026-06-22)
+
+- **Divide-by-zero warnings narrowed at the source** (item #10). The blanket import-time
+  `warnings.simplefilter('ignore', RuntimeWarning)` and the `PYTHONWARNINGS` env var (which
+  leaked into subprocesses) were removed from `__init__.py`. A decorator now wraps every public
+  entry point in `np.errstate(divide='ignore', invalid='ignore')`, so the library's intentional
+  0/0 and x/0 results are suppressed at the NumPy error-state source — which holds even under
+  `-W error` / pytest `filterwarnings=["error"]` — without an `errstate` at every division. All
+  other `RuntimeWarning`s, and the user's own code, now surface. The remaining non-divide
+  warnings are handled locally where they legitimately occur: `Degrees of freedom <= 0` for a
+  single-frame unbiased variance, and masked all-NaN slices in the `nanmedian`/`nanvar` paths.
+- **Zero-size inputs rejected centrally.** `_check_image` now raises
+  `ValueError('invalid image shape …; size cannot be zero')`, so every operation — reductions,
+  filters, and transforms — rejects a zero-size array consistently. This replaced scattered
+  per-op size checks and removed earlier inconsistencies (e.g. `minimum_filter`/`maximum_filter`
+  silently accepting a zero-size image, and a `median` `IndexError`). The zero-size `ValueError`
+  is documented in each reduction's `Raises` section and covered by regression tests.
+- **`Fitting` exported and documented** (item #9). The commented-out `Fitting` import was
+  enabled and added to `__all__` and the `__init__.pyi` stub; the dead reference to the
+  non-existent `scaling` module was deleted. The `Fitting` docstring was corrected (typo, a
+  phantom property), and the User's Guide gained worked-example sections on FFT/correlation,
+  image models, `Stretch`, and `Fitting`.
+
+---
+
 ## Recommended priorities (remaining)
 
 1. ~~**Fix the critical bugs.**~~ ✓ Done.
@@ -489,11 +514,12 @@ This pass brought `scripts/run-all-checks.sh` to fully green and added a user-fa
 8. ~~**Add `-> None` to the ~60 remaining test functions** in the newer test suites (§4).~~
    ✓ **Done** (2026-06-22): all test functions, helpers, fixtures, and parametrized parameters
    are now annotated, enforced by the strict mypy config (§13).
-9. **Decide the fate of the commented-out `__init__.py` block** (§1): export the
-   now-tested modules or delete the dead lines; remove the non-existent `scaling`/`scaling2`
-   references.
-10. **Narrow or remove the import-time `RuntimeWarning` suppression** in `__init__.py` now
-    that per-operation suppression exists (§7).
+9. ~~**Decide the fate of the commented-out `__init__.py` block** (§1).~~ ✓ **Done**
+   (2026-06-22): `Fitting` exported (and added to `__all__`/stub), the non-existent `scaling`
+   reference deleted; no commented-out block remains (§1, §14).
+10. ~~**Narrow or remove the import-time `RuntimeWarning` suppression** in `__init__.py`.~~
+    ✓ **Done** (2026-06-22): replaced by a source-level `np.errstate` decorator at the public
+    entry points; only divide-by-zero/invalid are suppressed (§7, §14).
 11. **Thread safety** (§5): the module-level mutable flags (`_USE_SHORTCUTS`, `_LAYERS_USED`,
     `_TILES_USED`, `_USABLE_BYTES`) are still unguarded — document the library as not
     thread-safe, or move the test-control state to `threading.local()`.
