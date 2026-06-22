@@ -25,7 +25,7 @@ Install the package and its runtime dependencies with ``pip``:
 
 .. code-block:: bash
 
-   pip install -e ".[dev]"
+   pip install rms-psiops
 
 Then import the public functions from the top-level package:
 
@@ -46,22 +46,15 @@ column) axes of an image. Any leading axes are interpreted as a stack of images.
 For example, an array of shape ``(10, 512, 512)`` is a stack of ten 512×512
 images, and an array of shape ``(3, 4, 512, 512)`` is a 3×4 grid of images.
 
-Spatial transforms (:func:`~psiops.shift`, :func:`~psiops.rotate`,
-:func:`~psiops.zoom`, and so on) act independently on each image in the stack.
-Stack operations (:func:`~psiops.mean`, :func:`~psiops.median`, and the other
-reductions) combine images *across* the leading axes, leaving the two spatial
-axes intact.
+Stack operations (:func:`~psiops.mean`, :func:`~psiops.median`,
+:func:`~psiops.minimum`, :func:`~psiops.maximum`, :func:`~psiops.variance`, and
+:func:`~psiops.stdev`) require the array to be at least three-dimensional,
+because they need at least one non-spatial axis to combine across.
 
-.. note::
-
-   The stack operations (:func:`~psiops.mean`, :func:`~psiops.median`,
-   :func:`~psiops.minimum`, :func:`~psiops.maximum`, :func:`~psiops.variance`, and
-   :func:`~psiops.stdev`) require the array to be at least three-dimensional,
-   because they need at least one non-spatial axis to combine across. The spatial
-   transforms :func:`~psiops.shift`, :func:`~psiops.ishift`, :func:`~psiops.zoom`,
-   :func:`~psiops.unzoom`, :func:`~psiops.rotate`, :func:`~psiops.resample`, and
-   :func:`~psiops.reshape` also accept a plain 2-D image. When in doubt, a 3-D
-   array of shape ``(n, rows, cols)`` works everywhere.
+Spatial transforms (:func:`~psiops.shift`, :func:`~psiops.ishift`,
+:func:`~psiops.zoom`, :func:`~psiops.unzoom`, :func:`~psiops.rotate`,
+:func:`~psiops.resample`, and :func:`~psiops.reshape`) accept a plain 2-D
+image. If an image stack is provided, they operate on each image in the stack.
 
 
 The coordinate convention
