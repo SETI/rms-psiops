@@ -65,6 +65,8 @@ class Fitting:
         model (array): The stretched 2-D image, obtained by applying the Stretch to the
             transformed `imagemodel`.
         residuals (array): The 2-D array of residuals, `target` minus `model`.
+        median_abs_residual (float): The median of |`target` - `model`| over the unmasked
+            pixels (weights ignored).
         background (array or scalar): The background 2-D array or value for this Stretch.
         scaling (array or scalar): The 2-D array or value that multiplies `image` in
             this Stretch.
@@ -357,6 +359,20 @@ class Fitting:
     def residuals(self):
         """The 2-D array of residuals image minus model."""
         return self.stretch.residuals
+
+    @property
+    def median_abs_residual(self):
+        """The median of the absolute residuals |target - model|.
+
+        Masked pixels are skipped. Weights are ignored, so this is the median of the raw
+        absolute residuals over the unmasked pixels -- a robust, outlier-insensitive
+        measure of the fit quality.
+        """
+
+        diff = np.abs(self.target - self.model)
+        if self.mask is not None:
+            diff = diff[np.logical_not(self.mask)]
+        return float(np.median(diff))
 
     @property
     def m_sigma(self):

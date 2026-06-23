@@ -425,7 +425,7 @@ class Fitting:
     def remask(self, mask: np.ndarray) -> None: ...
     def fit(
         self,
-        params: npt.ArrayLike,
+        guesses: npt.ArrayLike,
         flags: Sequence[bool] = ...,
         limits: Sequence[float] = ...,
         lsq_dict: dict | None = ...,
@@ -438,6 +438,8 @@ class Fitting:
     def scaling(self) -> np.ndarray: ...
     @property
     def residuals(self) -> np.ndarray: ...
+    @property
+    def median_abs_residual(self) -> float: ...
     @property
     def m_sigma(self) -> np.ndarray: ...
     @property

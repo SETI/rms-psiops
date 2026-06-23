@@ -491,11 +491,22 @@ _GAUSSIAN_CASES = [
 ]
 
 
+# Both the bounded default and an unbounded (no-limit) parameterization should converge
+# from a good initial guess.
+_FIT_LIMITS = [(10., 10., 0.1, 0.2), (0., 0., 0., 0.)]
+
+
+@pytest.mark.parametrize('limits', _FIT_LIMITS, ids=['bounded', 'unbounded'])
 @pytest.mark.parametrize(('sigma', 'x0', 'y0', 'seed'), _GAUSSIAN_CASES)
 def test_fit_recovers_gaussian_center_and_integral(
     sigma: float, x0: float, y0: float, seed: int,
+    limits: tuple[float, float, float, float],
 ) -> None:
-    """Fitting recovers the true Gaussian center and conserves its integral."""
+    """Fitting recovers the true Gaussian center and conserves its integral.
+
+    Run with both the bounded default `limits` and an unbounded `(0, 0, 0, 0)`; with a
+    good initial guess the optimizer stays well inside the bounds, so both converge.
+    """
 
     model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
     gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
@@ -504,7 +515,7 @@ def test_fit_recovers_gaussian_center_and_integral(
 
     fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
     fitting.set_target(target)
-    fitting.fit(guesses=(*_peak_guess(target), 1.0, 0.0))
+    fitting.fit(guesses=(*_peak_guess(target), 1.0, 0.0), limits=limits)
 
     # Center recovered to a small fraction of a pixel (observed worst case ~0.05 px).
     assert abs(fitting.x - x0) < 0.2
@@ -535,5 +546,53 @@ def test_fit_reconstructs_background_and_model() -> None:
     assert np.abs(fitting.background - background).max() < 0.5
     # The model reproduces the noiseless target (Gaussian + background) closely.
     assert np.abs(fitting.model - (gaussian + background)).max() < 1.0
+
+
+def test_median_abs_residual_matches_unmasked_median() -> None:
+    """With no mask, the property equals the median of |target - model|."""
+
+    sigma, x0, y0 = 3.0, 26.0, 24.0
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    rng = np.random.default_rng(5)
+    target = gaussian + _background(_FIT_SHAPE) + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target)
+    fitting.fit(guesses=(*_peak_guess(target), 1.0, 0.0))
+
+    expected = np.median(np.abs(fitting.target - fitting.model))
+    assert fitting.median_abs_residual == pytest.approx(expected)
+    # Residuals are essentially the unit-sigma noise: median |N(0,1)| ~ 0.6745.
+    assert 0.5 < fitting.median_abs_residual < 0.9
+
+
+def test_median_abs_residual_skips_masked_pixels() -> None:
+    """Heavily corrupted but masked pixels do not affect the property."""
+
+    sigma, x0, y0 = 3.0, 26.0, 24.0
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    rng = np.random.default_rng(6)
+    target = gaussian + _background(_FIT_SHAPE) + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    # Corrupt a block far from the source, then mask exactly those pixels.
+    mask = np.zeros(_FIT_SHAPE, dtype=bool)
+    mask[40:50, 40:50] = True
+    target[mask] += 1000.0
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target, mask=mask)
+    # Seed at the frame center (the source is ~1.4 px away); a peak detector would lock
+    # onto the +1000 corrupted block instead.
+    fitting.fit(guesses=(25.0, 25.0, 1.0, 0.0))
+
+    diff = np.abs(fitting.target - fitting.model)
+    # The property equals the median over the unmasked pixels only...
+    assert fitting.median_abs_residual == pytest.approx(np.median(diff[~mask]))
+    # ...the masked block really is heavily corrupted (would dominate if included)...
+    assert np.median(diff[mask]) > 100.0
+    # ...yet the property stays at the noise level, proving it skips the masked pixels.
+    assert fitting.median_abs_residual < 1.0
 
 ##########################################################################################
