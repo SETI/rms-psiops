@@ -549,7 +549,7 @@ def test_fit_reconstructs_background_and_model() -> None:
     assert np.abs(fitting.model - (gaussian + background)).max() < 1.0
 
 
-def test_median_abs_residual_matches_unmasked_median() -> None:
+def test_median_abs_deviation_matches_unmasked_median() -> None:
     """With no mask, the property equals the median of |target - model|."""
 
     sigma, x0, y0 = 3.0, 26.0, 24.0
@@ -563,12 +563,12 @@ def test_median_abs_residual_matches_unmasked_median() -> None:
     fitting.fit(guesses=(*_peak_guess(target), 1.0, 0.0))
 
     expected = np.median(np.abs(fitting.target - fitting.model))
-    assert fitting.median_abs_residual == pytest.approx(expected)
+    assert fitting.median_abs_deviation == pytest.approx(expected)
     # Residuals are essentially the unit-sigma noise: median |N(0,1)| ~ 0.6745.
-    assert 0.5 < fitting.median_abs_residual < 0.9
+    assert 0.5 < fitting.median_abs_deviation < 0.9
 
 
-def test_median_abs_residual_skips_masked_pixels() -> None:
+def test_median_abs_deviation_skips_masked_pixels() -> None:
     """Heavily corrupted but masked pixels do not affect the property."""
 
     sigma, x0, y0 = 3.0, 26.0, 24.0
@@ -590,11 +590,39 @@ def test_median_abs_residual_skips_masked_pixels() -> None:
 
     diff = np.abs(fitting.target - fitting.model)
     # The property equals the median over the unmasked pixels only...
-    assert fitting.median_abs_residual == pytest.approx(np.median(diff[~mask]))
+    assert fitting.median_abs_deviation == pytest.approx(np.median(diff[~mask]))
     # ...the masked block really is heavily corrupted (would dominate if included)...
     assert np.median(diff[mask]) > 100.0
     # ...yet the property stays at the noise level, proving it skips the masked pixels.
-    assert fitting.median_abs_residual < 1.0
+    assert fitting.median_abs_deviation < 1.0
+
+
+def test_median_abs_deviation_is_cached_per_fit() -> None:
+    """The deviation is evaluated only once per fit and cached, and a re-fit resets it."""
+
+    sigma, x0, y0 = 3.0, 26.0, 24.0
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    rng = np.random.default_rng(7)
+    target = gaussian + _background(_FIT_SHAPE) + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target)
+    fitting.fit(guesses=(*_peak_guess(target), 1.0, 0.0))
+
+    # Not evaluated until first access, then cached.
+    assert fitting._median_abs_deviation is None
+    first = fitting.median_abs_deviation
+    assert fitting._median_abs_deviation == first
+
+    # A later change to the inputs is ignored because the value is evaluated only once.
+    fitting.target = fitting.target + 1000.0
+    assert fitting.median_abs_deviation == first
+
+    # The next fit invalidates the cache.
+    fitting.set_target(target)
+    fitting.fit(guesses=(*_peak_guess(target), 1.0, 0.0))
+    assert fitting._median_abs_deviation is None
 
 
 ##########################################################################################

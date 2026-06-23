@@ -66,14 +66,17 @@ class Fitting:
         model (array): The stretched 2-D image, obtained by applying the Stretch to the
             transformed `imagemodel`.
         residuals (array): The 2-D array of residuals, `target` minus `model`.
-        median_abs_residual (float): The median of ``abs(target - model)`` over the
-            unmasked pixels (weights ignored).
         background (array or scalar): The background 2-D array or value for this Stretch.
         scaling (array or scalar): The 2-D array or value that multiplies `image` in
             this Stretch.
         m_sigma (array or scalar): The uncertainty in `model`.
         b_sigma (array or scalar): The uncertainty in `background`.
         s_sigma (array or scalar): The uncertainty in `scaling`.
+        median_abs_deviation (float): The median of ``abs(target - model)`` over the
+            unmasked pixels (weights ignored). If the fit residuals obey a normal
+            distribution, `rms` should be larger than this value by a factor of ~ 1.4826.
+            If the `rms` significantly exceeds this value, it is a sign that the fit is
+            dominated by a small number of pixels with excessive residuals.
     """
 
     def __init__(self, model, stretch):
@@ -123,7 +126,7 @@ class Fitting:
 
         # Interpret the slice
         corner = _check_tuple(corner, 'corner coordinates', floats=False, negs=True,
-                              default=(0,0))
+                              default=(0, 0))
         max_shape = (target.shape[0] - corner[0], target.shape[1] - corner[1])
         if shape is None:
             shape = max_shape
@@ -395,11 +398,13 @@ class Fitting:
         cov_full = np.zeros((4, 4))
         index = np.where(fitted)[0]
         cov_full[np.ix_(index, index)] = cov_fitted
-        self.covar = cov_full * derivs[:,np.newaxis] * derivs
+        self.covar = cov_full * derivs[:, np.newaxis] * derivs
         self.dx = np.sqrt(self.covar[0, 0])
         self.dy = np.sqrt(self.covar[1, 1])
         denom = self.dx * self.dy
         self.corr = self.covar[0, 1] / denom if denom else 0.
+
+        self._median_abs_deviation = None
 
     ######################################################################################
     # Array evaluation
@@ -430,20 +435,6 @@ class Fitting:
         return self.stretch.residuals
 
     @property
-    def median_abs_residual(self):
-        """The median of the absolute residuals ``abs(target - model)``.
-
-        Masked pixels are skipped. Weights are ignored, so this is the median of the raw
-        absolute residuals over the unmasked pixels -- a robust, outlier-insensitive
-        measure of the fit quality.
-        """
-
-        diff = np.abs(self.target - self.model)
-        if self.mask is not None:
-            diff = diff[np.logical_not(self.mask)]
-        return float(np.median(diff))
-
-    @property
     def m_sigma(self):
         """Statistical uncertainty in the 2-D model."""
         return self.stretch.m_sigma
@@ -457,5 +448,27 @@ class Fitting:
     def s_sigma(self):
         """Statistical uncertainty in the 2-D array of scale factors."""
         return self.stretch.s_sigma
+
+    @property
+    def median_abs_deviation(self):
+        """The median of the absolute residuals ``abs(target - model)``.
+
+        Masked pixels are skipped. Weights are ignored, so this is the median of the raw
+        absolute residuals over the unmasked pixels -- a robust, outlier-insensitive
+        measure of the fit quality.
+
+        If the fit residuals obey a normal distribution, `rms` should be larger than the
+        median absolute deviation by a factor of ~ 1.4826. If `rms` significantly exceeds
+        this value, it is a sign that the fit is dominated by a small number of pixels
+        with excessive residuals.
+        """
+
+        if self._median_abs_deviation is None:
+            diff = np.abs(self.target - self.model)
+            if self.mask is not None:
+                diff = diff[np.logical_not(self.mask)]
+            self._median_abs_deviation = float(np.median(diff))
+
+        return self._median_abs_deviation
 
 ##########################################################################################
