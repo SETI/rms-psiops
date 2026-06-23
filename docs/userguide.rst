@@ -315,6 +315,14 @@ The available filters are :func:`~psiops.mean_filter`,
                      [0, 1, 0]], dtype=bool)
    despeckled = psiops.median_filter(image, cross)
 
+:func:`~psiops.circle` builds a circular boolean footprint of a given radius — a
+convenient isotropic footprint for any of the filters:
+
+.. code-block:: python
+
+   disc = psiops.circle(3.5)                 # an odd-sized circular footprint
+   smoothed = psiops.median_filter(image, disc)
+
 :func:`~psiops.gaussian_filter` smooths with a Gaussian kernel of a given
 ``sigma`` (a scalar or per-axis tuple) and supports the standard boundary
 ``mode`` options ``'nearest'``, ``'constant'``, ``'reflect'``, ``'mirror'``, and

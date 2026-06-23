@@ -103,6 +103,7 @@ def zoom(
 # Stack operations and spatial filters
 ##########################################################################################
 
+def circle(radius: float) -> np.ndarray: ...
 def gaussian_filter(
     image: np.ndarray,
     sigma: float | tuple[float, float],
