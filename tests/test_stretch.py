@@ -543,7 +543,7 @@ def test_fit_reconstructs_background_scaling_and_model_arrays() -> None:
     shape = (500, 500)
     image = _feature_image(shape)
     i, j = _ij(shape)
-    bg_coeffs = [3.0, 0.8, -1.5, 0.4, -0.2, 0.6]   # order 2
+    bg_coeffs = [3.0, 0.8, -1.5, 0.4, -0.2, 0.6]    # order 2
     sc_coeffs = [2.5, 0.4, -0.25]                   # order 1
     background = _eval_poly(bg_coeffs, _poly_basis(i, j, 2))
     scaling = _eval_poly(sc_coeffs, _poly_basis(i, j, 1))
