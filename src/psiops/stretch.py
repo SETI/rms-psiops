@@ -177,8 +177,10 @@ class Stretch:
         if shape != self.shape:
             half_i = 0.5 * (shape[0] - 1)
             half_j = 0.5 * (shape[1] - 1)
-            i = (np.arange(shape[0]) - half_i)[:, np.newaxis] / half_i
-            j = (np.arange(shape[1]) - half_j)[np.newaxis, :] / half_j
+            # A singleton axis has half == 0; its lone pixel sits at the center, so
+            # normalize with 1 to map it to coordinate 0 rather than dividing 0 by 0.
+            i = (np.arange(shape[0]) - half_i)[:, np.newaxis] / (half_i or 1.)
+            j = (np.arange(shape[1]) - half_j)[np.newaxis, :] / (half_j or 1.)
             self._ij_powers = [i, j]
             for expo in range(2, self._max_order + 1):
                 for _terms in range(expo):

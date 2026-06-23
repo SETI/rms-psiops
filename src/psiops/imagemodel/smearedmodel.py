@@ -25,6 +25,8 @@ class SmearedModel(ImageModel):
         self._model = model
 
         smear = np.asarray(smear, dtype=np.float64)
+        if smear.shape != (2,):
+            raise ValueError(f'invalid smear {smear.tolist()}; two values required')
         distance = np.sqrt(smear[0]**2 + smear[1]**2)
         nsteps = max(int(np.ceil(distance/maxstep)), 1)
 

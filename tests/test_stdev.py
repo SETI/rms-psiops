@@ -5,6 +5,7 @@
 import numpy as np
 import pytest
 
+from psiops._filter import _use_shortcuts
 from psiops.stdev import stdev, stdev_filter, variance_filter
 
 ##########################################################################################
@@ -165,8 +166,6 @@ def test_stdev_mask_values_match_numpy(shortcuts: bool) -> None:
 def test_stdev_shortcut_vs_general_masked_equal() -> None:
     # The optimized shortcut path and the general path must agree exactly on identical
     # masked input. Compute with shortcuts off, then on, and compare the two directly.
-    from psiops._filter import _use_shortcuts
-
     rng = np.random.default_rng(3534)
     image = rng.random((6,4,10,10))
     mask = rng.random((6,4,10,10)) < 0.5

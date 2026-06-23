@@ -27,6 +27,9 @@ class ArrayModel(ImageModel):
         """
 
         self._array = np.asarray(array, dtype=np.float64)
+        if self._array.ndim != 2:
+            raise ValueError(f'invalid array shape {self._array.shape}; '
+                             '2-D array required')
         self._outside = float(outside)
 
         if origin is None:

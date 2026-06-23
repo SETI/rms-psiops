@@ -184,11 +184,11 @@ def test_arraymodel_default_origin_is_midpoint() -> None:
 
 
 def test_arraymodel_non_2d_raises() -> None:
-    # The constructor derives a 2-element origin/radius from the array shape, so a 1-D
-    # array fails when the second spatial axis is indexed.
-    with pytest.raises(IndexError) as exc_info:
+    # The model must be a 2-D array; the constructor rejects other ranks up front.
+    with pytest.raises(ValueError) as exc_info:
         ArrayModel(np.zeros(5))
-    assert 'index 1 is out of bounds for axis 0 with size 1' in str(exc_info.value)
+    assert 'invalid array shape' in str(exc_info.value)
+    assert '2-D array required' in str(exc_info.value)
 
 
 def test_arraymodel_explicit_origin() -> None:
@@ -286,12 +286,12 @@ def test_summedmodel_transform_shape() -> None:
 
 
 def test_summedmodel_length_mismatch_raises() -> None:
-    # transform() pairs models with factors via zip(strict=True), so a length mismatch
-    # surfaces as a ValueError when transform() is called.
-    model = SummedModel([Gaussian(), Gaussian()], [1.0])
+    # models and factors must be the same length; the constructor rejects a mismatch
+    # up front rather than letting it surface later inside transform().
     with pytest.raises(ValueError) as exc_info:
-        model.transform((9, 9), (4.5, 4.5))
-    assert 'zip() argument 2 is shorter than argument 1' in str(exc_info.value)
+        SummedModel([Gaussian(), Gaussian()], [1.0])
+    assert 'invalid factors' in str(exc_info.value)
+    assert 'match models' in str(exc_info.value)
 
 
 def test_summedmodel_integral_is_weighted_sum() -> None:
@@ -377,11 +377,11 @@ def test_smearedmodel_transform_shape() -> None:
 
 
 def test_smearedmodel_short_smear_raises() -> None:
-    # The constructor reads smear[0] and smear[1], so a length-1 smear fails when the
-    # second component is indexed. (The source raises IndexError, not ValueError.)
-    with pytest.raises(IndexError) as exc_info:
+    # smear must hold exactly two components (dx, dy); a length-1 smear is rejected.
+    with pytest.raises(ValueError) as exc_info:
         SmearedModel(Gaussian(), [1.0])
-    assert 'index 1 is out of bounds for axis 0 with size 1' in str(exc_info.value)
+    assert 'invalid smear' in str(exc_info.value)
+    assert 'two values required' in str(exc_info.value)
 
 
 def test_smearedmodel_preserves_integral() -> None:

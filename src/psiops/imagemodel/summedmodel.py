@@ -19,6 +19,9 @@ class SummedModel(ImageModel):
         """
 
         self._nmodels = len(models)
+        if len(factors) != self._nmodels:
+            raise ValueError(f'invalid factors; {self._nmodels} values required to '
+                             'match models')
         self._models = models
         self._factors = factors
 
