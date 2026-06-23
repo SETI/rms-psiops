@@ -195,7 +195,12 @@ def _median(image, mask, weights, info, axis, factors=None, omit=0):
     value_above = sorted_image[(index_above,) + indices]
     median_image = 0.5 * (value_below + value_above)
 
-    return (median_image, None, new_weights)
+    # Report the per-pixel weight when requested; otherwise report a mask that is True
+    # wherever every contributing pixel was masked, so fully masked pixels are flagged in
+    # the result (e.g. a returned MaskedArray). This mirrors the shortcut path.
+    if 'w' in info.returns:
+        return (median_image, None, new_weights)
+    return (median_image, new_weights == 0, None)
 
 
 def median_filter(image, footprint, *, mask=None, maskval=None, weights=None,

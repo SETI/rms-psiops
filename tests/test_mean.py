@@ -20,7 +20,8 @@ def test_mean_basic() -> None:
     assert np.all(a == 0.)
 
 
-def test_mean_mask_2d() -> None:
+def test_mean_mask_2d(shortcuts: bool) -> None:
+    # Masked reduction hits the `_use_shortcuts()`-gated path; check both settings.
     rng = np.random.default_rng(5965)
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -34,7 +35,7 @@ def test_mean_mask_2d() -> None:
     assert np.all(a[~mask] == b[~mask])
 
 
-def test_mean_mask_3d_one_layer() -> None:
+def test_mean_mask_3d_one_layer(shortcuts: bool) -> None:
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
     image = image0 * np.array([-3,1,2])[:,np.newaxis,np.newaxis]
@@ -46,7 +47,7 @@ def test_mean_mask_3d_one_layer() -> None:
     assert not np.any(bmask)
 
 
-def test_mean_mask_3d_partial() -> None:
+def test_mean_mask_3d_partial(shortcuts: bool) -> None:
     rng = np.random.default_rng(5965)
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -77,7 +78,7 @@ def test_mean_axis_variants() -> None:
     assert np.abs(a - np.mean(image, axis=(0,1,2))).max() < 1.e-15
 
 
-def test_mean_mask_newmask_all_masked() -> None:
+def test_mean_mask_newmask_all_masked(shortcuts: bool) -> None:
     rng = np.random.default_rng(5965)
     image = rng.random((5,4,3,10,10))
     mask = rng.random((5,4,3,10,10)) < 0.9        # mostly masked
@@ -87,7 +88,8 @@ def test_mean_mask_newmask_all_masked() -> None:
     assert np.all(amask == np.all(mask, axis=2))
 
 
-def test_mean_mask_values_match_numpy() -> None:
+def test_mean_mask_values_match_numpy(shortcuts: bool) -> None:
+    # Value-match vs numpy on a masked reduction; run on both gated paths.
     rng = np.random.default_rng(5965)
     image = rng.random((5,4,100,200))
     mask = rng.random((5,4,100,200)) < 0.6        # mostly masked
@@ -237,7 +239,7 @@ def test_mean_mask_no_shortcuts(shortcuts: bool) -> None:
     assert np.all(amask == (count == 0))
 
 
-def test_mean_maskval() -> None:
+def test_mean_maskval(shortcuts: bool) -> None:
     rng = np.random.default_rng(5965)
     image = rng.random((4,8,8))
     image[0, 0, 0] = 7.
@@ -246,7 +248,9 @@ def test_mean_maskval() -> None:
     assert abs(a[0, 0] - b[0, 0]) < 1.e-14
 
 
-def test_mean_nans() -> None:
+def test_mean_nans(shortcuts: bool) -> None:
+    # Regression: both the shortcut and general paths must drop NaN-masked pixels
+    # (`nans=True`) rather than letting `0 * NaN` propagate into the weighted sum.
     rng = np.random.default_rng(5965)
     image = rng.random((4,8,8))
     image[1, 2, 2] = np.nan
@@ -256,7 +260,7 @@ def test_mean_nans() -> None:
     assert abs(a[2, 2] - b[0, 0]) < 1.e-14
 
 
-def test_mean_maskedarray_input() -> None:
+def test_mean_maskedarray_input(shortcuts: bool) -> None:
     rng = np.random.default_rng(5965)
     image = rng.random((4,8,8))
     m = rng.random((4,8,8)) < 0.3
@@ -288,7 +292,7 @@ def test_mean_axis_combinations_match_numpy() -> None:
     assert np.all(mean(image, axis=(0,-1)) == np.mean(image, axis=(0,2)))
 
 
-def test_mean_keepdims() -> None:
+def test_mean_keepdims(shortcuts: bool) -> None:
     # keepdims restores reduced axes as length-1 dimensions (exercised via the masked
     # path, which returns both the image and mask).
     rng = np.random.default_rng(5965)
@@ -316,7 +320,7 @@ def test_mean_too_few_dimensions() -> None:
 # mean_filter
 ##########################################################################################
 
-def test_mean_filter_no_mask() -> None:
+def test_mean_filter_no_mask(shortcuts: bool) -> None:
     image = np.arange(10) + np.arange(10)[:,None] + np.arange(4)[:,None,None]
     a = mean_filter(image, (2,2))
     b = np.empty((4,10,10))
@@ -337,7 +341,7 @@ def test_mean_filter_int_footprint() -> None:
     assert np.abs(a - b).max() < 1.e-15
 
 
-def test_mean_filter_mask_irregular_footprint() -> None:
+def test_mean_filter_mask_irregular_footprint(shortcuts: bool) -> None:
     rng = np.random.default_rng(8063)
     image = rng.random((100,100))
     mask = rng.random((100,100)) < 0.6

@@ -355,10 +355,9 @@ def test_resample_negative_dimensions(shortcuts: bool) -> None:
             == 'negative dimensions are not allowed')
 
 
-def test_resample_unit_zoom_integer_offset() -> None:
+def test_resample_unit_zoom_integer_offset(shortcuts: bool) -> None:
     # The zoom_==(1,1) fast path relocates the image with shift(). With an integer
     # offset it is a pure integer shift; the origin defaults to shape/2 = (4, 5).
-    _use_shortcuts(True)
     image = np.arange(80, dtype=float).reshape(1, 8, 10)
 
     shifted = resample(image, 1, center=(6, 8))     # offset (2, 3)
@@ -366,8 +365,7 @@ def test_resample_unit_zoom_integer_offset() -> None:
     assert np.allclose(shifted[:, 2:8, 3:10], image[:, 0:6, 0:7])
 
 
-def test_resample_unit_zoom_fractional_offset() -> None:
-    _use_shortcuts(True)
+def test_resample_unit_zoom_fractional_offset(shortcuts: bool) -> None:
     image = np.arange(80, dtype=float).reshape(1, 8, 10)
 
     # A fractional offset enlarges the buffer by one pixel before trimming
@@ -376,8 +374,7 @@ def test_resample_unit_zoom_fractional_offset() -> None:
     assert fmask.shape[-2:] == frac.shape[-2:]
 
 
-def test_resample_unit_zoom_with_mask() -> None:
-    _use_shortcuts(True)
+def test_resample_unit_zoom_with_mask(shortcuts: bool) -> None:
     image = np.arange(80, dtype=float).reshape(1, 8, 10)
     mask = np.zeros((1, 8, 10), dtype=bool)
     mask[:, 0, 0] = True
@@ -387,8 +384,7 @@ def test_resample_unit_zoom_with_mask() -> None:
     assert mmask[:, 2, 3].all()
 
 
-def test_resample_unit_zoom_with_weights() -> None:
-    _use_shortcuts(True)
+def test_resample_unit_zoom_with_weights(shortcuts: bool) -> None:
     image = np.arange(80, dtype=float).reshape(1, 8, 10)
     weights = np.full((1, 8, 10), 2.0)
 

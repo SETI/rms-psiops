@@ -11,7 +11,9 @@ from psiops.stdev import stdev, stdev_filter, variance_filter
 # stdev
 ##########################################################################################
 
-def test_stdev_basic() -> None:
+def test_stdev_basic(shortcuts: bool) -> None:
+    # stdev delegates to variance, whose plain/masked paths are `_use_shortcuts()`-gated;
+    # the `shortcuts` fixture exercises both branches against the same reference.
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
     image = image0 * np.array([1,2,3])[:,np.newaxis,np.newaxis]
@@ -20,7 +22,7 @@ def test_stdev_basic() -> None:
     assert np.abs(a - image0).max() < 1.e-15
 
 
-def test_stdev_mask_2d() -> None:
+def test_stdev_mask_2d(shortcuts: bool) -> None:
     rng = np.random.default_rng(3534)
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -34,7 +36,7 @@ def test_stdev_mask_2d() -> None:
     assert np.all(a[~mask] == b[~mask])
 
 
-def test_stdev_mask_3d_one_layer() -> None:
+def test_stdev_mask_3d_one_layer(shortcuts: bool) -> None:
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
     image = image0 * np.array([1,2,3])[:,np.newaxis,np.newaxis]
@@ -46,7 +48,7 @@ def test_stdev_mask_3d_one_layer() -> None:
     assert not np.any(bmask)
 
 
-def test_stdev_mask_3d_partial() -> None:
+def test_stdev_mask_3d_partial(shortcuts: bool) -> None:
     rng = np.random.default_rng(3534)
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -60,7 +62,7 @@ def test_stdev_mask_3d_partial() -> None:
     assert np.abs(b - np.sqrt(0.5) * image0)[~bmask].max() < 1.e-14
 
 
-def test_stdev_mask_3d_first_layer_only() -> None:
+def test_stdev_mask_3d_first_layer_only(shortcuts: bool) -> None:
     rng = np.random.default_rng(3534)
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -75,7 +77,7 @@ def test_stdev_mask_3d_first_layer_only() -> None:
     assert np.abs(b - np.sqrt(0.5) * image0)[mask[0]].max() < 1.e-14
 
 
-def test_stdev_axis_variants() -> None:
+def test_stdev_axis_variants(shortcuts: bool) -> None:
     rng = np.random.default_rng(3534)
     image = rng.random((3,4,5,10,10))
 
@@ -92,7 +94,7 @@ def test_stdev_axis_variants() -> None:
     assert np.abs(a - np.std(image, axis=(0,1,2), ddof=1)).max() < 1.e-15
 
 
-def test_stdev_mask_newmask_reliability() -> None:
+def test_stdev_mask_newmask_reliability(shortcuts: bool) -> None:
     # Default stdtype is 'reliability'; an unweighted mask makes the reliability denom
     # equal to (count - 1), so a pixel is masked exactly where fewer than two values
     # contribute.
@@ -107,7 +109,7 @@ def test_stdev_mask_newmask_reliability() -> None:
     assert np.all(amask == (count < 2))
 
 
-def test_stdev_mask_newmask_unbiased() -> None:
+def test_stdev_mask_newmask_unbiased(shortcuts: bool) -> None:
     rng = np.random.default_rng(3534)
     image = rng.random((5,4,3,10,10))
     mask = rng.random((5,4,3,10,10)) < 0.7
@@ -118,7 +120,7 @@ def test_stdev_mask_newmask_unbiased() -> None:
     assert np.all(amask == (count < 2))
 
 
-def test_stdev_mask_newmask_frequency() -> None:
+def test_stdev_mask_newmask_frequency(shortcuts: bool) -> None:
     rng = np.random.default_rng(3534)
     image = rng.random((5,4,3,10,10))
     mask = rng.random((5,4,3,10,10)) < 0.7
@@ -128,7 +130,7 @@ def test_stdev_mask_newmask_frequency() -> None:
     assert np.all(amask == (count < 2))
 
 
-def test_stdev_mask_newmask_biased() -> None:
+def test_stdev_mask_newmask_biased(shortcuts: bool) -> None:
     # The biased estimator only requires one contributing value, so a pixel is masked
     # only where every value is masked.
     rng = np.random.default_rng(3534)
@@ -140,7 +142,9 @@ def test_stdev_mask_newmask_biased() -> None:
     assert np.all(amask == (count == 0))
 
 
-def test_stdev_mask_values_match_numpy() -> None:
+def test_stdev_mask_values_match_numpy(shortcuts: bool) -> None:
+    # Value-match vs numpy on a masked reduction; run on both gated paths so the
+    # shortcut and general results are each checked against the numpy reference.
     rng = np.random.default_rng(3534)
     image = rng.random((5,4,100,200))
     mask = rng.random((5,4,100,200)) < 0.6        # mostly masked
@@ -156,6 +160,25 @@ def test_stdev_mask_values_match_numpy() -> None:
     assert np.abs(a - np.std(sorted_[:3], axis=0, ddof=1))[k == 3].max() < 1.e-14
     assert np.abs(a - np.std(sorted_[:4], axis=0, ddof=1))[k == 4].max() < 1.e-14
     assert np.abs(a - np.std(sorted_[:5], axis=0, ddof=1))[k == 5].max() < 1.e-14
+
+
+def test_stdev_shortcut_vs_general_masked_equal() -> None:
+    # The optimized shortcut path and the general path must agree exactly on identical
+    # masked input. Compute with shortcuts off, then on, and compare the two directly.
+    from psiops._filter import _use_shortcuts
+
+    rng = np.random.default_rng(3534)
+    image = rng.random((6,4,10,10))
+    mask = rng.random((6,4,10,10)) < 0.5
+
+    _use_shortcuts(False)
+    a_general, amask_general = stdev(image, axis=0, mask=mask)
+    _use_shortcuts(True)
+    a_shortcut, amask_shortcut = stdev(image, axis=0, mask=mask)
+
+    assert np.all(amask_general == amask_shortcut)
+    good = ~amask_general
+    assert np.allclose(a_general[good], a_shortcut[good])
 
 
 ##########################################################################################
@@ -312,7 +335,7 @@ def test_stdev_dtypes(dtype: str) -> None:
         assert test.dtype == np.float64
 
 
-def test_stdev_axis_combinations_match_numpy() -> None:
+def test_stdev_axis_combinations_match_numpy(shortcuts: bool) -> None:
     rng = np.random.default_rng(3534)
     image = rng.random((2,3,4,10,10))
     assert np.abs(stdev(image)
@@ -323,14 +346,14 @@ def test_stdev_axis_combinations_match_numpy() -> None:
                   - np.std(image, axis=(0,2), ddof=1)).max() < 1.e-14
 
 
-def test_stdev_list_input() -> None:
+def test_stdev_list_input(shortcuts: bool) -> None:
     rng = np.random.default_rng(3534)
     image = list(rng.random((2,3,4,10,10)))     # works for non-arrays?
     assert np.abs(stdev(image)
                   - np.std(image, axis=(0,1,2), ddof=1)).max() < 1.e-14
 
 
-def test_stdev_keepdims() -> None:
+def test_stdev_keepdims(shortcuts: bool) -> None:
     rng = np.random.default_rng(3534)
     image = rng.random((4,3,8,8))
     mask = rng.random((4,3,8,8)) < 0.2
@@ -358,7 +381,7 @@ def test_stdev_too_few_dimensions() -> None:
 # stdev_filter
 ##########################################################################################
 
-def test_stdev_filter_no_mask() -> None:
+def test_stdev_filter_no_mask(shortcuts: bool) -> None:
     image = np.arange(10) + np.arange(10)[:,None] + np.arange(4)[:,None,None]
     a = stdev_filter(image, 2)
     b = np.empty((4,10,10))
@@ -376,7 +399,7 @@ def test_stdev_filter_no_mask() -> None:
     assert diff.max() < 1.e-14
 
 
-def test_stdev_filter_int_footprint() -> None:
+def test_stdev_filter_int_footprint(shortcuts: bool) -> None:
     rng = np.random.default_rng(8063)
     image = rng.random((3,20,20))
     a = stdev_filter(image, 3)
@@ -385,7 +408,7 @@ def test_stdev_filter_int_footprint() -> None:
     assert np.abs((a - b)[~np.isnan(a)]).max() < 1.e-15
 
 
-def test_stdev_filter_mask_irregular_footprint() -> None:
+def test_stdev_filter_mask_irregular_footprint(shortcuts: bool) -> None:
     rng = np.random.default_rng(8063)
     image = rng.random((100,100))
     mask = rng.random((100,100)) < 0.4

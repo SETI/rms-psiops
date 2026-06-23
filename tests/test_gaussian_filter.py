@@ -225,21 +225,26 @@ def test_gaussian_returns_override_imw() -> None:
 def test_gaussian_negative_sigma() -> None:
     rng = np.random.default_rng(7)
     image = rng.random((2,16,16))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         _ = gaussian_filter(image, -1.0, mode='constant')
+    assert 'invalid sigma' in str(exc_info.value)
+    assert 'non-negative values required' in str(exc_info.value)
 
 
 def test_gaussian_negative_order() -> None:
     rng = np.random.default_rng(7)
     image = rng.random((2,16,16))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         _ = gaussian_filter(image, 1.0, order=-1, mode='constant')
+    assert 'invalid order' in str(exc_info.value)
+    assert 'non-negative values required' in str(exc_info.value)
 
 
 def test_gaussian_non_numeric_dtype() -> None:
     # A non-numeric array cannot be converted to floats for filtering.
     image = np.array([[['a', 'b'], ['c', 'd']]])
-    with pytest.raises((TypeError, ValueError)):
+    with pytest.raises((TypeError, ValueError)) as exc_info:
         _ = gaussian_filter(image, 1.0, mode='constant')
+    assert 'could not convert string to float' in str(exc_info.value)
 
 ##########################################################################################

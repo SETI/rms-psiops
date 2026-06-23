@@ -12,7 +12,14 @@ from psiops._filter import (
     _usable_bytes,
     _use_shortcuts,
 )
-from psiops._utils import _check_axis, _check_tuple
+from psiops._utils import (
+    _check_axis,
+    _check_tuple,
+    _flatten_axes,
+    _ImageInfo,
+    _merge_weights,
+    _pixel_area,
+)
 from psiops.maximum import maximum_filter
 from psiops.median import median_filter
 
@@ -505,5 +512,171 @@ def test_apply_op_as_filter_median_weights_tiled() -> None:
         assert np.allclose(a_w, ref_w)
     finally:
         _usable_bytes(0)
+
+##########################################################################################
+# _ImageInfo.__post_init__
+##########################################################################################
+
+def test_image_info_defaults() -> None:
+
+    info = _ImageInfo()
+    assert info.returns == 'i'
+    assert info.axis == ()
+    assert info.pixel_area == 1
+
+
+def test_image_info_extra_char_returns_ok() -> None:
+
+    # A returns value ending in the declared extra_char is accepted.
+    info = _ImageInfo(returns='imx', extra_char='x')
+    assert info.returns == 'imx'
+
+
+def test_image_info_invalid_returns() -> None:
+
+    exc_info: pytest.ExceptionInfo[Exception]
+    with pytest.raises(ValueError) as exc_info:
+        _ = _ImageInfo(returns='bogus')
+    assert str(exc_info.value) == (
+        "invalid `returns` value 'bogus'; "
+        "valid values are ['i', 'im', 'imw', 'iw']"
+    )
+
+
+def test_image_info_extra_char_required_for_suffix() -> None:
+
+    # Without declaring extra_char, the suffixed form is invalid.
+    with pytest.raises(ValueError) as exc_info:
+        _ = _ImageInfo(returns='ix')
+    assert str(exc_info.value) == (
+        "invalid `returns` value 'ix'; "
+        "valid values are ['i', 'im', 'imw', 'iw']"
+    )
+
+##########################################################################################
+# _pixel_area
+##########################################################################################
+
+def test_pixel_area() -> None:
+
+    shape = (2, 3, 4, 100, 100)
+    assert _pixel_area((0,), shape) == 2
+    assert _pixel_area((0, 1), shape) == 6
+    assert _pixel_area((0, 1, 2), shape) == 24
+    assert _pixel_area((), shape) == 1
+    assert isinstance(_pixel_area((0, 1), shape), int)
+
+##########################################################################################
+# _flatten_axes
+##########################################################################################
+
+def test_flatten_axes_none() -> None:
+
+    assert _flatten_axes(None, (0,)) is None
+
+
+def test_flatten_axes_single_axis() -> None:
+
+    rng = np.random.default_rng(5501)
+    image = rng.random((2, 3, 8, 10))
+    out = _flatten_axes(image, 0)
+
+    assert out.shape == (2, 3, 8, 10)
+    assert np.array_equal(out, image)
+
+
+def test_flatten_axes_multiple() -> None:
+
+    rng = np.random.default_rng(5502)
+    image = rng.random((2, 3, 8, 10))
+    out = _flatten_axes(image, (0, 1))
+
+    # The two leading axes are moved to the front and flattened into one.
+    assert out.shape == (6, 8, 10)
+    assert np.array_equal(out, image.reshape(6, 8, 10))
+
+
+def test_flatten_axes_reorders() -> None:
+
+    rng = np.random.default_rng(5503)
+    image = rng.random((2, 3, 8, 10))
+    out = _flatten_axes(image, (1, 0))
+
+    # Axis 1 is moved before axis 0, then both are flattened.
+    assert out.shape == (6, 8, 10)
+    expected = np.moveaxis(image, (1, 0), (0, 1)).reshape(6, 8, 10)
+    assert np.array_equal(out, expected)
+
+
+def test_flatten_axes_with_broadcast_shape() -> None:
+
+    rng = np.random.default_rng(5504)
+    image = rng.random((1, 3, 8, 10))
+    out = _flatten_axes(image, (0, 1), shape=(2, 3, 8, 10))
+
+    assert out.shape == (6, 8, 10)
+    expected = np.broadcast_to(image, (2, 3, 8, 10)).reshape(6, 8, 10)
+    assert np.array_equal(out, expected)
+
+##########################################################################################
+# _merge_weights
+##########################################################################################
+
+def test_merge_weights_all_none() -> None:
+
+    assert _merge_weights(None, None) is None
+
+
+def test_merge_weights_weights_only() -> None:
+
+    rng = np.random.default_rng(5505)
+    weights = rng.random((3, 8, 10))
+    out = _merge_weights(None, weights)
+
+    assert out is weights
+
+
+def test_merge_weights_mask_only() -> None:
+
+    rng = np.random.default_rng(5506)
+    mask = rng.random((8, 10)) < 0.3
+    out = _merge_weights(mask, None)
+
+    # The mask becomes a weight array of 1 where unmasked, 0 where masked.
+    assert np.array_equal(out, np.logical_not(mask))
+
+
+def test_merge_weights_factors_only() -> None:
+
+    # With only factors, they are returned with two trailing spatial axes appended.
+    factors = np.array([1.0, 2.0, 3.0])
+    out = _merge_weights(None, None, factors=factors)
+
+    assert out.shape == (3, 1, 1)
+    assert np.array_equal(out[:, 0, 0], factors)
+
+
+def test_merge_weights_weights_and_factors() -> None:
+
+    rng = np.random.default_rng(5507)
+    weights = rng.random((3, 8, 10))
+    factors = np.array([1.0, 2.0, 3.0])
+    out = _merge_weights(None, weights, factors=factors)
+
+    expected = weights * factors[:, np.newaxis, np.newaxis]
+    assert out.shape == (3, 8, 10)
+    assert np.allclose(out, expected)
+
+
+def test_merge_weights_mask_and_factors() -> None:
+
+    rng = np.random.default_rng(5508)
+    mask = rng.random((3, 8, 10)) < 0.3
+    factors = np.array([1.0, 2.0, 3.0])
+    out = _merge_weights(mask, None, factors=factors)
+
+    expected = np.logical_not(mask) * factors[:, np.newaxis, np.newaxis]
+    assert out.shape == (3, 8, 10)
+    assert np.allclose(out, expected)
 
 ##########################################################################################

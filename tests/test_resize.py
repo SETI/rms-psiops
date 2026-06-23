@@ -97,20 +97,28 @@ def test_resize_mixed_with_mask() -> None:
 
 def test_resize_errors() -> None:
     image = _make_image()
-    with pytest.raises(TypeError):
+    exc_info: pytest.ExceptionInfo[Exception]
+    with pytest.raises(TypeError) as exc_info:
         resize(image, 3.2)  # type: ignore[call-overload]
-    with pytest.raises(TypeError):
+    assert 'new shape (3.2, 3.2); two integers required' in str(exc_info.value)
+    with pytest.raises(TypeError) as exc_info:
         resize(image, (3.2, 1))  # type: ignore[arg-type]
-    with pytest.raises(TypeError):
+    assert 'new shape (3.2, 1); two integers required' in str(exc_info.value)
+    with pytest.raises(TypeError) as exc_info:
         resize(image, '')  # type: ignore[call-overload]
-    with pytest.raises(ValueError):
+    assert "new shape ('', ''); two integers required" in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         resize(image, (-3, 1))
-    with pytest.raises(ValueError):
+    assert 'positive values required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         resize(image, (1, 2, 3))  # type: ignore[arg-type]
-    with pytest.raises(ValueError):
+    assert 'new shape (1, 2, 3); two values required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         resize(image, (2,))  # type: ignore[arg-type]
-    with pytest.raises(ValueError):
+    assert 'new shape (2,); two values required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         resize(image, None)  # type: ignore[call-overload]
+    assert 'missing new shape' in str(exc_info.value)
 
 
 def test_resize_dtype_float32_preserved() -> None:

@@ -169,13 +169,15 @@ def test_multiple_separate_holes_all_filled() -> None:
 
 
 def test_invalid_returns_raises() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         camouflage(np.ones((5, 5)), returns='x')
+    assert 'invalid `returns` value "x"' in str(exc_info.value)
 
 
 def test_one_dimensional_image_raises() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         camouflage(np.ones(5))
+    assert 'must be at least 2-D' in str(exc_info.value)
 
 
 def test_does_not_mutate_input_image() -> None:

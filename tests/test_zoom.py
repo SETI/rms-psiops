@@ -77,18 +77,25 @@ def test_zoom_with_weights() -> None:
 
 def test_zoom_errors() -> None:
     image = _make_image()
-    with pytest.raises(TypeError):
+    exc_info: pytest.ExceptionInfo[Exception]
+    with pytest.raises(TypeError) as exc_info:
         zoom(image, 3.2)
-    with pytest.raises(TypeError):
+    assert 'two integers required' in str(exc_info.value)
+    with pytest.raises(TypeError) as exc_info:
         zoom(image, (3.2, 1))
-    with pytest.raises(ValueError):
+    assert 'two integers required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         zoom(image, (-3, 1))
-    with pytest.raises(ValueError):
+    assert 'positive values required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         zoom(image, (1, 2, 3))
-    with pytest.raises(ValueError):
+    assert 'zoom factor (1, 2, 3); two values required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         zoom(image, (2,))
-    with pytest.raises(ValueError):
+    assert 'zoom factor (2,); two values required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         zoom(image, None)
+    assert 'missing zoom factor' in str(exc_info.value)
 
 
 def test_zoom_dtype_preserved() -> None:
@@ -188,20 +195,28 @@ def test_unzoom_maskval_sets_fill_value() -> None:
 
 def test_unzoom_errors() -> None:
     image = _make_image()
-    with pytest.raises(TypeError):
+    exc_info: pytest.ExceptionInfo[Exception]
+    with pytest.raises(TypeError) as exc_info:
         unzoom(image, 3.2)
-    with pytest.raises(TypeError):
+    assert 'two integers required' in str(exc_info.value)
+    with pytest.raises(TypeError) as exc_info:
         unzoom(image, (3.2, 1))
-    with pytest.raises(ValueError):
+    assert 'two integers required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         unzoom(image, (-3, 1))
-    with pytest.raises(ValueError):
+    assert 'positive values required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         unzoom(image, (1, 2, 3))
-    with pytest.raises(ValueError):
+    assert 'unzoom factor (1, 2, 3); two values required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         unzoom(image, (2,))
-    with pytest.raises(ValueError):
+    assert 'unzoom factor (2,); two values required' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         unzoom(image, None)
-    with pytest.raises(ValueError):
+    assert 'missing unzoom factor' in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
         unzoom(image, 3)     # shape is (10,10)
+    assert 'is not divisible by unzoom factor' in str(exc_info.value)
 
 
 def test_unzoom_dtype_float32_preserved() -> None:

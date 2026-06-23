@@ -291,14 +291,16 @@ def test_rotate_zero_shortcuts_match(use_3d: bool) -> None:
 
 def test_rotate_invalid_returns() -> None:
     image = np.arange(10) + np.arange(10)[:, np.newaxis]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         rotate(image, 0.3, returns='qq')
+    assert 'invalid `returns` value "qq"' in str(exc_info.value)
 
 
 def test_rotate_non_numeric_dtype() -> None:
     image = np.array([['a', 'b'], ['c', 'd']])
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError) as exc_info:
         rotate(image, 0.3)
+    assert 'is not numeric' in str(exc_info.value)
 
 
 def test_rotate_maskedarray() -> None:

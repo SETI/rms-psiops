@@ -61,8 +61,9 @@ def test_set_coeffs_valid() -> None:
 
 def test_set_coeffs_wrong_count_raises() -> None:
     s = Stretch([0, 0])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         s.set_coeffs([1.0])
+    assert 'incorrect number of parameters' in str(exc_info.value)
 
 
 ##########################################################################################
@@ -353,32 +354,37 @@ def test_weighted_sigma_positive() -> None:
 
 def test_set_target_without_image_raises() -> None:
     s = Stretch([0, 0])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         s.set_target(np.ones((5, 5)))
+    assert 'no image has been assigned' in str(exc_info.value)
 
 
 def test_set_target_shape_mismatch_raises() -> None:
     s = Stretch([0, 0], image=np.ones((5, 5)))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         s.set_target(np.ones((6, 6)))
+    assert 'shape mismatch' in str(exc_info.value)
 
 
 def test_model_without_coeffs_raises() -> None:
     s = Stretch([0, 0], image=np.ones((5, 5)))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         _ = s.model
+    assert 'no coefficients have been defined' in str(exc_info.value)
 
 
 def test_eval_without_image_raises() -> None:
     s = Stretch([0, 0], coeffs=[1.0, 2.0])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         _ = s.model
+    assert 'has not yet been applied to an image' in str(exc_info.value)
 
 
 def test_sigma_before_fit_raises() -> None:
     s = Stretch([0, 0], coeffs=[1.0, 2.0], image=np.ones((4, 4)))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         _ = s.m_sigma
+    assert 'has not yet been fitted' in str(exc_info.value)
 
 
 def test_set_image_updates_shape() -> None:
@@ -411,14 +417,16 @@ def test_b_sigma_is_zero_array_for_scale_only() -> None:
 def test_sigma_without_coeffs_raises() -> None:
     s = Stretch([0, 0], image=np.ones((4, 4)))
     # No coeffs assigned and no fit performed.
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         _ = s.m_sigma
+    assert 'no coefficients have been defined' in str(exc_info.value)
 
 
 def test_sigma_without_image_raises() -> None:
     s = Stretch([0, 0], coeffs=[1.0, 2.0])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         _ = s.m_sigma
+    assert 'has not yet been applied to an image' in str(exc_info.value)
 
 
 def test_set_image_same_shape_keeps_grid() -> None:

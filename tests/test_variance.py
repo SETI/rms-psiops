@@ -11,7 +11,7 @@ from psiops.variance import variance, variance_filter
 # variance: unweighted, matches numpy.var
 ##########################################################################################
 
-def test_variance_basic() -> None:
+def test_variance_basic(shortcuts: bool) -> None:
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
     image = image0 * np.array([1,2,3])[:,np.newaxis,np.newaxis]
@@ -22,14 +22,15 @@ def test_variance_basic() -> None:
 
 @pytest.mark.parametrize(('vartype', 'ddof'), [('biased', 0), ('unbiased', 1),
                                                ('frequency', 1), ('reliability', 1)])
-def test_variance_vartypes_match_numpy(vartype: str, ddof: int) -> None:
+def test_variance_vartypes_match_numpy(vartype: str, ddof: int,
+                                       shortcuts: bool) -> None:
     rng = np.random.default_rng(11)
     image = rng.random((6,10,10))
     a = variance(image, vartype=vartype)
     assert np.abs(a - np.var(image, axis=0, ddof=ddof)).max() < 1.e-14
 
 
-def test_variance_axis_variants() -> None:
+def test_variance_axis_variants(shortcuts: bool) -> None:
     rng = np.random.default_rng(11)
     image = rng.random((3,4,5,10,10))
 
@@ -46,14 +47,14 @@ def test_variance_axis_variants() -> None:
     assert np.abs(a - np.var(image, axis=(0,1,2), ddof=1)).max() < 1.e-14
 
 
-def test_variance_negative_axis() -> None:
+def test_variance_negative_axis(shortcuts: bool) -> None:
     rng = np.random.default_rng(11)
     image = rng.random((2,3,4,8,8))
     a = variance(image, axis=-1, vartype='biased')   # third-to-last axis
     assert np.abs(a - np.var(image, axis=2, ddof=0)).max() < 1.e-14
 
 
-def test_variance_keepdims() -> None:
+def test_variance_keepdims(shortcuts: bool) -> None:
     rng = np.random.default_rng(11)
     image = rng.random((4,3,8,8))
     mask = rng.random((4,3,8,8)) < 0.2
@@ -83,7 +84,8 @@ def test_variance_unweighted_multi_axis_no_shortcuts(shortcuts: bool) -> None:
 # variance: masked
 ##########################################################################################
 
-def test_variance_mask_2d() -> None:
+def test_variance_mask_2d(shortcuts: bool) -> None:
+    # Masked reduction hits the `_use_shortcuts()`-gated nanvar path; check both.
     rng = np.random.default_rng(11)
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -96,7 +98,7 @@ def test_variance_mask_2d() -> None:
     assert np.all(a[~mask] == b[~mask])
 
 
-def test_variance_mask_newmask_reliability() -> None:
+def test_variance_mask_newmask_reliability(shortcuts: bool) -> None:
     rng = np.random.default_rng(11)
     image = rng.random((5,4,3,10,10))
     mask = rng.random((5,4,3,10,10)) < 0.7
@@ -105,7 +107,7 @@ def test_variance_mask_newmask_reliability() -> None:
     assert np.all(amask == (count < 2))
 
 
-def test_variance_mask_newmask_biased() -> None:
+def test_variance_mask_newmask_biased(shortcuts: bool) -> None:
     rng = np.random.default_rng(11)
     image = rng.random((5,4,3,10,10))
     mask = rng.random((5,4,3,10,10)) < 0.7
@@ -114,7 +116,8 @@ def test_variance_mask_newmask_biased() -> None:
     assert np.all(amask == (count == 0))
 
 
-def test_variance_mask_values_match_numpy() -> None:
+def test_variance_mask_values_match_numpy(shortcuts: bool) -> None:
+    # Value-match vs numpy on a masked reduction; run on both gated paths.
     rng = np.random.default_rng(11)
     image = rng.random((5,4,100,200))
     mask = rng.random((5,4,100,200)) < 0.6
@@ -190,7 +193,7 @@ def test_variance_factors_multidim_broadcast() -> None:
 # variance: maskval, nans, MaskedArray inputs
 ##########################################################################################
 
-def test_variance_maskval() -> None:
+def test_variance_maskval(shortcuts: bool) -> None:
     rng = np.random.default_rng(11)
     image = rng.random((4,8,8))
     image[0, 0, 0] = 99.
@@ -200,7 +203,9 @@ def test_variance_maskval() -> None:
     assert abs(a[0, 0] - b[0, 0]) < 1.e-13
 
 
-def test_variance_nans() -> None:
+def test_variance_nans(shortcuts: bool) -> None:
+    # Regression: both the shortcut and general paths must drop NaN-masked pixels
+    # (`nans=True`) rather than letting `0 * NaN` propagate into the weighted sums.
     rng = np.random.default_rng(11)
     image = rng.random((4,8,8))
     image[1, 2, 2] = np.nan
@@ -210,7 +215,7 @@ def test_variance_nans() -> None:
     assert abs(a[2, 2] - b[0, 0]) < 1.e-13
 
 
-def test_variance_maskedarray_input() -> None:
+def test_variance_maskedarray_input(shortcuts: bool) -> None:
     rng = np.random.default_rng(11)
     image = rng.random((4,8,8))
     m = rng.random((4,8,8)) < 0.3
@@ -236,7 +241,7 @@ def test_variance_dtypes(dtype: str) -> None:
         assert test.dtype == np.float64
 
 
-def test_variance_list_input() -> None:
+def test_variance_list_input(shortcuts: bool) -> None:
     rng = np.random.default_rng(11)
     image = list(rng.random((2,3,4,10,10)))
     assert np.abs(variance(image)
@@ -262,7 +267,7 @@ def test_variance_too_few_dimensions() -> None:
 # variance_filter
 ##########################################################################################
 
-def test_variance_filter_no_mask() -> None:
+def test_variance_filter_no_mask(shortcuts: bool) -> None:
     image = np.arange(10) + np.arange(10)[:,None] + np.arange(4)[:,None,None]
     a = variance_filter(image, 2)
     b = np.empty((4,10,10))
@@ -292,7 +297,7 @@ def test_variance_filter_footprint_int_tuple_bool_equivalent() -> None:
     assert np.abs((a - c)[~nan]).max() < 1.e-15
 
 
-def test_variance_filter_biased() -> None:
+def test_variance_filter_biased(shortcuts: bool) -> None:
     rng = np.random.default_rng(5)
     image = rng.random((2,15,15))
     a = variance_filter(image, 3, vartype='biased')
@@ -333,7 +338,7 @@ def test_variance_filter_weights(shortcuts: bool) -> None:
     assert not np.isclose(a[i, j], plain[i, j])
 
 
-def test_variance_filter_mask_irregular_footprint() -> None:
+def test_variance_filter_mask_irregular_footprint(shortcuts: bool) -> None:
     rng = np.random.default_rng(8063)
     image = rng.random((100,100))
     mask = rng.random((100,100)) < 0.4
