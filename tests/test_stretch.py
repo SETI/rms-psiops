@@ -450,4 +450,115 @@ def test_set_image_resize_rebuilds_grid() -> None:
     s.fit()
     assert np.allclose(s.model, target)
 
+
+##########################################################################################
+# Feature images stretched by a polynomial background and scaling (with noise)
+##########################################################################################
+
+def _poly_basis(i: np.ndarray, j: np.ndarray, order: int) -> list[np.ndarray]:
+    """The 2-D polynomial basis terms for the given order, in Stretch's coefficient order.
+
+    Stretch orders the terms as 1, i, j, i**2, i*j, j**2, i**3, i**2*j, ... — that is, by
+    ascending total degree d, and within each degree as i**(d-k) * j**k for k in 0..d.
+    """
+
+    ni, nj = i.shape[0], j.shape[-1]
+    basis = [np.ones((ni, nj))]
+    for d in range(1, order + 1):
+        for k in range(d + 1):
+            basis.append(np.broadcast_to(i**(d - k) * j**k, (ni, nj)))
+    return basis
+
+
+def _eval_poly(coeffs: list[float], basis: list[np.ndarray]) -> np.ndarray:
+    """Evaluate a 2-D polynomial given its coefficients and basis terms."""
+
+    out = np.zeros(basis[0].shape)
+    for c, term in zip(coeffs, basis, strict=True):
+        out = out + c * term
+    return out
+
+
+def _feature_image(shape: tuple[int, int] = (500, 500)) -> np.ndarray:
+    """A blank image containing a few filled circles and rectangles.
+
+    The features are spread across the frame so that the (i, j) polynomial scaling, which
+    is constrained only where the image is non-zero, is well determined everywhere.
+    """
+
+    img = np.zeros(shape)
+    ii, jj = np.ogrid[:shape[0], :shape[1]]
+    for ci, cj, r in [(120, 120, 40), (120, 380, 55), (380, 120, 50),
+                      (250, 250, 60), (390, 390, 45)]:
+        img[(ii - ci)**2 + (jj - cj)**2 <= r**2] = 1.0
+    img[60:110, 200:320] = 1.0      # rectangle
+    img[300:360, 380:470] = 1.0     # rectangle
+    return img
+
+
+# (background order, scaling order, background coeffs, scaling coeffs)
+_POLY_CASES = [
+    (0, 0, [5.0], [2.0]),
+    (1, 1, [5.0, 1.0, -2.0], [2.0, 0.5, -0.3]),
+    (2, 1, [4.0, 1.0, -2.0, 0.7, -0.4, 0.9], [2.0, 0.5, -0.3]),
+    (2, 2, [4.0, 1.0, -2.0, 0.7, -0.4, 0.9], [2.0, 0.5, -0.3, 0.2, -0.1, 0.15]),
+]
+
+
+@pytest.mark.parametrize(('bg_order', 'sc_order', 'bg_coeffs', 'sc_coeffs'), _POLY_CASES)
+def test_fit_recovers_polynomial_background_and_scaling(
+    bg_order: int, sc_order: int, bg_coeffs: list[float], sc_coeffs: list[float],
+) -> None:
+    """Stretch.fit() recovers known background/scaling coefficients to good accuracy.
+
+    The image is blank except for a few features. The target is that same image with a
+    polynomial background added and a polynomial scaling applied (both with known
+    coefficients), plus Gaussian noise. A Stretch of the matching orders should recover
+    the coefficients.
+    """
+
+    shape = (500, 500)
+    image = _feature_image(shape)
+    i, j = _ij(shape)
+    background = _eval_poly(bg_coeffs, _poly_basis(i, j, bg_order))
+    scaling = _eval_poly(sc_coeffs, _poly_basis(i, j, sc_order))
+
+    rng = np.random.default_rng(8421)
+    target = background + scaling * image + rng.normal(0.0, 0.01, shape)
+
+    s = Stretch([bg_order, sc_order], image=image)
+    s.set_target(target)
+    s.fit()
+
+    expected = np.array(bg_coeffs + sc_coeffs)
+    assert s.ncoeffs == len(expected)
+    # Statistical recovery error for these inputs is well under 1.e-3; 5.e-3 leaves a wide
+    # margin so the test is not flaky.
+    assert np.allclose(cast(Any, s.coeffs), expected, atol=5.e-3)
+
+
+def test_fit_reconstructs_background_scaling_and_model_arrays() -> None:
+    """The fitted background, scaling, and model arrays reproduce the noiseless inputs."""
+
+    shape = (500, 500)
+    image = _feature_image(shape)
+    i, j = _ij(shape)
+    bg_coeffs = [3.0, 0.8, -1.5, 0.4, -0.2, 0.6]   # order 2
+    sc_coeffs = [2.5, 0.4, -0.25]                   # order 1
+    background = _eval_poly(bg_coeffs, _poly_basis(i, j, 2))
+    scaling = _eval_poly(sc_coeffs, _poly_basis(i, j, 1))
+
+    rng = np.random.default_rng(2718)
+    clean = background + scaling * image
+    target = clean + rng.normal(0.0, 0.01, shape)
+
+    s = Stretch([2, 1], image=image)
+    s.set_target(target)
+    s.fit()
+
+    assert np.allclose(cast(Any, s.coeffs), np.array(bg_coeffs + sc_coeffs), atol=5.e-3)
+    assert np.allclose(s.background, background, atol=1.e-2)
+    assert np.allclose(s.scaling, scaling, atol=1.e-2)
+    assert np.abs(s.model - clean).max() < 2.e-2
+
 ##########################################################################################
