@@ -467,5 +467,15 @@ def ialign(
     reference: np.ndarray,
     sigma: float,
 ) -> tuple[int, int]: ...
+def patch(
+    image: np.ndarray,
+    mask: np.ndarray | None = ...,
+    *,
+    maskval: float | None = ...,
+    weights: np.ndarray | None = ...,
+    nans: bool = ...,
+    size: float = ...,
+    returns: str = ...,
+) -> np.ndarray | list[np.ndarray]: ...
 
 ##########################################################################################

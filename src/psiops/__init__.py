@@ -7,8 +7,8 @@ psiops: Photometrically accurate Science Image Operations on 2-D images.
 * Spatial transforms: zoom, unzoom, shift, ishift, resample, reshape, rotate.
 * Spatial filters: gaussian, mean, median, minimum, maximum, variance, standard deviation.
 * Stack operations: mean, median, minimum, maximum, variance, standard deviation.
-* Other operations: FFT, inverse FFT, correlation, autocorrelation, image alignment and,
-  least-squares fitting, PSF modeling and fitting.
+* Other operations: FFT, inverse FFT, correlation, autocorrelation, image alignment,
+  least-squares fitting, PSF modeling and fitting, and patching of masked pixels.
 
 General properties:
 
@@ -93,6 +93,7 @@ __all__ = [
     'fft_power',
     'ialign',
     'ifft',
+    'patch',
 ]
 
 # Spatial transforms
@@ -123,6 +124,7 @@ from psiops.stretch                 import Stretch
 
 # Other operations
 from psiops.fft import fft, ifft, fft_power, correlate, autocorrelate, ialign
+from psiops.patch import patch
 
 ##########################################################################################
 # Divide-by-zero warning suppression

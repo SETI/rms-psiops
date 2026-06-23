@@ -325,6 +325,32 @@ The available filters are :func:`~psiops.mean_filter`,
    blurred = psiops.gaussian_filter(image, 2.0, mode='nearest')
 
 
+Filling masked pixels
+------------------------------------------
+
+:func:`~psiops.patch` replaces an image's masked pixels with values estimated from the
+surrounding valid pixels, so a masked region blends smoothly into its background. It
+Gaussian-filters the unmasked pixels with a ``sigma`` scaled to the size of each masked
+"hole", so larger gaps draw on more distant data. This is useful for cosmetic
+gap-filling before display, or before an operation that cannot tolerate masked values.
+
+.. code-block:: python
+
+   image = np.random.default_rng(10).random((128, 128))
+   mask = np.zeros(image.shape, dtype=bool)
+   mask[60:70, 60:70] = True              # a square hole to fill
+
+   filled = psiops.patch(image, mask)     # the filled image (returns='i' by default)
+
+   # Also report any pixels that remained masked (holes too large to fill)
+   filled, still_masked = psiops.patch(image, mask, returns='im')
+
+The ``size`` argument caps the scale of holes to fill; a masked region much larger than
+``size`` may stay partly masked due to underflow of the Gaussian. As elsewhere, ``mask``,
+``maskval``, ``weights``, and ``nans`` all mark invalid pixels, and ``returns`` selects
+the outputs.
+
+
 Stack operations
 ------------------------------------------
 
