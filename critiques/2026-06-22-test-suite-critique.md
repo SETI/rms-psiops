@@ -1,15 +1,17 @@
 # Test Suite Critique Report
 
-**Generated:** 2026-06-22 — **Updated:** 2026-06-22 (remediation pass, branch `claude2` @ `83a098f`)
+**Generated:** 2026-06-22 — **Updated:** 2026-06-23 (follow-on work, branch `claude2`)
 **Scope:** `tests/` (24 test modules, `conftest.py`, `_resize_reference.py`)
 **Method:** Full read of every test file plus its source module, cross-referenced against a
 full-suite coverage run and the active pytest configuration.
 
-> **Status:** All 5 high-priority findings have been addressed, and the `shortcut`-vs-`general`
-> cross-checks they motivated **uncovered and fixed 3 real source bugs**. See
-> [Remediation status](#remediation-status-2026-06-22) below; the original findings are
-> preserved unedited for context, with ✓ markers where resolved. Suite now: **790 passing,
-> coverage 98.19 %** (was 661 / 96.92 %).
+> **Status:** All 5 high-priority findings were addressed (branch `claude2` @ `83a098f`), and
+> the cross-checks they motivated **uncovered and fixed 3 reduction-path bugs**. A subsequent
+> round of `Stretch`/`Fitting` modelling tests then **exposed and fixed several more source
+> bugs and added a grid-search capability** — see [Remediation status](#remediation-status-2026-06-22)
+> and [Follow-on work](#follow-on-work-2026-06-23) below. The original findings are preserved
+> unedited for context, with ✓ markers where resolved. Suite now: **833 passing, coverage
+> 98.21 %** (was 661 / 96.92 % at generation).
 
 ## Executive summary
 
@@ -103,6 +105,73 @@ These three are now **regression-guarded under both flag settings** (`test_mean_
 Shared image-builder fixtures (§5), converting loop-based cases to `@pytest.mark.parametrize`
 (§9), splitting the remaining monolithic median/min/max tests (§17), public-API smoke tests
 (§20), and cleaning up the `ANSWERS` golden tables (§23) were **not** undertaken in this pass.
+
+---
+
+## Follow-on work (2026-06-23)
+
+A second effort, beyond the original test-suite findings, added end-to-end tests that drive the
+**real** `Stretch`, `Gaussian`/`SmearedModel`, and `Fitting` collaborators (rather than the
+stand-in doubles the existing `test_fitting.py` used — the over-mocking flagged in §7/§20).
+Those tests immediately exposed that the real `Fitting`/`SmearedModel` paths were broken, so the
+following product bugs were found and fixed. Suite grew from 790 → **833 passing**; coverage
+**98.21 %** (`fitting.py`/`stretch.py`/`smearedmodel.py` now ≥ 99 %); ruff + mypy clean; the
+strict (`-W`) Sphinx docs build is clean.
+
+### Source bugs discovered and fixed
+
+- **`stretch.py` — `_max_image_expo`**: was `orders[1] + 1` (a polynomial order) where it must be
+  `len(orders) - 1` (the highest image power); broke any non-trivial stretch and crashed on
+  single-function `orders`.
+- **`fitting.py` — `fit()` `NameError`**: `self.guesses = np.array(params)` referenced an
+  undefined `params`; the parameter is `guesses`. Every real `fit()` call raised.
+- **`fitting.py` — `set_target()`**: called `stretch.set_target()` before any image was assigned,
+  so `Stretch` raised "no image has been assigned". Now seeds the stretch with a correctly-shaped
+  placeholder; the real per-iteration image is supplied during the fit.
+- **`fitting.py` — integer guesses**: `np.array(guesses)` produced an int array, truncating the
+  fractional fit updates and freezing the optimizer (singular Jacobian → `LinAlgError`). Forced
+  `dtype=float`.
+- **`imagemodel/smearedmodel.py` — `transform` ignored `rotate`** (and did not scale the smear by
+  `expand`): the smear offsets were fixed at construction and only the inner symmetric model
+  received `rotate`. Each offset is now rotated (CCW) and scaled by `expand`, so a smeared
+  model's orientation and extent respond to the transform parameters.
+
+### New capabilities and validation
+
+- **`Fitting.fit` grid search**: the single-fit core was renamed `_fit1`; the new `fit` accepts a
+  scalar **or a sequence** for each of the four guesses, fits every combination (independent of
+  `flags`), and keeps the lowest-residual result. Scalar guesses reduce to one fit, so prior
+  behavior is unchanged.
+- **`Fitting.median_abs_residual`** property: median of `abs(target - model)` over the unmasked
+  pixels (a robust, outlier-insensitive fit-quality measure).
+- **`zoom <= 0` rejected** in `Fitting._fit1` with a clear `ValueError` (previously produced
+  inf/NaN downstream).
+- **Default `limits`** changed to `(10, 10, 0.4, 1.)`.
+
+### New tests
+
+- **`test_stretch.py`**: a blank 500×500 image with circle/rectangle features, stretched by a
+  polynomial background and polynomial scaling (known coefficients) plus noise, is recovered by
+  `Stretch.fit()` to < 5e-3; the reconstructed background/scaling/model arrays are checked too.
+- **`test_fitting.py`** (real `Gaussian`/`SmearedModel` + `Stretch`): a 2-D Gaussian (σ 2–6,
+  centre within 6 px of the middle) over a 2nd-order background recovers centre to < 0.2 px and
+  conserves the integral; fitting `zoom` (guess 1.1) recovers `zoom` to ~0.003; fitting all four
+  parameters recovers the smear-aligning rotation (target smear `(3,4)`, model `(0,5)`) to ~0.08
+  rad worst case; plus grid-search, `zoom <= 0` rejection, central-grid recovery, and
+  `median_abs_residual` (no-mask and masked) tests.
+
+### Partially addresses earlier observations
+
+The **cryptic model errors** noted above (§"Newly observed") are now at least *characterized* by
+tests; `SmearedModel`'s rotation gap is fixed. Adding explicit input validation to the model
+constructors remains a possible product improvement.
+
+### Documentation
+
+The User's Guide was reorganized so the **Image models** discussion now lives as a subsection
+under **Fitting** (the model is the building block a `Fitting` operates on), with a `Stretch`
+example followed by a `Fitting` example; the latter dropped the manual `stretch.set_image()`
+workaround that the `set_target` fix made unnecessary.
 
 ---
 
