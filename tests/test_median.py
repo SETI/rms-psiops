@@ -201,12 +201,12 @@ def test_median_masked_factors() -> None:
                                      [0 , 0  , 0  ],
                                      [1 , 1  , 0  ]]).astype('bool'))
 
-    image2 = np.empty((7,3,3)).astype('int')
+    image2 = np.empty((7,3,3), dtype=int)
     image2[:3]  = image
     image2[3:6] = image
     image2[6]   = image[0]
 
-    mask2 = np.empty((7,3,3)).astype('bool')
+    mask2 = np.empty((7,3,3), dtype=bool)
     mask2[:3]  = mask
     mask2[3:6] = mask
     mask2[6]   = mask[0]
@@ -221,12 +221,12 @@ def test_median_omit() -> None:
 
     image, mask = _omit_image_and_mask()
 
-    image2 = np.empty((7,3,3)).astype('int')
+    image2 = np.empty((7,3,3), dtype=int)
     image2[:3]  = image
     image2[3:6] = image
     image2[6]   = image[0]
 
-    mask2 = np.empty((7,3,3)).astype('bool')
+    mask2 = np.empty((7,3,3), dtype=bool)
     mask2[:3]  = mask
     mask2[3:6] = mask
     mask2[6]   = mask[0]
@@ -234,11 +234,11 @@ def test_median_omit() -> None:
     test2, tmask2 = median(image2, mask2)
 
     # Omit the single largest unmasked value (which we inject as a huge value)
-    image3 = np.empty((8,3,3)).astype('int')
+    image3 = np.empty((8,3,3), dtype=int)
     image3[:7] = image2
     image3[-1] = 99999999
 
-    mask3 = np.empty((8,3,3)).astype('bool')
+    mask3 = np.empty((8,3,3), dtype=bool)
     mask3[:7] = mask2
     mask3[-1] = False
 
