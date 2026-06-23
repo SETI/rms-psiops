@@ -5,6 +5,7 @@
 
 # -- Path setup --------------------------------------------------------------
 
+import datetime
 import importlib.metadata
 import os
 import sys
@@ -18,7 +19,7 @@ if not os.path.exists(os.path.abspath('../src')):
 # -- Project information -----------------------------------------------------
 
 project = 'PSIops'
-copyright = '2025, SETI Institute'
+copyright = f'{datetime.date.today().year}, SETI Institute'
 author = 'SETI Institute'
 
 # The full version, including alpha/beta/rc tags
