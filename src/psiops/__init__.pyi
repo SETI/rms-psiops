@@ -425,7 +425,7 @@ class Fitting:
     def remask(self, mask: np.ndarray) -> None: ...
     def fit(
         self,
-        guesses: npt.ArrayLike,
+        guesses: Sequence[float | Sequence[float]],
         flags: Sequence[bool] = ...,
         limits: Sequence[float] = ...,
         lsq_dict: dict | None = ...,

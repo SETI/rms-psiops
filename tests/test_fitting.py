@@ -16,6 +16,7 @@ import pytest
 from psiops.fitting import Fitting
 from psiops.imagemodel import ImageModel
 from psiops.imagemodel.gaussian import Gaussian
+from psiops.imagemodel.smearedmodel import SmearedModel
 from psiops.stretch import Stretch
 
 ##########################################################################################
@@ -594,5 +595,152 @@ def test_median_abs_residual_skips_masked_pixels() -> None:
     assert np.median(diff[mask]) > 100.0
     # ...yet the property stays at the noise level, proving it skips the masked pixels.
     assert fitting.median_abs_residual < 1.0
+
+
+##########################################################################################
+# fit() grid search over multiple initial guesses
+##########################################################################################
+
+def test_fit_grid_of_guesses_recovers_far_source() -> None:
+    """A grid of center guesses finds a narrow source a single center guess would miss."""
+
+    sigma, x0, y0 = 2.0, 31.0, 19.0
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    rng = np.random.default_rng(0)
+    target = gaussian + _background(_FIT_SHAPE) + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target)
+    # A single guess at the middle stalls (sigma 2, ~8 px away); the grid includes a
+    # starting point near the true center, so the best-residual combination converges.
+    fitting.fit(guesses=([19., 25., 31.], [19., 25., 31.], 1.0, 0.0))
+
+    assert abs(fitting.x - x0) < 0.2
+    assert abs(fitting.y - y0) < 0.2
+    assert fitting.rms < 1.2
+
+
+def test_fit_grid_searches_a_fixed_parameter() -> None:
+    """Guess values are tried for a parameter even when its flag is False."""
+
+    sigma, x0, y0 = 3.0, 26.0, 24.0
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    rng = np.random.default_rng(1)
+    target = gaussian + _background(_FIT_SHAPE) + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target)
+    # zoom is held fixed (flag False) but offered three values. The grid must try each
+    # and keep zoom == 1.0, which matches the unexpanded model and gives the best fit.
+    fitting.fit(guesses=(25.0, 25.0, [0.5, 1.0, 2.0], 0.0),
+                flags=(True, True, False, False))
+
+    assert fitting.zoom == 1.0
+    assert abs(fitting.x - x0) < 0.2
+    assert abs(fitting.y - y0) < 0.2
+
+
+@pytest.mark.parametrize(('sigma', 'x0', 'y0', 'seed'), _GAUSSIAN_CASES)
+def test_central_grid_guess_recovers_peak(
+    sigma: float, x0: float, y0: float, seed: int,
+) -> None:
+    """A fixed 3x3 central grid of guesses recovers the source without peak detection.
+
+    In place of the peak-seeded guess, this uses guesses=((20, 25, 30), (20, 25, 30), 1,
+    0): a 3x3 grid of starting centers spanning the middle of the frame, with zoom and
+    rotate held fixed. Every center within 6 px of the middle is then within reach of at
+    least one grid start, so the best-residual combination converges. (The integer guess
+    values exercise the float-cast in `_fit1`, without which the fractional fit updates
+    would be truncated.)
+    """
+
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    rng = np.random.default_rng(seed)
+    target = gaussian + _background(_FIT_SHAPE) + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target)
+    fitting.fit(guesses=((20, 25, 30), (20, 25, 30), 1, 0))
+
+    assert abs(fitting.x - x0) < 0.2
+    assert abs(fitting.y - y0) < 0.2
+    assert abs(fitting.transformed.sum() - _FIT_INTEGRAL) < 2.e-3 * _FIT_INTEGRAL
+
+
+@pytest.mark.parametrize('zoom', [0.0, -1.0, -3.5])
+def test_fit_rejects_nonpositive_zoom(zoom: float) -> None:
+    """A zoom guess <= 0 is invalid (it collapses or inverts the model) and raises."""
+
+    sigma, x0, y0 = 3.0, 26.0, 24.0
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    rng = np.random.default_rng(3)
+    target = gaussian + _background(_FIT_SHAPE) + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target)
+    with pytest.raises(ValueError, match='zoom must be positive'):
+        fitting.fit(guesses=(25.0, 25.0, zoom, 0.0))
+
+
+@pytest.mark.parametrize(('sigma', 'x0', 'y0', 'seed'), _GAUSSIAN_CASES)
+def test_fit_recovers_zoom_near_one(
+    sigma: float, x0: float, y0: float, seed: int,
+) -> None:
+    """Fitting the zoom as well recovers a value very close to 1.
+
+    The model has the same sigma as the target, so the true zoom is 1.0. Using the
+    peak-seeded x, y guess plus flags=(True, True, True, False) and a zoom guess of 1.1
+    (rotate held fixed), the fit drives zoom back toward 1. Relies on the default
+    limits=(10, 10, 0.4, 1.), which allow zoom to move +/-0.4 from the guess.
+    """
+
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    rng = np.random.default_rng(seed)
+    target = gaussian + _background(_FIT_SHAPE) + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target)
+    fitting.fit(guesses=(*_peak_guess(target), 1.1, 0.0), flags=(True, True, True, False))
+
+    assert abs(fitting.x - x0) < 0.2
+    assert abs(fitting.y - y0) < 0.2
+    # The fitted zoom returns to ~1; worst observed |zoom - 1| across these cases ~0.003.
+    assert abs(fitting.zoom - 1.0) < 0.02
+
+
+@pytest.mark.parametrize(('sigma', 'x0', 'y0', 'seed'), _GAUSSIAN_CASES)
+def test_fit_recovers_smear_rotation(
+    sigma: float, x0: float, y0: float, seed: int,
+) -> None:
+    """With all four parameters free, fit() recovers the rotation aligning the smears.
+
+    The target is a Gaussian smeared along (3, 4); the model is smeared along (0, 5). Both
+    smears have length 5, so a pure rotation (with zoom ~ 1) maps the model smear onto the
+    target's. With flags=(True, True, True, True) and guesses zoom=1, rotate=0, fit()
+    recovers rotate = atan2(-3, 4) ~ -0.6435 rad.
+    """
+
+    smeared = SmearedModel(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), smear=(3, 4))
+    target = (smeared.transform(_FIT_SHAPE, center=(x0, y0)) + _background(_FIT_SHAPE)
+              + np.random.default_rng(seed).normal(0.0, 1.0, _FIT_SHAPE))
+
+    model = SmearedModel(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), smear=(0, 5))
+    fitting = Fitting(model, Stretch([2, 0]))
+    fitting.set_target(target)
+    fitting.fit(guesses=(*_peak_guess(target), 1.0, 0.0), flags=(True, True, True, True))
+
+    expected_rotate = np.arctan2(-3.0, 4.0)
+    assert abs(fitting.x - x0) < 0.2
+    assert abs(fitting.y - y0) < 0.2
+    assert abs(fitting.zoom - 1.0) < 0.05
+    # Rotation recovered to within ~0.08 rad worst case (broad sigma=6); much tighter for
+    # narrower Gaussians, where the 5-px smear is better resolved.
+    assert abs(fitting.rotate - expected_rotate) < 0.15
+    assert fitting.rms < 1.2
 
 ##########################################################################################

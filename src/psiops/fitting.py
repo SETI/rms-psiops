@@ -8,6 +8,7 @@ The spatial transformation can include a pixel offset, symmetric zoom factor, an
 rotation. The image can be re-scaled based on a Stretch object.
 """
 
+import itertools
 import math
 
 import numpy as np
@@ -214,13 +215,74 @@ class Fitting:
         fitting.stretch.fit()
         return fitting.stretch.residuals_1d
 
-    def fit(self, guesses, flags=(True, True, False, False), limits=(10., 10., 0.1, 0.2),
+    @staticmethod
+    def _guess_values(guess):
+        """Normalize one entry of `guesses` to a list of one or more candidate values.
+
+        Parameters:
+            guess (float or sequence of floats): A single starting value or a sequence of
+                starting values for one transformation parameter.
+
+        Returns:
+            A list of the candidate value(s).
+        """
+
+        if np.isscalar(guess):
+            return [guess]
+        return list(guess)
+
+    def fit(self, guesses, flags=(True, True, False, False), limits=(10., 10., 0.4, 1.),
             lsq_dict=None):
-        """Perform a nonlinear least-squares fitting to obtain the transformation and
-        stretch parameters.
+        """Fit the transformation and stretch, searching over a grid of initial guesses.
+
+        A separate nonlinear least-squares fit is performed from every combination of the
+        per-parameter initial guesses, and the result with the smallest residual is kept.
+        Upon return, the attributes and properties of this Fitting hold the best-fit
+        values from that combination.
+
+        Parameters:
+            guesses (sequence of four items): The four initial values of `params`
+                (`x`, `y`, `zoom`, `rotate`), where `x` and `y` are the pixel offsets,
+                `zoom` is a zoom factor, and `rotate` is a rotation angle in radians. Each
+                item is either a single value or a sequence of values to try. Every
+                combination of the per-parameter values is fitted -- including for
+                parameters whose `flags` entry is False (held fixed at each value) -- and
+                the combination yielding the lowest residual is retained.
+            flags (sequence of four bools, optional): Four flags that are True if the
+                corresponding parameter is to be fitted, False if it is to be held fixed.
+            limits (sequence of four floats, optional): The amount by which each fitted
+                parameter is allowed to change from its initial value. Use zero to
+                indicate that the corresponding parameter can change without limit. Where
+                `flags` is False, the `limits` value is ignored.
+            lsq_dict (dict, optional): Any parameters provided as additional inputs to
+                `scipy.optimize.least_squares`.
+
+        Raises:
+            ValueError: If a `zoom` guess is not positive.
+        """
+
+        candidates = [Fitting._guess_values(guess) for guess in guesses]
+        combos = list(itertools.product(*candidates))
+
+        best_index = 0
+        best_chi_sq = np.inf
+        for index, combo in enumerate(combos):
+            self._fit1(combo, flags, limits, lsq_dict)
+            if self.chi_sq < best_chi_sq:
+                best_chi_sq = self.chi_sq
+                best_index = index
+
+        # Leave this Fitting in the state of the best (lowest-residual) combination. The
+        # final combo is already current, so only re-fit when a different one won.
+        if best_index != len(combos) - 1:
+            self._fit1(combos[best_index], flags, limits, lsq_dict)
+
+    def _fit1(self, guesses, flags=(True, True, False, False),
+              limits=(10., 10., 0.4, 1.), lsq_dict=None):
+        """Perform a single nonlinear least-squares fit from one set of initial guesses.
 
         Upon return, the attributes and properties of this Fitting have been updated to
-        contain the best-fit values.
+        contain the best-fit values for this fit.
 
         Parameters:
             guesses (sequence of four floats): The four initial values of `params`, prior
@@ -236,9 +298,16 @@ class Fitting:
                 limit. Where `flags` is False, the `limits` value is ignored.
             lsq_dict (dict, optional): Any parameters provided as additional inputs to
                 `scipy.optimize.least_squares`.
+
+        Raises:
+            ValueError: If the `zoom` guess is not positive.
         """
 
-        self.guesses = np.array(guesses)
+        # Force float dtype: an integer `guesses` array would truncate the fractional
+        # parameter updates applied during the fit, freezing the search.
+        self.guesses = np.array(guesses, dtype=float)
+        if self.guesses[2] <= 0.:
+            raise ValueError(f'zoom must be positive; got {self.guesses[2]}')
         self.flags = np.array(flags)
         self.nparams = sum(self.flags)
         self.limits = np.array([limit or 0. for limit in limits])
