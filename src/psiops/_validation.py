@@ -293,7 +293,7 @@ def _check_return(image, mask, weights, info, *, extra=None, return_dtype=None,
 
     # Update the image using the fill_value
     if info.fill_value is not None and mask is not None:
-        image[mask] = info.fill_value
+        image[..., mask] = info.fill_value
 
     # Convert the image to a MaskedArray if necessary
     if info.is_maskedarray:
