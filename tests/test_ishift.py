@@ -1,10 +1,12 @@
 ##########################################################################################
-# image_ops/tests/test_ishift.py
+# tests/test_ishift.py
 ##########################################################################################
 
 import numbers
+
 import numpy as np
-import unittest
+import pytest
+
 from psiops.ishift import ishift
 
 PRINT_ANSWERS = False   # change to True to print out this value of `ANSWERS`
@@ -222,182 +224,274 @@ ANSWERS = {
     (3,6,4,0): ([8, 8, 6, 1, 1, 2, 4, 4, 3], [0, 0, 0, 0, 0, 0, 0, 0, 1]),
 }
 
-class Test_ishift(unittest.TestCase):
-
-  def runTest(self):
-
-    np.random.seed(1037)
+def _ramp_stack() -> np.ndarray:
+    """A (10, 10, 10) stack of additive ramps used across the ishift tests."""
 
     array = np.arange(10)
-    image = array + array[:,np.newaxis] + array[:,np.newaxis,np.newaxis]
-    mask = np.random.rand(*image.shape) < 0.3
+    return array + array[:,np.newaxis] + array[:,np.newaxis,np.newaxis]
+
+
+def _ramp_mask() -> np.ndarray:
+    """A deterministic boolean mask matching the shape of `_ramp_stack()`."""
+
+    return np.random.default_rng(1037).random((10,10,10)) < 0.3
+
+
+def test_ishift_invalid_mode() -> None:
+
+    image = _ramp_stack()
+    with pytest.raises(ValueError) as exc_info:
+        _ = ishift(image, (1,1), mode='bogus')
+    assert 'bogus' in str(exc_info.value)
+
+
+def test_ishift_weights_without_mask() -> None:
+
+    # Exercises the weights branch (weights encode the mask) and the zero-offset copy
+    image = _ramp_stack()
+    weights = np.random.default_rng(55).random(image.shape) + 0.1
+
+    shifted, new_weights = ishift(image, (0,1), weights=weights, mode='constant')
+    assert np.all(shifted[...,1:] == image[...,:-1])
+    assert np.all(new_weights[...,1:] == weights[...,:-1])
+
+    # Zero offset returns copies, not the input arrays
+    shifted, new_weights = ishift(image, 0, weights=weights, mode='constant')
+    assert np.all(shifted == image)
+    assert new_weights is not weights
+    assert np.all(new_weights == weights)
+
+    # A non-masking boundary mode fills exposed weights with the maximum weight
+    shifted, new_weights = ishift(image, (0,1), weights=weights, mode='nearest')
+    assert np.all(shifted[...,1:] == image[...,:-1])
+    assert np.all(new_weights[...,0] == weights[...,0])
+
+
+def test_ishift_mask_and_weights_together() -> None:
+
+    # Both a mask and weights supplied: weights must absorb the mask without error
+    image = _ramp_stack()
+    mask = _ramp_mask()
+    weights = np.random.default_rng(7).random(image.shape) + 0.1
+
+    shifted, smask, new_weights = ishift(image, (1,1), mask=mask, weights=weights,
+                                         mode='constant')
+    assert np.all(shifted[...,1:,1:] == image[...,:-1,:-1])
+    # Masked source pixels carry zero weight after shifting
+    assert np.all(new_weights[...,1:,1:][mask[...,:-1,:-1]] == 0)
+    assert np.all(smask[...,1:,1:][mask[...,:-1,:-1]])
+
+
+def test_ishift_reflect_large_offset() -> None:
+
+    # Reflect mode with an offset larger than the image width exercises the
+    # recursive folding branches in _ishift_axis1.
+    image = _ramp_stack()
+
+    shifted = ishift(image, (0,10), mode='reflect')
+    assert np.all(shifted == image[...,::-1])
+
+    shifted = ishift(image, (0,20), mode='reflect')
+    assert np.all(shifted == image)
+
+
+def test_ishift_small_shifts_all_modes() -> None:
+
+    image = _ramp_stack()
+    mask = _ramp_mask()
 
     # small shifts, all modes, masked and unmasked
     for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
 
         shifted = ishift(image, 0, mode=mode)
-        self.assertTrue(np.all(shifted == image))
+        assert np.all(shifted == image)
 
         shifted = ishift(image, (0,1), mode=mode)
-        self.assertTrue(np.all(shifted[...,1:] == image[...,:-1]))
+        assert np.all(shifted[...,1:] == image[...,:-1])
 
         shifted = ishift(image, (0,-1), mode=mode)
-        self.assertTrue(np.all(shifted[...,:-1] == image[...,1:]))
+        assert np.all(shifted[...,:-1] == image[...,1:])
 
         shifted = ishift(image, (1,0), mode=mode)
-        self.assertTrue(np.all(shifted[...,1:,:] == image[...,:-1,:]))
+        assert np.all(shifted[...,1:,:] == image[...,:-1,:])
 
         shifted = ishift(image, (-1,0), mode=mode)
-        self.assertTrue(np.all(shifted[...,:-1,:] == image[...,1:,:]))
+        assert np.all(shifted[...,:-1,:] == image[...,1:,:])
 
         shifted = ishift(image, 1, mode=mode)
-        self.assertTrue(np.all(shifted[...,1:,1:] == image[...,:-1,:-1]))
+        assert np.all(shifted[...,1:,1:] == image[...,:-1,:-1])
 
         shifted = ishift(image, -1, mode=mode)
-        self.assertTrue(np.all(shifted[...,:-1,:-1] == image[...,1:,1:]))
+        assert np.all(shifted[...,:-1,:-1] == image[...,1:,1:])
 
         shifted = ishift(image, 3, mode=mode)
-        self.assertTrue(np.all(shifted[:,3:,3:] == image[:,:-3,:-3]))
+        assert np.all(shifted[:,3:,3:] == image[:,:-3,:-3])
 
         shifted = ishift(image, (-3,2), mode=mode)
-        self.assertTrue(np.all(shifted[:,:-3,2:] == image[:,3:,:-2]))
+        assert np.all(shifted[:,:-3,2:] == image[:,3:,:-2])
 
         # with mask
         shifted, smask = ishift(image, 0, mask, mode=mode)
-        self.assertTrue(np.all(shifted == image))
-        self.assertTrue(np.all(smask == mask))
+        assert np.all(shifted == image)
+        assert np.all(smask == mask)
+
+def test_ishift_constant_cval_none() -> None:
+
+    image = _ramp_stack()
+    mask = _ramp_mask()
 
     # mode = 'constant', cval=None
     mode = 'constant'
     shifted, smask = ishift(image, (0,1), mask, mode=mode, cval=None)
-    self.assertTrue(np.all(shifted[...,1:] == image[...,:-1]))
-    self.assertTrue(np.all(smask[...,1:] == mask[...,:-1]))
-    self.assertTrue(np.all(smask[...,0]))
+    assert np.all(shifted[...,1:] == image[...,:-1])
+    assert np.all(smask[...,1:] == mask[...,:-1])
+    assert np.all(smask[...,0])
 
     shifted, smask = ishift(image, (0,-1), mask, mode=mode, cval=None)
-    self.assertTrue(np.all(shifted[...,:-1] == image[...,1:]))
-    self.assertTrue(np.all(smask[...,:-1] == mask[...,1:]))
-    self.assertTrue(np.all(smask[...,-1]))
+    assert np.all(shifted[...,:-1] == image[...,1:])
+    assert np.all(smask[...,:-1] == mask[...,1:])
+    assert np.all(smask[...,-1])
 
     shifted, smask = ishift(image, (1,0), mask, mode=mode, cval=None)
-    self.assertTrue(np.all(shifted[...,1:,:] == image[...,:-1,:]))
-    self.assertTrue(np.all(smask[...,1:,:] == mask[...,:-1,:]))
-    self.assertTrue(np.all(smask[...,0,:]))
+    assert np.all(shifted[...,1:,:] == image[...,:-1,:])
+    assert np.all(smask[...,1:,:] == mask[...,:-1,:])
+    assert np.all(smask[...,0,:])
 
     shifted, smask = ishift(image, (-1,0), mask, mode=mode, cval=None)
-    self.assertTrue(np.all(shifted[...,:-1,:] == image[...,1:,:]))
-    self.assertTrue(np.all(smask[...,:-1,:] == mask[...,1:,:]))
-    self.assertTrue(np.all(smask[...,-1,:]))
+    assert np.all(shifted[...,:-1,:] == image[...,1:,:])
+    assert np.all(smask[...,:-1,:] == mask[...,1:,:])
+    assert np.all(smask[...,-1,:])
 
     shifted, smask = ishift(image, 1, mask, mode=mode, cval=None)
-    self.assertTrue(np.all(shifted[...,1:,1:] == image[...,:-1,:-1]))
-    self.assertTrue(np.all(smask[...,1:,1:] == mask[...,:-1,:-1]))
-    self.assertTrue(np.all(smask[...,0,:]))
-    self.assertTrue(np.all(smask[...,0]))
+    assert np.all(shifted[...,1:,1:] == image[...,:-1,:-1])
+    assert np.all(smask[...,1:,1:] == mask[...,:-1,:-1])
+    assert np.all(smask[...,0,:])
+    assert np.all(smask[...,0])
 
     shifted, smask = ishift(image, -1, mask, mode=mode, cval=None)
-    self.assertTrue(np.all(shifted[...,:-1,:-1] == image[...,1:,1:]))
-    self.assertTrue(np.all(smask[...,:-1,:-1] == mask[...,1:,1:]))
-    self.assertTrue(np.all(smask[...,:0,:]))
-    self.assertTrue(np.all(smask[...,:0]))
+    assert np.all(shifted[...,:-1,:-1] == image[...,1:,1:])
+    assert np.all(smask[...,:-1,:-1] == mask[...,1:,1:])
+    assert np.all(smask[...,-1,:])   # bug fix: was smask[...,:0,:] (empty, always True)
+    assert np.all(smask[...,-1])     # bug fix: was smask[...,:0] (empty, always True)
 
     shifted, smask = ishift(image, 3, mask, mode=mode, cval=None)
-    self.assertTrue(np.all(shifted[:,3:,3:] == image[:,:-3,:-3]))
-    self.assertTrue(np.all(smask[:,3:,3:] == mask[:,:-3,:-3]))
-    self.assertTrue(np.all(smask[:,:3,:]))
-    self.assertTrue(np.all(smask[:,:,:3]))
+    assert np.all(shifted[:,3:,3:] == image[:,:-3,:-3])
+    assert np.all(smask[:,3:,3:] == mask[:,:-3,:-3])
+    assert np.all(smask[:,:3,:])
+    assert np.all(smask[:,:,:3])
 
     shifted, smask = ishift(image, (-3,2), mask, mode=mode, cval=None)
-    self.assertTrue(np.all(shifted[:,:-3,2:] == image[:,3:,:-2]))
-    self.assertTrue(np.all(smask[:,:-3,2:] == mask[:,3:,:-2]))
-    self.assertTrue(np.all(smask[:,-3:,:]))
-    self.assertTrue(np.all(smask[:,:,:2]))
+    assert np.all(shifted[:,:-3,2:] == image[:,3:,:-2])
+    assert np.all(smask[:,:-3,2:] == mask[:,3:,:-2])
+    assert np.all(smask[:,-3:,:])
+    assert np.all(smask[:,:,:2])
+
+def test_ishift_constant_large_offsets() -> None:
+
+    image = _ramp_stack()
+    mask = _ramp_mask()
 
     # shift, constant mode and all masks
     for offset in [(0,10), (0,-10), (10,0), (-10,0)]:
         shifted = ishift(image, offset, mode='constant', cval=-7)
-        self.assertTrue(np.all(shifted == -7))
+        assert np.all(shifted == -7)
 
         shifted, smask = ishift(image, offset, mask, mode='constant', cval=None)
-        self.assertTrue(np.all(shifted == 0))
-        self.assertTrue(np.all(smask == True))
+        assert np.all(shifted == 0)
+        assert np.all(smask)
+
+def test_ishift_nearest_mode() -> None:
+
+    image = _ramp_stack()
 
     # shift, nearest mode
     shifted = ishift(image, (0,10), mode='nearest')
-    self.assertTrue(np.all(shifted == image[:,:,:1]))
+    assert np.all(shifted == image[:,:,:1])
 
     shifted = ishift(image, (10,0), mode='nearest')
-    self.assertTrue(np.all(shifted == image[:,:1,:]))
+    assert np.all(shifted == image[:,:1,:])
 
     shifted = ishift(image, (0,-10), mode='nearest')
-    self.assertTrue(np.all(shifted == image[:,:,-1:]))
+    assert np.all(shifted == image[:,:,-1:])
 
     shifted = ishift(image, (-10,0), mode='nearest')
-    self.assertTrue(np.all(shifted == image[:,-1:,:]))
+    assert np.all(shifted == image[:,-1:,:])
 
     shifted = ishift(image, 9, mode='nearest')
-    self.assertTrue(np.all(shifted == image[:,:1,:1]))
+    assert np.all(shifted == image[:,:1,:1])
 
     shifted = ishift(image, 3, mode='nearest')
-    self.assertTrue(np.all(shifted[:,3:,3:] == image[:,:-3,:-3]))
-    self.assertTrue(np.all(shifted[:,:3,3:] == image[:,:1,:-3]))
-    self.assertTrue(np.all(shifted[:,3:,:3] == image[:,:-3,:1]))
-    self.assertTrue(np.all(shifted[:,:3,:3] == image[:,:1,:1]))
+    assert np.all(shifted[:,3:,3:] == image[:,:-3,:-3])
+    assert np.all(shifted[:,:3,3:] == image[:,:1,:-3])
+    assert np.all(shifted[:,3:,:3] == image[:,:-3,:1])
+    assert np.all(shifted[:,:3,:3] == image[:,:1,:1])
+
+def test_ishift_wrap_mode() -> None:
+
+    image = _ramp_stack()
 
     # shift, wrap mode
     shifted = ishift(image, (0,10), mode='wrap')
-    self.assertTrue(np.all(shifted == image))
+    assert np.all(shifted == image)
 
     shifted = ishift(image, (10,0), mode='wrap')
-    self.assertTrue(np.all(shifted == image))
+    assert np.all(shifted == image)
 
     shifted = ishift(image, (0,-10), mode='wrap')
-    self.assertTrue(np.all(shifted == image))
+    assert np.all(shifted == image)
 
     shifted = ishift(image, (-10,0), mode='wrap')
-    self.assertTrue(np.all(shifted == image))
+    assert np.all(shifted == image)
 
     shifted = ishift(image, -10, mode='wrap')
-    self.assertTrue(np.all(shifted == image))
+    assert np.all(shifted == image)
 
     shifted = ishift(image, 3, mode='wrap')
-    self.assertTrue(np.all(shifted[:,3:,3:] == image[:,:-3,:-3]))
-    self.assertTrue(np.all(shifted[:,:3,3:] == image[:,-3:,:-3]))
-    self.assertTrue(np.all(shifted[:,3:,:3] == image[:,:-3,-3:]))
-    self.assertTrue(np.all(shifted[:,:3,:3] == image[:,-3:,-3:]))
+    assert np.all(shifted[:,3:,3:] == image[:,:-3,:-3])
+    assert np.all(shifted[:,:3,3:] == image[:,-3:,:-3])
+    assert np.all(shifted[:,3:,:3] == image[:,:-3,-3:])
+    assert np.all(shifted[:,:3,:3] == image[:,-3:,-3:])
+
+def test_ishift_mirror_mode() -> None:
+
+    image = _ramp_stack()
 
     # shift, mirror
     shifted = ishift(image, (0,9), mode='mirror')
-    self.assertTrue(np.all(shifted == image[:,:,::-1]))
+    assert np.all(shifted == image[:,:,::-1])
 
     shifted = ishift(image, (9,0), mode='mirror')
-    self.assertTrue(np.all(shifted == image[:,::-1,:]))
+    assert np.all(shifted == image[:,::-1,:])
 
     shifted = ishift(image, (0,-9), mode='mirror')
-    self.assertTrue(np.all(shifted == image[:,:,::-1]))
+    assert np.all(shifted == image[:,:,::-1])
 
     shifted = ishift(image, (-9,0), mode='mirror')
-    self.assertTrue(np.all(shifted == image[:,::-1,:]))
+    assert np.all(shifted == image[:,::-1,:])
 
     shifted = ishift(image, 9, mode='mirror')
-    self.assertTrue(np.all(shifted == image[:,::-1,::-1]))
+    assert np.all(shifted == image[:,::-1,::-1])
 
     shifted = ishift(image, (0,18), mode='mirror')
-    self.assertTrue(np.all(shifted == image))
+    assert np.all(shifted == image)
 
     shifted = ishift(image, 3, mode='mirror')
-    self.assertTrue(np.all(shifted[:,3:,3:] == image[:,:-3,:-3]))
-    self.assertTrue(np.all(shifted[:,:3,3:] == image[:,3:0:-1,:-3]))
-    self.assertTrue(np.all(shifted[:,3:,:3] == image[:,:-3,3:0:-1]))
-    self.assertTrue(np.all(shifted[:,:3,:3] == image[:,3:0:-1,3:0:-1]))
+    assert np.all(shifted[:,3:,3:] == image[:,:-3,:-3])
+    assert np.all(shifted[:,:3,3:] == image[:,3:0:-1,:-3])
+    assert np.all(shifted[:,3:,:3] == image[:,:-3,3:0:-1])
+    assert np.all(shifted[:,:3,:3] == image[:,3:0:-1,3:0:-1])
+
+def test_ishift_dtype_preserved() -> None:
 
     # Make sure dtype is preserved
     array = np.arange(10)
     image = array + array[:,np.newaxis]
     for dtype in ('int', 'float', 'float32', 'bool', 'uint8', 'uint16', 'int16'):
         typed_image = image.astype(dtype)
-        shifted = ishift(typed_image, (1,1))
-        self.assertEqual(typed_image.dtype, shifted.dtype)
+        shifted, _ = ishift(typed_image, (1,1))
+        assert typed_image.dtype == shifted.dtype
+
+def test_ishift_reference_answers() -> None:
 
     # quasi-random inputs to check against prior results
     if PRINT_ANSWERS:
@@ -413,21 +507,23 @@ class Test_ishift(unittest.TestCase):
       if isinstance(mask, numbers.Real):
         maskval = mask
         mask = None
+      else:
+        maskval = None
       for o,offset in enumerate([(0,1), (0,-1), (1,0), (-1,0), (-1,1), (1,-2), (3,1)]):
         for k,mode in enumerate(['constant', 'nearest', 'wrap', 'mirror', 'reflect']):
           for c,cval in enumerate([9, None]):
             if mode != 'constant' and c > 0:
                 continue
-            shifted, smask = ishift(image, offset=offset, mask=mask, mode=mode, cval=cval,
-                                    returns='im')
+            shifted, smask = ishift(image, offset=offset, mask=mask, maskval=maskval,
+                                    mode=mode, cval=cval, returns='im')
             if PRINT_ANSWERS:
-                vals = str(list(shifted.flatten()))
-                mask_ = str(list(smask.flatten().astype('int')))
+                vals = str(shifted.flatten().tolist())
+                mask_ = str(smask.flatten().astype('int').tolist())
                 print(f'    ({m},{o},{k},{c}): ({vals}, {mask_}),')
             else:
                 answer = ANSWERS[m,o,k,c]
-                self.assertTrue(np.all(shifted == np.array(answer[0]).reshape(3,3)))
-                self.assertTrue(np.all(smask == np.array(answer[1]).reshape(3,3)))
+                assert np.all(shifted == np.array(answer[0]).reshape(3,3))
+                assert np.all(smask == np.array(answer[1]).reshape(3,3))
 
     if PRINT_ANSWERS:
         print('}')
@@ -445,15 +541,16 @@ class Test_ishift(unittest.TestCase):
 #           for c,cval in enumerate([9, None]):
 #             if mode != 'constant' and c > 0:
 #                 continue
-#             shifted, smask = ishift(image, offset=offset, mask=mask, mode=mode, cval=cval)
+#             shifted, smask = ishift(image, offset=offset, mask=mask, mode=mode,
+#                                     cval=cval)
 #             if PRINT_ANSWERS:
 #                 vals = str(list(shifted.flatten()))
 #                 mask_ = str(list(smask.flatten().astype('int')))
 #                 print(f'    ({m},{o},{k},{c}): ({vals}, {mask_}),')
 #             else:
 #                 answer = ANSWERS[m,o,k,c]
-#                 self.assertTrue(np.all(shifted == np.array(answer[0]).reshape(3,3)))
-#                 self.assertTrue(np.all(smask == np.array(answer[1]).reshape(3,3)))
+#                 assert np.all(shifted == np.array(answer[0]).reshape(3,3))
+#                 assert np.all(smask == np.array(answer[1]).reshape(3,3))
 #
 #     if PRINT_ANSWERS:
 #         print('}')
