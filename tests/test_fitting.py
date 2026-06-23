@@ -15,6 +15,8 @@ import pytest
 
 from psiops.fitting import Fitting
 from psiops.imagemodel import ImageModel
+from psiops.imagemodel.gaussian import Gaussian
+from psiops.stretch import Stretch
 
 ##########################################################################################
 # Test doubles mirroring the ImageModel and Stretch public interfaces
@@ -441,5 +443,97 @@ def test_b_sigma_property() -> None:
 def test_s_sigma_property() -> None:
     f = _fitted()
     assert np.array_equal(f.s_sigma, f.stretch.s_sigma)
+
+
+##########################################################################################
+# End-to-end fits with the real Gaussian ImageModel and a real Stretch
+#
+# Each target is a 50x50 image holding a 2-D Gaussian (centered within 6 pixels of the
+# middle), plus a second-order polynomial background, plus noise. A Fitting using the same
+# Gaussian as the model and a Stretch of orders (2, 0) should recover the Gaussian center
+# to a small fraction of a pixel, and the transformed model should conserve the Gaussian's
+# integral.
+##########################################################################################
+
+_FIT_SHAPE = (50, 50)
+_FIT_INTEGRAL = 10000.0      # bright enough that the source dominates the background
+
+
+def _background(shape: tuple[int, int]) -> np.ndarray:
+    """A second-order polynomial background on the (i, j) grid normalized to [-1, 1]."""
+
+    ni, nj = shape
+    i = (np.arange(ni) - 0.5 * (ni - 1))[:, np.newaxis] / (0.5 * (ni - 1))
+    j = (np.arange(nj) - 0.5 * (nj - 1))[np.newaxis, :] / (0.5 * (nj - 1))
+    return 5.0 + 1.0 * i - 2.0 * j + 0.7 * i**2 - 0.4 * i * j + 0.9 * j**2
+
+
+def _peak_guess(target: np.ndarray) -> tuple[float, float]:
+    """A rough source-center guess: the peak of the background-subtracted target.
+
+    Returns pixel-center coordinates (index + 0.5), which is how a Fitting would be seeded
+    in practice (detect the source, then refine).
+    """
+
+    resid = target - np.median(target)
+    pi, pj = np.unravel_index(int(np.argmax(resid)), target.shape)
+    return (pi + 0.5, pj + 0.5)
+
+
+# (sigma, x0, y0, seed); every center is within 6 pixels of the middle (25, 25).
+_GAUSSIAN_CASES = [
+    (2.0, 31.0, 19.0, 0),
+    (2.5, 19.5, 30.5, 1),
+    (3.0, 21.0, 29.0, 2),
+    (4.0, 30.5, 19.5, 3),
+    (5.0, 22.0, 28.0, 4),
+    (6.0, 28.0, 24.0, 5),
+]
+
+
+@pytest.mark.parametrize(('sigma', 'x0', 'y0', 'seed'), _GAUSSIAN_CASES)
+def test_fit_recovers_gaussian_center_and_integral(
+    sigma: float, x0: float, y0: float, seed: int,
+) -> None:
+    """Fitting recovers the true Gaussian center and conserves its integral."""
+
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    rng = np.random.default_rng(seed)
+    target = gaussian + _background(_FIT_SHAPE) + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target)
+    fitting.fit(guesses=(*_peak_guess(target), 1.0, 0.0))
+
+    # Center recovered to a small fraction of a pixel (observed worst case ~0.05 px).
+    assert abs(fitting.x - x0) < 0.2
+    assert abs(fitting.y - y0) < 0.2
+
+    # The transformed model (no stretch) conserves the Gaussian's integral; the only loss
+    # is the small tail that falls outside the 50x50 frame.
+    assert abs(fitting.transformed.sum() - _FIT_INTEGRAL) < 2.e-3 * _FIT_INTEGRAL
+
+
+def test_fit_reconstructs_background_and_model() -> None:
+    """The fitted background and model also reproduce the noiseless inputs."""
+
+    sigma, x0, y0 = 3.5, 27.0, 22.0
+    model = Gaussian(sigma=sigma, integral=_FIT_INTEGRAL)
+    gaussian = model.transform(_FIT_SHAPE, center=(x0, y0))
+    background = _background(_FIT_SHAPE)
+    rng = np.random.default_rng(99)
+    target = gaussian + background + rng.normal(0.0, 1.0, _FIT_SHAPE)
+
+    fitting = Fitting(Gaussian(sigma=sigma, integral=_FIT_INTEGRAL), Stretch([2, 0]))
+    fitting.set_target(target)
+    fitting.fit(guesses=(*_peak_guess(target), 1.0, 0.0))
+
+    assert abs(fitting.x - x0) < 0.2
+    assert abs(fitting.y - y0) < 0.2
+    # The recovered background matches the injected polynomial away from the noise.
+    assert np.abs(fitting.background - background).max() < 0.5
+    # The model reproduces the noiseless target (Gaussian + background) closely.
+    assert np.abs(fitting.model - (gaussian + background)).max() < 1.0
 
 ##########################################################################################

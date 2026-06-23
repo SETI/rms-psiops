@@ -34,18 +34,18 @@ class Fitting:
         weights (array or None): The weight array if the `target` pixels are weighted
             nonuniformly.
         params (array): Best-fit values for the spatial transformation parameters (`x`,
-            `y`, `zoom`, `rotate`), where `x` and `y`) are the pixel offsets, `zoom` is a
+            `y`, `zoom`, `rotate`), where `x` and `y` are the pixel offsets, `zoom` is a
             zoom factor, and `rotate` is a rotation angle in radians.
-        transformed (array): `imagemodel` after the transformation has been applied, but
-            without the `stretch`.
         x (float): Alternative name for params[0].
         y (float): Alternative name for params[1].
         zoom (float): Alternative name for params[2].
         rotate (float): Alternative name for params[3].
+        transformed (array): An array representing the `imagemodel` after the
+            transformation has been applied but without the `stretch`.
         guesses (array): Initial guesses for the spatial transformation parameters (`x`,
             `y`, `zoom`, `rotate`).
-        flags (array-like): A tuple of four boolean flags equal to True if the
-            corresponding parameter is being fitted.
+        flags (array-like): Four boolean flags equal to True if the corresponding
+            parameter is being fitted.
         limits (array-like): The maximum allowed change in the corresponding parameter
             from its initial guess. A value of zero indicates that there is no limit on
             that parameter.
@@ -130,8 +130,8 @@ class Fitting:
         self.corner = corner
         self.shape = shape
 
-        islice = slice(corner[0], corner[0]+shape[0])
-        jslice = slice(corner[1], corner[1]+shape[1])
+        islice = slice(corner[0], corner[0] + shape[0])
+        jslice = slice(corner[1], corner[1] + shape[1])
         self.target = target[islice, jslice]
 
         if mask is None:
@@ -145,6 +145,10 @@ class Fitting:
             self.weights = weights[islice, jslice]
             self.weights = self.weights / np.max(self.weights)  # pass div-by-zero forward
 
+        # Seed the Stretch with a correctly-shaped placeholder image so set_target() can
+        # validate the target shape. The real image (the transformed model) is supplied
+        # per iteration by `_func` during the fit, overwriting this placeholder.
+        self.stretch.set_image(np.zeros(self.shape))
         self.stretch.set_target(self.target, mask=self.mask, maskval=maskval,
                                 weights=self.weights, nans=nans)
 
@@ -208,54 +212,35 @@ class Fitting:
         fitting.stretch.fit()
         return fitting.stretch.residuals_1d
 
-    def fit(self, params, flags=(True, True, False, False), limits=(10., 10., 0.1, 0.2),
+    def fit(self, guesses, flags=(True, True, False, False), limits=(10., 10., 0.1, 0.2),
             lsq_dict=None):
-        """Perform one step of nonlinear least-squares fitting to obtain the
-        transformation and stretch parameters.
+        """Perform a nonlinear least-squares fitting to obtain the transformation and
+        stretch parameters.
 
-        This function updates the following attributes of this Fitting:
-
-        * `guesses` (array): The initial value of `params`, prior to the fit.
-        * `flags` (array): The boolean `flags` designating which parameters are fit.
-        * `limits` (array): The `limits` as specified for the fit.
-        * `lsq_dict` (dict): Parameters provided as input to
-          `scipy.optimize.least_squares`.
-        * `nparams` (int): The number of fitted transformation parameters.
-        * `params` (array): The four best-fit parameters (`x`, `y`, `zoom`, `rotate`)
-          obtained by the fit.
-        * `x`, `y`, `zoom`, `rotate` (float): Alternative names for the values of
-          `params`.
-        * `stretch` (Stretch): The Stretch, updated to contain the best-fit coefficients
-          as applied to the transformed ImageModel.
-        * `transformed`: The transformed ImageModel, prior to any Stretch.
-        * `dof` (int): The number of degrees of freedom in the fit.
-        * `weight_sum` (scalar): The total weight of the fit.
-        * `chisq` (float): The chi-squared value from the latest fit.
-        * `rms` (float): The root-mean-squared residual from the latest fit.
-        * `covar` (array): The 4x4 covariance matrix for the transformation coefficients.
-        * `dx`, `dy` (float): One-sigma uncertainties in the best-fit values for `x` and
-          `y`.
-        * `corr` (float): The correlation coefficient between `dx` and `dy`.
+        Upon return, the attributes and properties of this Fitting have been updated to
+        contain the best-fit values.
 
         Parameters:
-            params (array-like): The initial guesses at the transformation parameters
-                (x, y, zoom, rotate). Here, `(x,y)` are the pixel offsets along the two
-                image axes, `zoom` is a expansion factor on the ImageModel's scale, and
-                `rotate` is a rotation angle in radians.
-            flags (sequence, optional): Flags indicating whether or not a parameter is to
-                be fitted.
-            limits (sequence, optional): Limits on how far a parameter may deviate from
-                its initial value. Ignored where `flags` is False. Use zero to let a
-                parameter vary without limit.
-            lsq_dict (dict, optional): Additional input options for
+            guesses (sequence of four floats): The four initial values of `params`, prior
+                to the fit: (`x`, `y`, `zoom`, `rotate`), where `x` and `y` are the pixel
+                offsets, `zoom` is a zoom factor, and `rotate` is a rotation angle in
+                radians.
+            flags (sequence of four bools, optional): Four flags that are True if the
+                corresponding value of `guesses` is to be fitted, False if it is to be
+                held fixed.
+            limits (sequence of four floats, optional): The amount by which each of the
+                corresponding `guesses` is allowed to change from its initial value. Use
+                zero to indicate that the corresponding parameter can change without
+                limit. Where `flags` is False, the `limits` value is ignored.
+            lsq_dict (dict, optional): Any parameters provided as additional inputs to
                 `scipy.optimize.least_squares`.
         """
 
-        self.guesses = np.array(params)
+        self.guesses = np.array(guesses)
         self.flags = np.array(flags)
         self.nparams = sum(self.flags)
         self.limits = np.array([limit or 0. for limit in limits])
-        self.lsq_dict = lsq_dict or {}
+        self.lsq_dict = lsq_dict.copy() if isinstance(lsq_dict, dict) else {}
 
         self._funcs = []
         self._dfunc_dx = []
@@ -305,7 +290,7 @@ class Fitting:
         if self.weights is None:
             self.weight_sum = unmasked
             self.dof = unmasked - self.nparams - self.stretch.ncoeffs
-            self.chi_sq = 2 * result.cost
+            self.chi_sq = 2 * result.cost   # cost is half of chi_sq in least_squares
             self.rms = np.sqrt(self.chi_sq / (self.dof - 1))
         else:
             antimask = np.logical_not(self.mask)
@@ -313,7 +298,7 @@ class Fitting:
             w = self.weights[antimask]
             wsum = np.sum(w)
             w2sum = np.sum(w**2)
-            self.chi_sq = np.sum(w * self.stretch.residuals_1d**2)
+            self.chi_sq = np.sum(w * self.stretch.residuals_1d ** 2)
             self.weight_sum = wsum
             self.rms = np.sqrt(self.chi_sq / (wsum - w2sum/wsum))
 
@@ -331,19 +316,19 @@ class Fitting:
                 fitted[k] = True
                 i += 1
 
-        # The covariance of the fitted parameters is the inverse of the curvature
-        # matrix J^T J. Scatter this nparams x nparams result into a full 4x4 matrix
-        # at the positions of the fitted parameters, leaving the rows and columns of
-        # the unfitted parameters equal to zero.
+        # The covariance of the fitted parameters is the inverse of the curvature matrix
+        # J^T J. Scatter this nparams x nparams result into a full 4x4 matrix at the
+        # positions of the fitted parameters, leaving the rows and columns of the unfitted
+        # parameters equal to zero.
         cov_fitted = np.linalg.inv(result.jac.T @ result.jac)   # forward LinAlgError
         cov_full = np.zeros((4, 4))
         index = np.where(fitted)[0]
         cov_full[np.ix_(index, index)] = cov_fitted
         self.covar = cov_full * derivs[:,np.newaxis] * derivs
-        self.dx = np.sqrt(self.covar[0,0])
-        self.dy = np.sqrt(self.covar[1,1])
+        self.dx = np.sqrt(self.covar[0, 0])
+        self.dy = np.sqrt(self.covar[1, 1])
         denom = self.dx * self.dy
-        self.corr = self.covar[0,1] / denom if denom else 0.
+        self.corr = self.covar[0, 1] / denom if denom else 0.
 
     ######################################################################################
     # Array evaluation
@@ -361,8 +346,7 @@ class Fitting:
 
     @property
     def scaling(self):
-        """The model scale factor array that multiplies the image to best fit the
-        target.
+        """The model scale factor array that multiplies the image to best fit the target.
 
         Note that this returned result neglects the scaling of any second- or
         higher-order exponent of the image in the Stretch.
