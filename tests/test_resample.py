@@ -9,7 +9,7 @@ from psiops._filter import _use_shortcuts
 from psiops.resample import resample
 from psiops.unzoom import unzoom
 from psiops.zoom import zoom
-from tests.resize import resize  # removed from image_ops but retained for cross-testing
+from tests._resize_reference import resize  # reference impl, kept for cross-testing
 
 # resample() requires at least three dimensions, so every test uses a 3-D image.
 

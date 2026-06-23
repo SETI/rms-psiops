@@ -52,7 +52,6 @@ pythonpath = [
   "src"
 ]
 testpaths = ["tests"]
-# TODO Update desired parallelism
 addopts = ["-n", "auto", "--cov=src", "--strict-markers", "--strict-config"]
 markers = []
 # Surface unexpected runtime warnings as test failures. Add targeted
@@ -94,9 +93,6 @@ docs = [
   "sphinxcontrib-mermaid",
   "sphinx-rtd-theme",
 ]
-
-[project.scripts]
-#TODO = "main.psiops:main"
 
 # Tool configuration
 
@@ -144,7 +140,6 @@ ignore_errors = true
 target-version = "py311"
 line-length = 90
 exclude = [
-#  "TODO"
 ]
 
 [tool.ruff.format]

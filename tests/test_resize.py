@@ -7,7 +7,7 @@ import pytest
 
 from psiops.unzoom import unzoom
 from psiops.zoom import zoom
-from tests.resize import resize  # removed from image_ops but retained for cross-testing
+from tests._resize_reference import resize  # reference impl, kept for cross-testing
 
 
 def _make_image() -> np.ndarray:

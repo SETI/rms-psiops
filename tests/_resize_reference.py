@@ -1,9 +1,10 @@
 ##########################################################################################
-# tests/resize.py
+# tests/_resize_reference.py
 #
 # This was originally part of image_ops but it has no particular advantages over
 # resample() so it was removed. I have left it here because it is useful for
-# cross-testing against several other functions, especially resample().
+# cross-testing against several other functions, especially resample(). The
+# `_`-prefixed, non-`test_` name keeps pytest from collecting it as a test module.
 ##########################################################################################
 
 from typing import overload

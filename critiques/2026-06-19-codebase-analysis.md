@@ -31,9 +31,12 @@ error-state source, centralized zero-size-input rejection in `_check_image`, and
 documented the `Fitting` class** (see §14), and documented the thread-safety contract (§5).
 A final pass **made `resample`'s `zoom==1` shortcut and general paths produce identical
 results, settling the edge-pixel boundary convention (nearest-pixel replication), and removed
-the last global-flag mutation from `rotate`** (see §15). With that, every actionable finding
-has been addressed; the only item left open is the `returns` DSL discoverability, a deliberate
-design choice marked won't-fix.
+the last global-flag mutation from `rotate`** (see §15). A subsequent review-finding pass then
+**corrected the `rotate` 270° quarter-turn test expectation (the routine was already correct),
+fixed `reshape` dropping its mask/weights from the return, fixed a `resample` crash when an
+expanding zoom is cropped by `shape`, and made the `outliers` test's Gaussian stub genuinely
+weight-aware** (see §16). With that, every actionable finding has been addressed; the only item
+left open is the `returns` DSL discoverability, a deliberate design choice marked won't-fix.
 
 ---
 
@@ -55,12 +58,12 @@ design choice marked won't-fix.
   the non-existent `scaling` module was deleted. No commented-out import block remains (§14).
 
 - ~~**Finding (medium)**: `tests/resize.py` and `tests/unittester.py` are legacy test
-  infrastructure not discovered by pytest.~~ ✓ **Partially fixed.** `tests/unittester.py` has
-  been removed (pytest supersedes it). `tests/resize.py` is retained as a deliberate helper:
-  it provides a reference `resize()` implementation that `test_resample.py` cross-checks
-  against, and it carries no `test_` prefix so pytest does not collect it as a test. The
-  remaining nicety would be to rename it (e.g. `_resize_reference.py`) to make the
-  not-a-test-module intent unmistakable.
+  infrastructure not discovered by pytest.~~ ✓ **Fixed.** `tests/unittester.py` has been
+  removed (pytest supersedes it). The reference `resize()` implementation that
+  `test_resample.py`/`test_resize.py` cross-check against has been renamed
+  `tests/resize.py` → `tests/_resize_reference.py`; the `_`-prefixed, non-`test_` name makes
+  the not-a-test-module intent unmistakable and keeps pytest from collecting it (test count
+  unchanged at 661). Both importers were updated.
 
 - ~~**Finding (low)**: File-header comments in several files refer to the old package path
   `image_ops/` (e.g. `# image_ops/tests/test_mean.py`).~~ ✓ **Fixed.** All 21 stale headers
@@ -295,8 +298,8 @@ design choice marked won't-fix.
   Software License` classifier (PEP 639 forbids pairing a license expression with a license
   classifier — the actual build error); and pinned `setuptools>=77` in `[build-system]` so the
   SPDX `license = "Apache-2.0"` string is accepted. Pyroma now rates **10/10**. (The
-  commented-out `[project.scripts]` placeholder remains, harmless until a console entry point
-  is actually needed.)
+  commented-out `[project.scripts]` placeholder and stray `TODO` comments have since been
+  removed from `pyproject.toml`.)
 
 - ~~**Finding (low)**: `dev` optional dependencies include `"psiops"` itself, which is
   redundant when installing with `pip install -e ".[dev]"`. **Evidence**:
@@ -531,6 +534,44 @@ This pass brought `scripts/run-all-checks.sh` to fully green and added a user-fa
 
 ---
 
+## 16. Review-finding remediation: rotate / reshape / resample / outliers (2026-06-22)
+
+A targeted pass verified four reported findings against the current code, fixed the three that
+were still valid, and skipped one as a non-issue. All 661 tests pass and
+`scripts/run-all-checks.sh` is green.
+
+- **`rotate` 270° quarter-turn — the test was wrong, the routine was correct.**
+  `test_rotate_270_random_mask` expected `swapaxes(-2,-1)[::-1, :]`, which is the
+  `np.rot90(·, 1)` (90°) transform, not 270°. Three independent checks confirmed the routine is
+  right: the exact-`1.5π` shortcut matches the general path at 269°/271°; an off-axis marker
+  lands where a 270° CCW rotation requires (a pixel on +x ends up at −y); and a direct
+  comparison shows the output equals the correct `np.rot90(·, 3)`. The expectation was corrected
+  to `swapaxes(-2,-1)[:, ::-1]`. (The sibling 90° test passed only by accident: its 3-D image
+  makes the leading `[:, …]` index consume the layer axis, coincidentally selecting the right
+  per-layer transform.)
+- **`reshape` dropped the mask/weights from its return.** After stripping the trailing
+  `new_center`, the final `return result[:-1]` sliced off one *more* element, so any call that
+  also returned a mask or weights (or used `returns='iw'`) got back only the image and failed to
+  unpack. Changed to `return result`, so only `new_center` is stripped.
+- **`resample` crashed when an expanding zoom was cropped by `shape`.** The expanding branches
+  reassigned out-of-range write indices to "spare" in-grid slots drawn from `new_xset - set(nx)`;
+  once `shape` made the grid smaller than the source extent there were fewer spare slots than
+  out-of-range entries, raising `ValueError`. Those entries carry zero weight, so they are now
+  dropped rather than reassigned (no spare slots needed); the now-unused `new_xset`/`new_yset`
+  sets were removed. Verified numerically identical to the prior behaviour on non-cropping
+  inputs (a cropped expand equals the same crop of a full expand).
+- **`test_outliers` Gaussian stub made genuinely weight-aware.** `_masked_gaussian_filter`
+  declared a `weights` parameter and was documented "weight-aware" but never used it; it now
+  folds `weights` into the validity array on both the masked and unmasked paths.
+- **Skipped — `maskval`/`nans` in the same stub.** Reported as also-ignored, but verified to be
+  a non-issue: `outliers` resolves `maskval`/`nans` into `mask` via `_check_image` *before*
+  calling `gaussian_filter`, the stub already honours `mask`, and the array it receives is the
+  derived `mean_sq` median — instrumentation showed zero pixels equal to the sentinel or NaN
+  outside the existing mask. Re-applying an original-image `maskval` to a squared-difference
+  array would be incorrect rather than corrective, so no change was made.
+
+---
+
 ## Recommended priorities (remaining)
 
 1. ~~**Fix the critical bugs.**~~ ✓ Done.
@@ -565,4 +606,4 @@ This pass brought `scripts/run-all-checks.sh` to fully green and added a user-fa
 12. ~~**Packaging metadata** (§8): `pyproject.toml` `description` is still `"TODO"`.~~ ✓ **Done**
     (2026-06-22): real description added, license-classifier conflict removed, and
     `setuptools>=77` pinned; Pyroma now rates 10/10 (§8, §13). The commented-out
-    `[project.scripts]` placeholder remains, harmless until an entry point is needed.
+    `[project.scripts]` placeholder and stray `TODO` comments have since been removed.
