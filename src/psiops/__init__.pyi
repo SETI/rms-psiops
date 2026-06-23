@@ -467,6 +467,18 @@ def ialign(
     reference: np.ndarray,
     sigma: float,
 ) -> tuple[int, int]: ...
+def outliers(
+    image: np.ndarray,
+    footprint: float = ...,
+    *,
+    cutoff: float = ...,
+    quantile: float = ...,
+    axis: int | tuple[int, ...] | None = ...,
+    mask: np.ndarray | None = ...,
+    maskval: float | None = ...,
+    weights: np.ndarray | None = ...,
+    nans: bool = ...,
+) -> np.ndarray: ...
 def patch(
     image: np.ndarray,
     mask: np.ndarray | None = ...,

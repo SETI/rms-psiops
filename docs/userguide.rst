@@ -325,6 +325,32 @@ The available filters are :func:`~psiops.mean_filter`,
    blurred = psiops.gaussian_filter(image, 2.0, mode='nearest')
 
 
+Detecting outliers
+------------------------------------------
+
+:func:`~psiops.outliers` flags pixels that are excessively bright compared with their
+surroundings — cosmic-ray hits, hot pixels, and similar defects. It builds a
+median-filtered baseline, infers a smooth model of the local noise from the squared
+deviations from that baseline, and marks every pixel that exceeds the baseline by more
+than ``cutoff`` standard deviations. The result is a boolean mask (incorporating any
+input ``mask``) that drops straight into a masked operation — for example
+:func:`~psiops.patch` to repair the flagged pixels.
+
+.. code-block:: python
+
+   rng = np.random.default_rng(0)
+   image = rng.normal(100.0, 1.0, (40, 40))
+   image[20, 20] += 500.0                 # a cosmic-ray-like hot pixel
+
+   bad = psiops.outliers(image, footprint=8, cutoff=5)   # boolean outlier mask
+   cleaned = psiops.patch(image, bad)                     # repair the flagged pixels
+
+``footprint`` sets the median-filter diameter (make it a few times the largest clump you
+want to flag), ``cutoff`` is the detection threshold in standard deviations, and
+``quantile`` caps how much the brightest pixels contribute to the noise model. With
+``axis``, a stack of identically-prepared frames can share a more robust noise estimate.
+
+
 Filling masked pixels
 ------------------------------------------
 
