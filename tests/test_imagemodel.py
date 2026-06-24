@@ -44,8 +44,9 @@ def _weighted_center(array: np.ndarray) -> tuple[float, float]:
 ##########################################################################################
 
 def test_imagemodel_transform_not_implemented() -> None:
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError) as exc_info:
         ImageModel().transform((3, 3), (1.5, 1.5))
+    assert 'ImageModel.transform() is not implemented' in str(exc_info.value)
 
 
 def test_imagemodel_error_names_subclass() -> None:
@@ -182,6 +183,14 @@ def test_arraymodel_default_origin_is_midpoint() -> None:
     assert np.array_equal(model._origin, np.array([3.0, 4.0]))
 
 
+def test_arraymodel_non_2d_raises() -> None:
+    # The model must be a 2-D array; the constructor rejects other ranks up front.
+    with pytest.raises(ValueError) as exc_info:
+        ArrayModel(np.zeros(5))
+    assert 'invalid array shape' in str(exc_info.value)
+    assert '2-D array required' in str(exc_info.value)
+
+
 def test_arraymodel_explicit_origin() -> None:
     model = ArrayModel(np.zeros((5, 5)), origin=(1.0, 2.0))
     assert np.array_equal(model._origin, np.array([1.0, 2.0]))
@@ -276,6 +285,15 @@ def test_summedmodel_transform_shape() -> None:
     assert model.transform((9, 9), (4.5, 4.5)).shape == (9, 9)
 
 
+def test_summedmodel_length_mismatch_raises() -> None:
+    # models and factors must be the same length; the constructor rejects a mismatch
+    # up front rather than letting it surface later inside transform().
+    with pytest.raises(ValueError) as exc_info:
+        SummedModel([Gaussian(), Gaussian()], [1.0])
+    assert 'invalid factors' in str(exc_info.value)
+    assert 'match models' in str(exc_info.value)
+
+
 def test_summedmodel_integral_is_weighted_sum() -> None:
     g1 = Gaussian(sigma=1.0, integral=2.0)
     g2 = Gaussian(sigma=3.0, integral=5.0)
@@ -356,6 +374,14 @@ def test_summedmodel_weighted_center(no_shortcuts: None) -> None:
 def test_smearedmodel_transform_shape() -> None:
     model = SmearedModel(Gaussian(sigma=1.0), [4.0, 0.0])
     assert model.transform((21, 21), (10.5, 10.5)).shape == (21, 21)
+
+
+def test_smearedmodel_short_smear_raises() -> None:
+    # smear must hold exactly two components (dx, dy); a length-1 smear is rejected.
+    with pytest.raises(ValueError) as exc_info:
+        SmearedModel(Gaussian(), [1.0])
+    assert 'invalid smear' in str(exc_info.value)
+    assert 'two values required' in str(exc_info.value)
 
 
 def test_smearedmodel_preserves_integral() -> None:

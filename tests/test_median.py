@@ -32,7 +32,7 @@ def _omit_image_and_mask() -> tuple[np.ndarray, np.ndarray]:
     return image, mask
 
 
-def test_median_basic() -> None:
+def test_median_basic(shortcuts: bool) -> None:
 
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -42,8 +42,8 @@ def test_median_basic() -> None:
     assert np.all(a == image0)
 
 
-def test_median_2d_mask() -> None:
-
+def test_median_2d_mask(shortcuts: bool) -> None:
+    # Masked reduction hits the `_use_shortcuts()`-gated nanmedian path; check both.
     rng = np.random.default_rng(3863)
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -57,7 +57,7 @@ def test_median_2d_mask() -> None:
     assert np.all(a[~mask] == b[~mask])
 
 
-def test_median_3d_mask() -> None:
+def test_median_3d_mask(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(3863)
     array = np.arange(10)
@@ -78,7 +78,7 @@ def test_median_3d_mask() -> None:
     assert np.all((b == 1.5 * image0)[~bmask])
 
 
-def test_median_axes() -> None:
+def test_median_axes(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(3863)
     image = rng.random((3,4,5,10,10))
@@ -97,7 +97,7 @@ def test_median_axes() -> None:
     assert np.all(median(image, axis=(0,-1)) == np.median(image, axis=(0,2)))
 
 
-def test_median_axes_mask() -> None:
+def test_median_axes_mask(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(3863)
     image = rng.random((5,4,3,10,10))
@@ -108,8 +108,8 @@ def test_median_axes_mask() -> None:
     assert np.all(amask == np.all(mask, axis=2))
 
 
-def test_median_masked_values() -> None:
-
+def test_median_masked_values(shortcuts: bool) -> None:
+    # Value-match vs numpy on a masked reduction; run on both gated paths.
     rng = np.random.default_rng(3863)
     image = rng.random((5,4,100,200))
     mask = rng.random((5,4,100,200)) < 0.6        # mostly masked
@@ -128,16 +128,16 @@ def test_median_masked_values() -> None:
     assert np.all((a == ordered[2])[k==5])
 
 
-def test_median_dtypes() -> None:
+@pytest.mark.parametrize('dtype', ['bool', 'uint8', 'int8', 'uint16', 'int16',
+                                   'uint32', 'int32', 'int64', 'float32', 'float64'])
+def test_median_dtypes(dtype: str) -> None:
 
-    for dtype in ('bool', 'uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32',
-                  'int64', 'float32', 'float64'):
-        image = np.arange(10) + np.arange(10)[:,None] + np.arange(10)[:,None,None]
-        test = median(image.astype(dtype))
-        if dtype == 'float32':
-            assert test.dtype == np.float32
-        else:
-            assert test.dtype == np.float64
+    image = np.arange(10) + np.arange(10)[:,None] + np.arange(10)[:,None,None]
+    test = median(image.astype(dtype))
+    if dtype == 'float32':
+        assert test.dtype == np.float32
+    else:
+        assert test.dtype == np.float64
 
 
 def test_median_list_input() -> None:
@@ -152,7 +152,7 @@ def test_median_list_input() -> None:
     assert np.all(median(image_list) == np.median(image_list, axis=(0,1,2)))
 
 
-def test_median_keepdims() -> None:
+def test_median_keepdims(shortcuts: bool) -> None:
 
     # keepdims is only honored on the multi-return path (see report on
     # `_validation._check_return`).
@@ -172,6 +172,16 @@ def test_median_error() -> None:
     with pytest.raises(ValueError) as exc_info:
         _ = median(image)
     assert str(exc_info.value) == 'invalid image shape (4, 3); must be at least 3-D'
+
+
+def test_median_non_numeric_error() -> None:
+
+    # median() promises a TypeError on non-numeric input; the object dtype cannot be
+    # coerced to a float array.
+    image = np.array([np.dtype('float')] * 8, dtype=object).reshape(2,2,2)
+    with pytest.raises(TypeError) as exc_info:
+        _ = median(image)
+    assert 'float()' in str(exc_info.value)
 
 
 def test_median_factors() -> None:
@@ -201,12 +211,12 @@ def test_median_masked_factors() -> None:
                                      [0 , 0  , 0  ],
                                      [1 , 1  , 0  ]]).astype('bool'))
 
-    image2 = np.empty((7,3,3)).astype('int')
+    image2 = np.empty((7,3,3), dtype=int)
     image2[:3]  = image
     image2[3:6] = image
     image2[6]   = image[0]
 
-    mask2 = np.empty((7,3,3)).astype('bool')
+    mask2 = np.empty((7,3,3), dtype=bool)
     mask2[:3]  = mask
     mask2[3:6] = mask
     mask2[6]   = mask[0]
@@ -221,12 +231,12 @@ def test_median_omit() -> None:
 
     image, mask = _omit_image_and_mask()
 
-    image2 = np.empty((7,3,3)).astype('int')
+    image2 = np.empty((7,3,3), dtype=int)
     image2[:3]  = image
     image2[3:6] = image
     image2[6]   = image[0]
 
-    mask2 = np.empty((7,3,3)).astype('bool')
+    mask2 = np.empty((7,3,3), dtype=bool)
     mask2[:3]  = mask
     mask2[3:6] = mask
     mask2[6]   = mask[0]
@@ -234,11 +244,11 @@ def test_median_omit() -> None:
     test2, tmask2 = median(image2, mask2)
 
     # Omit the single largest unmasked value (which we inject as a huge value)
-    image3 = np.empty((8,3,3)).astype('int')
+    image3 = np.empty((8,3,3), dtype=int)
     image3[:7] = image2
     image3[-1] = 99999999
 
-    mask3 = np.empty((8,3,3)).astype('bool')
+    mask3 = np.empty((8,3,3), dtype=bool)
     mask3[:7] = mask2
     mask3[-1] = False
 
@@ -285,7 +295,7 @@ def test_median_weights() -> None:
     assert np.allclose(a2, image2[2])
 
 
-def test_median_maskval() -> None:
+def test_median_maskval(shortcuts: bool) -> None:
 
     image = np.full((3,8,8), 5.)
     image[0,0,0] = 2.
@@ -296,8 +306,22 @@ def test_median_maskval() -> None:
     assert np.all(a[1:,1:] == 5.)   # fully masked -> filled with maskval
 
 
-def test_median_maskedarray() -> None:
+def test_median_nans(shortcuts: bool) -> None:
+    # Regression: both the shortcut and general paths must drop NaN-masked pixels
+    # (`nans=True`) rather than letting the NaN propagate into the reduction.
+    rng = np.random.default_rng(5965)
+    image = rng.random((4,8,8))
+    image[1, 2, 2] = np.nan
+    a = median(image, nans=True)
+    assert not np.isnan(a).any()
+    b = median(image[np.array([0, 2, 3])][:, 2:3, 2:3])
+    assert abs(a[2, 2] - b[0, 0]) < 1.e-14
 
+
+def test_median_maskedarray(shortcuts: bool) -> None:
+
+    # Regression: both the shortcut and general paths must flag fully-masked pixels in the
+    # returned MaskedArray's mask (general path previously returned no mask).
     rng = np.random.default_rng(47)
     data = rng.random((3,10,10))
     mask = rng.random((3,10,10)) < 0.3
@@ -307,7 +331,7 @@ def test_median_maskedarray() -> None:
     assert np.all(a.mask == np.all(mask, axis=0))
 
 
-def test_median_masked_weights_return() -> None:
+def test_median_masked_weights_return(shortcuts: bool) -> None:
 
     # The masked nanmedian shortcut returns per-pixel weights when 'w' is requested.
     rng = np.random.default_rng(49)

@@ -315,6 +315,14 @@ The available filters are :func:`~psiops.mean_filter`,
                      [0, 1, 0]], dtype=bool)
    despeckled = psiops.median_filter(image, cross)
 
+:func:`~psiops.circle` builds a circular boolean footprint of a given radius — a
+convenient isotropic footprint for any of the filters:
+
+.. code-block:: python
+
+   disc = psiops.circle(3.5)                 # an odd-sized circular footprint
+   smoothed = psiops.median_filter(image, disc)
+
 :func:`~psiops.gaussian_filter` smooths with a Gaussian kernel of a given
 ``sigma`` (a scalar or per-axis tuple) and supports the standard boundary
 ``mode`` options ``'nearest'``, ``'constant'``, ``'reflect'``, ``'mirror'``, and
@@ -323,6 +331,58 @@ The available filters are :func:`~psiops.mean_filter`,
 .. code-block:: python
 
    blurred = psiops.gaussian_filter(image, 2.0, mode='nearest')
+
+
+Detecting outliers
+------------------------------------------
+
+:func:`~psiops.outliers` flags pixels that are excessively bright compared with their
+surroundings — cosmic-ray hits, hot pixels, and similar defects. It builds a
+median-filtered baseline, infers a smooth model of the local noise from the squared
+deviations from that baseline, and marks every pixel that exceeds the baseline by more
+than ``cutoff`` standard deviations. The result is a boolean mask (incorporating any
+input ``mask``) that drops straight into a masked operation — for example
+:func:`~psiops.patch` to repair the flagged pixels.
+
+.. code-block:: python
+
+   rng = np.random.default_rng(0)
+   image = rng.normal(100.0, 1.0, (40, 40))
+   image[20, 20] += 500.0                 # a cosmic-ray-like hot pixel
+
+   bad = psiops.outliers(image, footprint=8, cutoff=5)   # boolean outlier mask
+   cleaned = psiops.patch(image, bad)                     # repair the flagged pixels
+
+``footprint`` sets the median-filter diameter (make it a few times the largest clump you
+want to flag), ``cutoff`` is the detection threshold in standard deviations, and
+``quantile`` caps how much the brightest pixels contribute to the noise model. With
+``axis``, a stack of identically-prepared frames can share a more robust noise estimate.
+
+
+Filling masked pixels
+------------------------------------------
+
+:func:`~psiops.patch` replaces an image's masked pixels with values estimated from the
+surrounding valid pixels, so a masked region blends smoothly into its background. It
+Gaussian-filters the unmasked pixels with a ``sigma`` scaled to the size of each masked
+"hole", so larger gaps draw on more distant data. This is useful for cosmetic
+gap-filling before display, or before an operation that cannot tolerate masked values.
+
+.. code-block:: python
+
+   image = np.random.default_rng(10).random((128, 128))
+   mask = np.zeros(image.shape, dtype=bool)
+   mask[60:70, 60:70] = True              # a square hole to fill
+
+   filled = psiops.patch(image, mask)     # the filled image (returns='i' by default)
+
+   # Also report any pixels that remained masked (holes too large to fill)
+   filled, still_masked = psiops.patch(image, mask, returns='im')
+
+The ``size`` argument caps the scale of holes to fill; a masked region much larger than
+``size`` may stay partly masked due to underflow of the Gaussian. As elsewhere, ``mask``,
+``maskval``, ``weights``, and ``nans`` all mark invalid pixels, and ``returns`` selects
+the outputs.
 
 
 Stack operations
@@ -435,52 +495,6 @@ The ``sigma`` argument to :func:`~psiops.ialign` unsharp-masks both images befor
 correlating, which sharpens the peak when the images contain large-scale gradients.
 
 
-Image models
-------------------------------------------
-
-An :class:`~psiops.ImageModel` describes a continuous, photometrically normalized
-source that can be rendered onto any pixel grid. Every model exposes one method,
-``transform(shape, center, expand=1.0, rotate=0.0)``, which returns a 2-D array of the
-requested ``shape`` with the model centered at ``center`` (in the pixel-corner/center
-convention above), optionally magnified by ``expand`` and rotated by ``rotate``
-radians. The model's integral is preserved.
-
-:class:`~psiops.Gaussian` is a symmetric 2-D Gaussian of a given ``sigma`` and total
-``integral``:
-
-.. code-block:: python
-
-   psf = psiops.Gaussian(sigma=2.0).transform((31, 31), center=(15.5, 15.5))
-   # psf.sum() == 1.0  (unit integral by default)
-
-:class:`~psiops.ArrayModel` wraps an arbitrary 2-D array, resampling it (flux-
-conserving) onto the output grid. Use ``origin`` to choose which point of the source
-array is placed at ``center``, and ``outside`` to set the fill value beyond the
-array's footprint:
-
-.. code-block:: python
-
-   template = np.zeros((11, 11))
-   template[5, 5] = 1.0
-   model = psiops.ArrayModel(template, origin=(5.5, 5.5))
-   rendered = model.transform((64, 64), center=(40.0, 25.0), expand=1.5, rotate=0.3)
-
-:class:`~psiops.SmearedModel` averages a model along a ``(dx, dy)`` smear vector to
-emulate motion blur, and :class:`~psiops.SummedModel` adds several models with
-per-model scale factors (for example a narrow core plus a broad halo):
-
-.. code-block:: python
-
-   trailed = psiops.SmearedModel(psiops.Gaussian(sigma=1.5), smear=(6.0, 0.0))
-   trail = trailed.transform((41, 41), center=(20.5, 20.5))
-
-   combo = psiops.SummedModel(
-       [psiops.Gaussian(sigma=1.0), psiops.Gaussian(sigma=4.0)],
-       factors=[1.0, 0.3],
-   )
-   psf = combo.transform((41, 41), center=(20.5, 20.5))
-
-
 Stretching to match an image
 ------------------------------------------
 
@@ -515,12 +529,65 @@ and their uncertainties are available as ``coeffs``, ``covar``, and the ``m_sigm
 Fitting a model to an image
 ------------------------------------------
 
-A :class:`~psiops.Fitting` pairs an :class:`~psiops.ImageModel` with a
-:class:`~psiops.Stretch` and solves for the geometric transformation — pixel offset
+A :class:`~psiops.Fitting` pairs an :class:`~psiops.ImageModel` (described below) with
+a :class:`~psiops.Stretch` and solves for the geometric transformation — pixel offset
 ``(x, y)``, ``zoom``, and ``rotate`` — that, together with the stretch, best matches a
 target image. It is the tool for measuring the position (and optionally the scale and
 orientation) of a source whose shape you can model, such as centroiding a star against
 a PSF.
+
+Image models
+~~~~~~~~~~~~~
+
+An :class:`~psiops.ImageModel` is the source shape that a :class:`~psiops.Fitting`
+positions against the target. It describes a continuous, photometrically normalized
+source that can be rendered onto any pixel grid. Every model exposes one method,
+``transform(shape, center, expand=1.0, rotate=0.0)``, which returns a 2-D array of the
+requested ``shape`` with the model centered at ``center`` (in the pixel-corner/center
+convention above), optionally magnified by ``expand`` and rotated by ``rotate``
+radians. The model's integral is preserved.
+
+:class:`~psiops.Gaussian` is a symmetric 2-D Gaussian of a given ``sigma`` and total
+``integral``:
+
+.. code-block:: python
+
+   psf = psiops.Gaussian(sigma=2.0).transform((31, 31), center=(15.5, 15.5))
+   # psf.sum() == 1.0  (unit integral by default)
+
+:class:`~psiops.ArrayModel` wraps an arbitrary 2-D array, resampling it (flux-
+conserving) onto the output grid. Use ``origin`` to choose which point of the source
+array is placed at ``center``, and ``outside`` to set the fill value beyond the
+array's footprint:
+
+.. code-block:: python
+
+   template = np.zeros((11, 11))
+   template[5, 5] = 1.0
+   model = psiops.ArrayModel(template, origin=(5.5, 5.5))
+   rendered = model.transform((64, 64), center=(40.0, 25.0), expand=1.5, rotate=0.3)
+
+:class:`~psiops.SmearedModel` averages a model along a ``(dx, dy)`` smear vector to
+emulate motion blur — the smear direction and length follow the ``rotate`` and
+``expand`` passed to each ``transform`` — and :class:`~psiops.SummedModel` adds several
+models with per-model scale factors (for example a narrow core plus a broad halo):
+
+.. code-block:: python
+
+   trailed = psiops.SmearedModel(psiops.Gaussian(sigma=1.5), smear=(6.0, 0.0))
+   trail = trailed.transform((41, 41), center=(20.5, 20.5))
+
+   combo = psiops.SummedModel(
+       [psiops.Gaussian(sigma=1.0), psiops.Gaussian(sigma=4.0)],
+       factors=[1.0, 0.3],
+   )
+   psf = combo.transform((41, 41), center=(20.5, 20.5))
+
+Running a fit
+~~~~~~~~~~~~~
+
+Pair the model with a stretch, set the target, and fit. ``set_target`` prepares the
+stretch from the target for you, so a fit is just three calls:
 
 .. code-block:: python
 
@@ -530,8 +597,6 @@ a PSF.
 
    model = psiops.Gaussian(sigma=2.0)
    stretch = psiops.Stretch([0, 0])               # background + amplitude
-   # Seed the stretch with a same-shape render so it knows the target geometry.
-   stretch.set_image(model.transform((64, 64), center=(31.0, 29.0)))
 
    fitting = psiops.Fitting(model, stretch)
    fitting.set_target(target)
@@ -546,8 +611,10 @@ a PSF.
 
 The ``flags`` argument to ``fit`` selects which of the four parameters are free (the
 default fits only ``x`` and ``y``), and ``limits`` bounds how far each may move from
-its initial guess. Use ``set_target(..., corner=..., shape=...)`` to fit only a
-sub-region of a larger image.
+its initial guess. Each entry of the initial guess may instead be a sequence of values;
+``fit`` then tries every combination and keeps the lowest-residual result, which helps
+when a single starting guess might settle in a local minimum. Use
+``set_target(..., corner=..., shape=...)`` to fit only a sub-region of a larger image.
 
 
 Where to go next

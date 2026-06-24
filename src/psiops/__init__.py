@@ -5,10 +5,12 @@
 psiops: Photometrically accurate Science Image Operations on 2-D images.
 
 * Spatial transforms: zoom, unzoom, shift, ishift, resample, reshape, rotate.
-* Spatial filters: gaussian, mean, median, minimum, maximum, variance, standard deviation.
+* Spatial filters: gaussian, mean, median, minimum, maximum, variance, standard deviation,
+  plus a ``circle`` helper for building circular filter footprints.
 * Stack operations: mean, median, minimum, maximum, variance, standard deviation.
-* Other operations: FFT, inverse FFT, correlation, autocorrelation, image alignment and,
-  least-squares fitting, PSF modeling and fitting.
+* Other operations: FFT, inverse FFT, correlation, autocorrelation, image alignment,
+  least-squares fitting, PSF modeling and fitting, outlier detection, and patching of
+  masked pixels.
 
 General properties:
 
@@ -65,6 +67,7 @@ __all__ = [
     'unzoom',
     'zoom',
     # Stack operations and spatial filters
+    'circle',
     'gaussian_filter',
     'maximum',
     'maximum_filter',
@@ -93,10 +96,13 @@ __all__ = [
     'fft_power',
     'ialign',
     'ifft',
+    'outliers',
+    'patch',
 ]
 
 # Spatial transforms
 # Stack operations and spatial filters
+from psiops.circle   import circle
 from psiops.gaussian_filter import gaussian_filter
 from psiops.ishift   import ishift
 from psiops.maximum  import maximum, maximum_filter
@@ -123,6 +129,8 @@ from psiops.stretch                 import Stretch
 
 # Other operations
 from psiops.fft import fft, ifft, fft_power, correlate, autocorrelate, ialign
+from psiops.outliers import outliers
+from psiops.patch import patch
 
 ##########################################################################################
 # Divide-by-zero warning suppression

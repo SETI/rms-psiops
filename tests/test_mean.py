@@ -2,6 +2,8 @@
 # tests/test_mean.py
 ##########################################################################################
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -20,7 +22,8 @@ def test_mean_basic() -> None:
     assert np.all(a == 0.)
 
 
-def test_mean_mask_2d() -> None:
+def test_mean_mask_2d(shortcuts: bool) -> None:
+    # Masked reduction hits the `_use_shortcuts()`-gated path; check both settings.
     rng = np.random.default_rng(5965)
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -34,7 +37,7 @@ def test_mean_mask_2d() -> None:
     assert np.all(a[~mask] == b[~mask])
 
 
-def test_mean_mask_3d_one_layer() -> None:
+def test_mean_mask_3d_one_layer(shortcuts: bool) -> None:
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
     image = image0 * np.array([-3,1,2])[:,np.newaxis,np.newaxis]
@@ -46,7 +49,7 @@ def test_mean_mask_3d_one_layer() -> None:
     assert not np.any(bmask)
 
 
-def test_mean_mask_3d_partial() -> None:
+def test_mean_mask_3d_partial(shortcuts: bool) -> None:
     rng = np.random.default_rng(5965)
     array = np.arange(10)
     image0 = array + array[:,np.newaxis]
@@ -77,7 +80,7 @@ def test_mean_axis_variants() -> None:
     assert np.abs(a - np.mean(image, axis=(0,1,2))).max() < 1.e-15
 
 
-def test_mean_mask_newmask_all_masked() -> None:
+def test_mean_mask_newmask_all_masked(shortcuts: bool) -> None:
     rng = np.random.default_rng(5965)
     image = rng.random((5,4,3,10,10))
     mask = rng.random((5,4,3,10,10)) < 0.9        # mostly masked
@@ -87,7 +90,8 @@ def test_mean_mask_newmask_all_masked() -> None:
     assert np.all(amask == np.all(mask, axis=2))
 
 
-def test_mean_mask_values_match_numpy() -> None:
+def test_mean_mask_values_match_numpy(shortcuts: bool) -> None:
+    # Value-match vs numpy on a masked reduction; run on both gated paths.
     rng = np.random.default_rng(5965)
     image = rng.random((5,4,100,200))
     mask = rng.random((5,4,100,200)) < 0.6        # mostly masked
@@ -120,54 +124,42 @@ def test_mean_factors_duplication_equivalence() -> None:
     assert np.abs(a - b).max() < 1.e-15
 
 
-def test_mean_factors_2d_multi_axis() -> None:
+@pytest.mark.parametrize(('shape', 'dups', 'factors_shape', 'multi_axis',
+                          'trim', 'single_axis'),
+    [
+        # 2d_multi_axis
+        ((5,2,6,10,10),
+         [(np.s_[:,0,4], np.s_[:,0,3]), (np.s_[:,0,5], np.s_[:,0,3]),
+          (np.s_[:,1,4], np.s_[:,1,0]), (np.s_[:,1,5], np.s_[:,1,1])],
+         (2,4), (1,2), np.s_[:,:,:4], 2),
+        # 3d_axis_0_2
+        ((2,5,6,10,10),
+         [(np.s_[0,:,4], np.s_[0,:,3]), (np.s_[0,:,5], np.s_[0,:,3]),
+          (np.s_[1,:,4], np.s_[1,:,0]), (np.s_[1,:,5], np.s_[1,:,1])],
+         (2,1,4), (0,2), np.s_[:,:,:4], 2),
+        # 3d_axis_0_1
+        ((2,6,5,10,10),
+         [(np.s_[0,4], np.s_[0,3]), (np.s_[0,5], np.s_[0,3]),
+          (np.s_[1,4], np.s_[1,0]), (np.s_[1,5], np.s_[1,1])],
+         (2,4,1), (0,1), np.s_[:,:4], 1),
+    ])
+def test_mean_factors_axis_combinations(shape: tuple[int, ...],
+                                        dups: list[tuple[Any, Any]],
+                                        factors_shape: tuple[int, ...],
+                                        multi_axis: tuple[int, ...],
+                                        trim: Any, single_axis: int) -> None:
     rng = np.random.default_rng(5965)
-    image = rng.random((5,2,6,10,10))
-    image[:,0,4] = image[:,0,3]
-    image[:,0,5] = image[:,0,3]
-    image[:,1,4] = image[:,1,0]
-    image[:,1,5] = image[:,1,1]
-    factors = np.array([[1,1,1,3],[2,2,1,1]])
-    a = mean(image[:,:,:4], axis=(1,2), factors=factors)
-    b = mean(image, axis=(1,2))
+    image = rng.random(shape)
+    for dst, src in dups:
+        image[dst] = image[src]
+    factors = np.array([[1,1,1,3],[2,2,1,1]]).reshape(factors_shape)
+
+    a = mean(image[trim], axis=multi_axis, factors=factors)
+    b = mean(image, axis=multi_axis)
     assert np.abs(a - b).max() < 1.e-15
 
-    a = mean(image[:,:,:4], axis=2, factors=factors)
-    b = mean(image, axis=2)
-    assert np.abs(a - b).max() < 1.e-15
-
-
-def test_mean_factors_3d_axis_0_2() -> None:
-    rng = np.random.default_rng(5965)
-    image = rng.random((2,5,6,10,10))
-    image[0,:,4] = image[0,:,3]
-    image[0,:,5] = image[0,:,3]
-    image[1,:,4] = image[1,:,0]
-    image[1,:,5] = image[1,:,1]
-    factors = np.array([[1,1,1,3],[2,2,1,1]]).reshape(2,1,4)
-    a = mean(image[:,:,:4], axis=(0,2), factors=factors)
-    b = mean(image, axis=(0,2))
-    assert np.abs(a - b).max() < 1.e-15
-
-    a = mean(image[:,:,:4], axis=2, factors=factors.reshape(2,1,4))
-    b = mean(image, axis=2)
-    assert np.abs(a - b).max() < 1.e-15
-
-
-def test_mean_factors_3d_axis_0_1() -> None:
-    rng = np.random.default_rng(5965)
-    image = rng.random((2,6,5,10,10))
-    image[0,4] = image[0,3]
-    image[0,5] = image[0,3]
-    image[1,4] = image[1,0]
-    image[1,5] = image[1,1]
-    factors = np.array([[1,1,1,3],[2,2,1,1]]).reshape(2,4,1)
-    a = mean(image[:,:4], axis=(0,1), factors=factors)
-    b = mean(image, axis=(0,1))
-    assert np.abs(a - b).max() < 1.e-15
-
-    a = mean(image[:,:4], axis=1, factors=factors)
-    b = mean(image, axis=1)
+    a = mean(image[trim], axis=single_axis, factors=factors)
+    b = mean(image, axis=single_axis)
     assert np.abs(a - b).max() < 1.e-15
 
 
@@ -237,7 +229,7 @@ def test_mean_mask_no_shortcuts(shortcuts: bool) -> None:
     assert np.all(amask == (count == 0))
 
 
-def test_mean_maskval() -> None:
+def test_mean_maskval(shortcuts: bool) -> None:
     rng = np.random.default_rng(5965)
     image = rng.random((4,8,8))
     image[0, 0, 0] = 7.
@@ -246,7 +238,9 @@ def test_mean_maskval() -> None:
     assert abs(a[0, 0] - b[0, 0]) < 1.e-14
 
 
-def test_mean_nans() -> None:
+def test_mean_nans(shortcuts: bool) -> None:
+    # Regression: both the shortcut and general paths must drop NaN-masked pixels
+    # (`nans=True`) rather than letting `0 * NaN` propagate into the weighted sum.
     rng = np.random.default_rng(5965)
     image = rng.random((4,8,8))
     image[1, 2, 2] = np.nan
@@ -256,7 +250,7 @@ def test_mean_nans() -> None:
     assert abs(a[2, 2] - b[0, 0]) < 1.e-14
 
 
-def test_mean_maskedarray_input() -> None:
+def test_mean_maskedarray_input(shortcuts: bool) -> None:
     rng = np.random.default_rng(5965)
     image = rng.random((4,8,8))
     m = rng.random((4,8,8)) < 0.3
@@ -288,7 +282,7 @@ def test_mean_axis_combinations_match_numpy() -> None:
     assert np.all(mean(image, axis=(0,-1)) == np.mean(image, axis=(0,2)))
 
 
-def test_mean_keepdims() -> None:
+def test_mean_keepdims(shortcuts: bool) -> None:
     # keepdims restores reduced axes as length-1 dimensions (exercised via the masked
     # path, which returns both the image and mask).
     rng = np.random.default_rng(5965)
@@ -312,11 +306,31 @@ def test_mean_too_few_dimensions() -> None:
     assert str(exc_info.value) == 'invalid image shape (4, 3); must be at least 3-D'
 
 
+def test_mean_non_numeric_dtype() -> None:
+    image = np.array(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']).reshape(2,2,2)
+    with pytest.raises((TypeError, ValueError)) as exc_info:
+        _ = mean(image)
+    assert 'convert string to float' in str(exc_info.value)
+
+
+def test_mean_returns_variants() -> None:
+    rng = np.random.default_rng(5965)
+    image = rng.random((3,10,10))
+    mask = rng.random((10,10)) < 0.3
+
+    assert isinstance(mean(image), np.ndarray)
+    assert len(mean(image, mask=mask)) == 2
+    assert isinstance(mean(image, mask=mask, returns='i'), np.ndarray)
+    assert len(mean(image, mask=mask, returns='im')) == 2
+    assert len(mean(image, mask=mask, returns='iw')) == 2
+    assert len(mean(image, mask=mask, returns='imw')) == 3
+
+
 ##########################################################################################
 # mean_filter
 ##########################################################################################
 
-def test_mean_filter_no_mask() -> None:
+def test_mean_filter_no_mask(shortcuts: bool) -> None:
     image = np.arange(10) + np.arange(10)[:,None] + np.arange(4)[:,None,None]
     a = mean_filter(image, (2,2))
     b = np.empty((4,10,10))
@@ -337,7 +351,7 @@ def test_mean_filter_int_footprint() -> None:
     assert np.abs(a - b).max() < 1.e-15
 
 
-def test_mean_filter_mask_irregular_footprint() -> None:
+def test_mean_filter_mask_irregular_footprint(shortcuts: bool) -> None:
     rng = np.random.default_rng(8063)
     image = rng.random((100,100))
     mask = rng.random((100,100)) < 0.6

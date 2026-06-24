@@ -5,11 +5,18 @@
 import numbers
 
 import numpy as np
+import pytest
 
-from psiops._filter import _use_shortcuts
 from psiops.shift import shift
 
-PRINT_ANSWERS = False   # change to True to print out this value of `ANSWERS`
+# Golden-data regeneration: the `ANSWERS` table below is the expected output of
+# `test_shift_reference_answers`, which asserts against it when `PRINT_ANSWERS` is False.
+# To regenerate after an intended behavior change, set `PRINT_ANSWERS = True` and run
+#     python -m pytest tests/test_shift.py::test_shift_reference_answers -s
+# then copy the printed `ANSWERS = {...}` block over the literal below and restore
+# `PRINT_ANSWERS = False`. Review the diff: only the values you intended to change should
+# move.
+PRINT_ANSWERS = False
 
 ANSWERS = {
     (0,0,0,0): ([5.75, 2.5, 2.5, 6.75, 4.25, 3.75, 8.75, 8, 7.75], [0, 0, 0, 0, 0, 0, 0, 0, 0]),
@@ -141,212 +148,195 @@ def _diag_setup() -> tuple[np.ndarray, np.ndarray]:
     return image, mask
 
 
-def test_shift_small_shifts_all_modes() -> None:
+@pytest.mark.parametrize('mode', ['constant', 'nearest', 'wrap', 'reflect', 'mirror'])
+def test_shift_small_shifts_all_modes(mode: str, shortcuts: bool) -> None:
 
-    original_status = _use_shortcuts()
-    try:
-        for status in (False, True):
-            _use_shortcuts(status)
+    image, mask = _diag_setup()
 
-            image, mask = _diag_setup()
+    # small shifts, masked and unmasked; behavior is mode-independent away from the edge
+    shifted = shift(image, 0, mode=mode)
+    assert np.all(shifted == image)
 
-            # small shifts, all modes, masked and unmasked
-            for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
+    shifted = shift(image, (0,0.5), mode=mode)
+    assert np.all(shifted[...,1:] == image[...,1:] - 0.5)
 
-                shifted = shift(image, 0, mode=mode)
-                assert np.all(shifted == image)
+    shifted = shift(image, (0,-0.25), mode=mode)
+    assert np.all(shifted[...,:-1] == image[...,:-1] + 0.25)
 
-                shifted = shift(image, (0,0.5), mode=mode)
-                assert np.all(shifted[...,1:] == image[...,1:] - 0.5)
+    shifted = shift(image, -0.75, mode=mode)
+    assert np.all(shifted[...,:-1,:-1] == image[...,:-1,:-1] + 1.5)
 
-                shifted = shift(image, (0,-0.25), mode=mode)
-                assert np.all(shifted[...,:-1] == image[...,:-1] + 0.25)
-
-                shifted = shift(image, -0.75, mode=mode)
-                assert np.all(shifted[...,:-1,:-1] == image[...,:-1,:-1] + 1.5)
-
-                # with diagonal mask
-                shifted, smask = shift(image, 0, mask, mode=mode, cval=0)
-                assert np.all(shifted[~mask] == image[~mask])
-                assert np.all(smask == mask)
-    finally:
-        _use_shortcuts(original_status)
+    # with diagonal mask
+    shifted, smask = shift(image, 0, mask, mode=mode, cval=0)
+    assert np.all(shifted[~mask] == image[~mask])
+    assert np.all(smask == mask)
 
 
-def test_shift_constant_cval_none() -> None:
+def test_shift_constant_cval_none(shortcuts: bool) -> None:
 
-    for status in (False, True):
-        _use_shortcuts(status)
+    image, mask = _diag_setup()
 
-        image, mask = _diag_setup()
+    mode = 'constant'
+    shifted, smask = shift(image, (0,0.5), mode=mode, cval=None)
+    assert np.all(shifted[...,1:] == image[...,1:] - 0.5)
+    assert not np.any(smask)
 
-        mode = 'constant'
-        shifted, smask = shift(image, (0,0.5), mode=mode, cval=None)
-        assert np.all(shifted[...,1:] == image[...,1:] - 0.5)
-        assert not np.any(smask)
+    shifted, smask = shift(image, (0.5,0), mode=mode, cval=None)
+    assert np.all(shifted[...,1:,:] == image[...,1:,:] - 0.5)
+    assert not np.any(smask)
 
-        shifted, smask = shift(image, (0.5,0), mode=mode, cval=None)
-        assert np.all(shifted[...,1:,:] == image[...,1:,:] - 0.5)
-        assert not np.any(smask)
+    # with diagonal mask
+    shifted, smask = shift(image, 0, mask, mode=mode, cval=None)
+    assert np.all(shifted[~mask] == image[~mask])
+    assert np.all(smask == mask)
 
-        # with diagonal mask
-        shifted, smask = shift(image, 0, mask, mode=mode, cval=None)
-        assert np.all(shifted[~mask] == image[~mask])
-        assert np.all(smask == mask)
+    shifted, smask = shift(image, (0,0.5), mask, mode=mode, cval=None)
+    assert np.all(shifted[mask]
+                  == image[...,:,:-1][mask[...,:,1:]])
+    assert np.all(shifted[...,:,1:][mask[...,:,1:]]
+                  == image[...,:,:-1][mask[...,:,1:]])
+    assert not np.any(smask)
 
-        shifted, smask = shift(image, (0,0.5), mask, mode=mode, cval=None)
-        assert np.all(shifted[mask]
-                      == image[...,:,:-1][mask[...,:,1:]])
-        assert np.all(shifted[...,:,1:][mask[...,:,1:]]
-                      == image[...,:,:-1][mask[...,:,1:]])
-        assert not np.any(smask)
+    shifted, smask = shift(image, (0,0.96875), mask, mode=mode, cval=None)
+    assert np.all(shifted[mask]
+                  == image[...,:,:-1][mask[...,:,1:]])
+    assert np.all(shifted[...,:,1:][mask[...,:,1:]]
+                  == image[...,:,:-1][mask[...,:,1:]])
+    assert not np.any(smask)
 
-        shifted, smask = shift(image, (0,0.96875), mask, mode=mode, cval=None)
-        assert np.all(shifted[mask]
-                      == image[...,:,:-1][mask[...,:,1:]])
-        assert np.all(shifted[...,:,1:][mask[...,:,1:]]
-                      == image[...,:,:-1][mask[...,:,1:]])
-        assert not np.any(smask)
+    shifted, smask = shift(image, (0,-0.5), mask, mode=mode, cval=None)
+    assert np.all(shifted[mask]
+                  == image[...,1:][mask[...,:-1]])
+    assert np.all(shifted[...,:-1][mask[...,:-1]]
+                  == image[...,1:][mask[...,:-1]])
+    assert not np.any(smask)
 
-        shifted, smask = shift(image, (0,-0.5), mask, mode=mode, cval=None)
-        assert np.all(shifted[mask]
-                      == image[...,1:][mask[...,:-1]])
-        assert np.all(shifted[...,:-1][mask[...,:-1]]
-                      == image[...,1:][mask[...,:-1]])
-        assert not np.any(smask)
+    shifted, smask = shift(image, (0,-0.96875), mask, mode=mode, cval=None)
+    assert np.all(shifted[mask]
+                  == image[...,1:][mask[...,:-1]])
+    assert np.all(shifted[...,:-1][mask[...,:-1]]
+                  == image[...,1:][mask[...,:-1]])
+    assert not np.any(smask)
 
-        shifted, smask = shift(image, (0,-0.96875), mask, mode=mode, cval=None)
-        assert np.all(shifted[mask]
-                      == image[...,1:][mask[...,:-1]])
-        assert np.all(shifted[...,:-1][mask[...,:-1]]
-                      == image[...,1:][mask[...,:-1]])
-        assert not np.any(smask)
+    shifted, smask = shift(image, (0.5,0), mask, mode=mode, cval=None)
+    assert np.all(shifted[mask]
+                  == image[:,:-1][mask[:,1:]])
+    assert np.all(shifted[:,1:][mask[:,1:]]
+                  == image[:,:-1][mask[:,1:]])
+    assert not np.any(smask)
 
-        shifted, smask = shift(image, (0.5,0), mask, mode=mode, cval=None)
-        assert np.all(shifted[mask]
-                      == image[:,:-1][mask[:,1:]])
-        assert np.all(shifted[:,1:][mask[:,1:]]
-                      == image[:,:-1][mask[:,1:]])
-        assert not np.any(smask)
+    shifted, smask = shift(image, (0.96875,0), mask, mode=mode, cval=None)
+    assert np.all(shifted[mask]
+                  == image[:,:-1][mask[:,1:]])
+    assert np.all(shifted[:,1:][mask[:,1:]]
+                  == image[:,:-1][mask[:,1:]])
+    assert not np.any(smask)
 
-        shifted, smask = shift(image, (0.96875,0), mask, mode=mode, cval=None)
-        assert np.all(shifted[mask]
-                      == image[:,:-1][mask[:,1:]])
-        assert np.all(shifted[:,1:][mask[:,1:]]
-                      == image[:,:-1][mask[:,1:]])
-        assert not np.any(smask)
+    shifted, smask = shift(image, (-0.5,0), mask, mode=mode, cval=None)
+    assert np.all(shifted[mask]
+                  == image[:,1:][mask[:,:-1]])
+    assert np.all(shifted[:,:-1][mask[:,:-1]]
+                  == image[:,1:][mask[:,:-1]])
+    assert not np.any(smask)
 
-        shifted, smask = shift(image, (-0.5,0), mask, mode=mode, cval=None)
-        assert np.all(shifted[mask]
-                      == image[:,1:][mask[:,:-1]])
-        assert np.all(shifted[:,:-1][mask[:,:-1]]
-                      == image[:,1:][mask[:,:-1]])
-        assert not np.any(smask)
+    shifted, smask = shift(image, (-0.96875,0), mask, mode=mode, cval=None)
+    assert np.all(shifted[mask]
+                  == image[:,1:][mask[:,:-1]])
+    assert np.all(shifted[:,:-1][mask[:,:-1]]
+                  == image[:,1:][mask[:,:-1]])
+    assert not np.any(smask)
 
-        shifted, smask = shift(image, (-0.96875,0), mask, mode=mode, cval=None)
-        assert np.all(shifted[mask]
-                      == image[:,1:][mask[:,:-1]])
-        assert np.all(shifted[:,:-1][mask[:,:-1]]
-                      == image[:,1:][mask[:,:-1]])
-        assert not np.any(smask)
-
-def test_shift_modest_shifts() -> None:
+def test_shift_modest_shifts(shortcuts: bool) -> None:
 
     rng = np.random.default_rng(4280)
 
-    for status in (False, True):
-        _use_shortcuts(status)
+    image, _ = _diag_setup()
 
-        image, _ = _diag_setup()
+    # modest shifts, all modes, masked and unmasked
+    for mask in (rng.random(image.shape) < 0.1,
+                 rng.random(image.shape) < 0.8):
+        for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
 
-        # modest shifts, all modes, masked and unmasked
-        for mask in (rng.random(image.shape) < 0.1,
-                     rng.random(image.shape) < 0.8):
-            for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
+            shifted1 = shift(image, (0,0.5), mode=mode)
+            shifted2 = shift(image, (0,2.5), mode=mode)
+            assert np.all(shifted1[...,:-2] == shifted2[...,2:])
 
-                shifted1 = shift(image, (0,0.5), mode=mode)
-                shifted2 = shift(image, (0,2.5), mode=mode)
-                assert np.all(shifted1[...,:-2] == shifted2[...,2:])
+            shifted1 = shift(image, (0,-1.5), mode=mode)
+            shifted2 = shift(image, (0, 0.5), mode=mode)
+            assert np.all(shifted1[...,:-2] == shifted2[...,2:])
 
-                shifted1 = shift(image, (0,-1.5), mode=mode)
-                shifted2 = shift(image, (0, 0.5), mode=mode)
-                assert np.all(shifted1[...,:-2] == shifted2[...,2:])
+            shifted1 = shift(image, (-1.25,0), mode=mode)
+            shifted2 = shift(image, ( 0.75,0), mode=mode)
+            assert np.all(shifted1[...,:-2,:] == shifted2[...,2:,:])
 
-                shifted1 = shift(image, (-1.25,0), mode=mode)
-                shifted2 = shift(image, ( 0.75,0), mode=mode)
-                assert np.all(shifted1[...,:-2,:] == shifted2[...,2:,:])
+            shifted = shift(image, (0,1.5), mode=mode)
+            assert np.all(shifted[...,2:] == image[...,2:] - 1.5)
 
-                shifted = shift(image, (0,1.5), mode=mode)
-                assert np.all(shifted[...,2:] == image[...,2:] - 1.5)
+        for mode in ('constant',):
+            shifted1, smask1 = shift(image, (0,0.5), mask, mode=mode, cval=None)
+            shifted2, smask2 = shift(image, (0,2.5), mask, mode=mode, cval=None)
+            valid = ~(smask1[...,:-2] | smask2[...,2:])
+            assert np.all(shifted1[...,:-2][valid] == shifted2[...,2:][valid])
+            assert np.all(smask1[...,:-2] == smask2[...,2:])
+            assert np.all(smask2[...,:2])
 
-            for mode in ('constant',):
-                shifted1, smask1 = shift(image, (0,0.5), mask, mode=mode, cval=None)
-                shifted2, smask2 = shift(image, (0,2.5), mask, mode=mode, cval=None)
-                valid = ~(smask1[...,:-2] | smask2[...,2:])
-                assert np.all(shifted1[...,:-2][valid] == shifted2[...,2:][valid])
-                assert np.all(smask1[...,:-2] == smask2[...,2:])
-                assert np.all(smask2[...,:2])
+            shifted1, smask1 = shift(image, (0,-1.5), mask, mode=mode, cval=None)
+            shifted2, smask2 = shift(image, (0, 0.5), mask, mode=mode, cval=None)
+            valid = ~(smask1[...,:-2] | smask2[...,2:])
+            assert np.all(shifted1[...,:-2][valid] == shifted2[...,2:][valid])
+            assert np.all(smask1[...,:-2] == smask2[...,2:])
+            assert np.all(smask1[...,-1])
 
-                shifted1, smask1 = shift(image, (0,-1.5), mask, mode=mode, cval=None)
-                shifted2, smask2 = shift(image, (0, 0.5), mask, mode=mode, cval=None)
-                valid = ~(smask1[...,:-2] | smask2[...,2:])
-                assert np.all(shifted1[...,:-2][valid] == shifted2[...,2:][valid])
-                assert np.all(smask1[...,:-2] == smask2[...,2:])
-                assert np.all(smask1[...,-1])
+            shifted1, smask1 = shift(image, (-1.25,0), mask, mode=mode, cval=None)
+            shifted2, smask2 = shift(image, ( 0.75,0), mask, mode=mode, cval=None)
+            valid = ~(smask1[...,:-2,:] | smask2[...,2:,:])
+            assert np.all(shifted1[...,:-2,:][valid] == shifted2[...,2:,:][valid])
+            assert np.all(smask1[...,:-2,:] == smask2[...,2:,:])
+            assert np.all(smask1[...,-1,:])
 
-                shifted1, smask1 = shift(image, (-1.25,0), mask, mode=mode, cval=None)
-                shifted2, smask2 = shift(image, ( 0.75,0), mask, mode=mode, cval=None)
-                valid = ~(smask1[...,:-2,:] | smask2[...,2:,:])
-                assert np.all(shifted1[...,:-2,:][valid] == shifted2[...,2:,:][valid])
-                assert np.all(smask1[...,:-2,:] == smask2[...,2:,:])
-                assert np.all(smask1[...,-1,:])
+            shifted, smask = shift(image, (0,1.5), mode=mode, cval=None)
+            assert np.all(shifted[...,2:] == image[...,2:] - 1.5)
+            assert not np.any(smask[...,1:])
+            assert np.all(smask[...,:1])
 
-                shifted, smask = shift(image, (0,1.5), mode=mode, cval=None)
-                assert np.all(shifted[...,2:] == image[...,2:] - 1.5)
-                assert not np.any(smask[...,1:])
-                assert np.all(smask[...,:1])
+def test_shift_reference_answers(shortcuts: bool) -> None:
 
-def test_shift_reference_answers() -> None:
+    # quasi-random inputs to check against prior results
+    if PRINT_ANSWERS:
+        print('\nANSWERS = {')
 
-    for status in (False, True):
-        _use_shortcuts(status)
+    image = np.array([4, 3, 5, 1, 2, 0, 8, 6, 7]).reshape(3,3)
+    mask0 = False
+    mask1 = True
+    mask2 = np.array([0, 0, 0, 1, 0, 0, 0, 1, 0]).reshape(3,3).astype('bool')
+    mask3 = np.array([1, 0, 1, 1, 1, 1, 0, 1, 1]).reshape(3,3).astype('bool')
+    mask4 = 3
 
-        # quasi-random inputs to check against prior results
-        if PRINT_ANSWERS:
-            print('\nANSWERS = {')
+    for m,mask in enumerate([mask0, mask1, mask2, mask3, mask4]):
+      if not isinstance(mask, bool) and isinstance(mask, numbers.Real):
+        maskval_ = mask
+        mask = None
+      else:
+        maskval_ = None
+      for o,offset in enumerate([(-0.5,0.5), (2.5,0), (1.,-1.5)]):
+        for k,mode in enumerate(['constant', 'nearest', 'wrap', 'mirror', 'reflect']):
+          for c,cval in enumerate([9, None]):
+            if mode != 'constant' and c > 0:
+                continue
+            shifted, smask = shift(image, offset=offset, mask=mask, maskval=maskval_,
+                                   mode=mode, cval=cval, returns='im')
+            if PRINT_ANSWERS:
+                vals = '[' + ', '.join([brief_fmt(x) for x in shifted.flatten()]) + ']'
+                mask_ = str(smask.flatten().astype('int').tolist())
+                print(f'    ({m},{o},{k},{c}): ({vals}, {mask_}),')
+            else:
+                answer = ANSWERS[m,o,k,c]
+                assert np.array_equal(shifted, np.array(answer[0], dtype=float).reshape(3,3),
+                                      equal_nan=True)
+                assert np.all(smask == np.array(answer[1]).reshape(3,3))
 
-        image = np.array([4, 3, 5, 1, 2, 0, 8, 6, 7]).reshape(3,3)
-        mask0 = False
-        mask1 = True
-        mask2 = np.array([0, 0, 0, 1, 0, 0, 0, 1, 0]).reshape(3,3).astype('bool')
-        mask3 = np.array([1, 0, 1, 1, 1, 1, 0, 1, 1]).reshape(3,3).astype('bool')
-        mask4 = 3
-
-        for m,mask in enumerate([mask0, mask1, mask2, mask3, mask4]):
-          if not isinstance(mask, bool) and isinstance(mask, numbers.Real):
-            maskval_ = mask
-            mask = None
-          else:
-            maskval_ = None
-          for o,offset in enumerate([(-0.5,0.5), (2.5,0), (1.,-1.5)]):
-            for k,mode in enumerate(['constant', 'nearest', 'wrap', 'mirror', 'reflect']):
-              for c,cval in enumerate([9, None]):
-                if mode != 'constant' and c > 0:
-                    continue
-                shifted, smask = shift(image, offset=offset, mask=mask, maskval=maskval_,
-                                       mode=mode, cval=cval, returns='im')
-                if PRINT_ANSWERS:
-                    vals = '[' + ', '.join([brief_fmt(x) for x in shifted.flatten()]) + ']'
-                    mask_ = str(smask.flatten().astype('int').tolist())
-                    print(f'    ({m},{o},{k},{c}): ({vals}, {mask_}),')
-                else:
-                    answer = ANSWERS[m,o,k,c]
-                    assert np.array_equal(shifted, np.array(answer[0], dtype=float).reshape(3,3),
-                                          equal_nan=True)
-                    assert np.all(smask == np.array(answer[1]).reshape(3,3))
-
-        if PRINT_ANSWERS:
-            print('}')
+    if PRINT_ANSWERS:
+        print('}')
 
 
 def test_shift_dtype_preserved() -> None:
@@ -358,18 +348,15 @@ def test_shift_dtype_preserved() -> None:
     assert image.dtype == shifted.dtype
 
 
-def test_shift_with_weights() -> None:
+def test_shift_with_weights(shortcuts: bool) -> None:
 
-    for status in (False, True):
-        _use_shortcuts(status)
+    image, _ = _diag_setup()
+    weights = np.full(image.shape, 3.0)
 
-        image, _ = _diag_setup()
-        weights = np.full(image.shape, 3.0)
-
-        # Uniform weights: a half-pixel shift of a unit-slope ramp interpolates to
-        # value - 0.5 on the interior, and fully weighted pixels keep their weight.
-        shifted, new_weights = shift(image, (0,0.5), weights=weights)
-        assert np.allclose(shifted[...,1:], image[...,1:] - 0.5)
-        assert np.allclose(new_weights[...,1:], 3.0)
+    # Uniform weights: a half-pixel shift of a unit-slope ramp interpolates to
+    # value - 0.5 on the interior, and fully weighted pixels keep their weight.
+    shifted, new_weights = shift(image, (0,0.5), weights=weights)
+    assert np.allclose(shifted[...,1:], image[...,1:] - 0.5)
+    assert np.allclose(new_weights[...,1:], 3.0)
 
 ##########################################################################################

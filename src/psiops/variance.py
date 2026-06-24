@@ -184,6 +184,11 @@ def _variance(image, mask, weights, info, axis, *, factors=None, vartype='reliab
     weights = _flatten_axes(weights, axis, shape=image.shape)
     image = _flatten_axes(image, axis)
 
+    # Zero-weight elements (masked pixels, including NaNs folded into the mask by
+    # `nans=True`) must not contribute. Replace them with 0 so that `0 * NaN` cannot
+    # propagate NaN into the sums, matching the nanvar-based shortcut path.
+    image = np.where(weights == 0, 0., image)
+
     # Determined the weighted variance. Zero-weight elements produce expected NaNs from
     # 0/0 divisions, so suppress the associated warnings.
     with np.errstate(invalid='ignore', divide='ignore'):

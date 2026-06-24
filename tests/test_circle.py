@@ -4,6 +4,7 @@
 """Tests for psiops.circle."""
 
 import numpy as np
+import pytest
 
 from psiops.circle import circle
 
@@ -28,12 +29,12 @@ def test_circle_is_square() -> None:
     assert result.shape[0] == result.shape[1]
 
 
-def test_circle_shape_is_odd() -> None:
+@pytest.mark.parametrize('radius', [0.5, 1.0, 2.0, 3.7, 10.0])
+def test_circle_shape_is_odd(radius: float) -> None:
     # An odd shape avoids introducing an offset when used as a filter footprint.
-    for radius in [0.5, 1.0, 2.0, 3.7, 10.0]:
-        result = circle(radius)
-        assert result.shape[0] % 2 == 1
-        assert result.shape[1] % 2 == 1
+    result = circle(radius)
+    assert result.shape[0] % 2 == 1
+    assert result.shape[1] % 2 == 1
 
 
 def test_circle_shape_matches_radius() -> None:
@@ -65,9 +66,9 @@ def test_circle_is_symmetric() -> None:
     assert np.array_equal(result, result.T)
 
 
-def test_circle_matches_reference() -> None:
-    for radius in [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.7, 8.0]:
-        assert np.array_equal(circle(radius), _reference_circle(radius))
+@pytest.mark.parametrize('radius', [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.7, 8.0])
+def test_circle_matches_reference(radius: float) -> None:
+    assert np.array_equal(circle(radius), _reference_circle(radius))
 
 
 def test_circle_count_within_radius() -> None:

@@ -1,5 +1,5 @@
 ##########################################################################################
-# ops/camouflage.py
+# psiops/patch.py
 ##########################################################################################
 
 import numpy as np
@@ -12,8 +12,8 @@ from .gaussian_filter import gaussian_filter
 _EPS = 1.e-8
 
 
-def camouflage(image, mask=None, *, maskval=None, weights=None, nans=False, size=30,
-               returns='i'):
+def patch(image, mask=None, *, maskval=None, weights=None, nans=False, size=30,
+          returns='i'):
     """Replace the masked pixels of an image based on the the nearby, unmasked pixels.
 
     Replacement values are obtained by Gaussian-filtering the unmasked pixels of the
@@ -36,9 +36,9 @@ def camouflage(image, mask=None, *, maskval=None, weights=None, nans=False, size
         nans (bool, optional): True to check `image` for NaNs and interpret them as
             masked values.
         size (float, optional): The approximate upper limit on the size in pixels of the
-            masked areas to be camouflaged. Areas that are somewhat larger will still be
+            masked areas to be patched. Areas that are somewhat larger will still be
             filled, but with less accuracy. Areas that are much larger could remain
-            masked due to the underflow of the Gaussian. Note that camouflaging very
+            masked due to the underflow of the Gaussian. Note that patching very
             large areas (larger than 50-100 pixels) is time-consuming and does not always
             yield satisfactory results.
         returns (str, optional): Used to override the default quantity or quantities to

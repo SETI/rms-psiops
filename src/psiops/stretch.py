@@ -98,8 +98,8 @@ class Stretch:
         self._max_order = max(self.orders)
         self._max_image_expo = len(self.orders) - 1
 
-        self.ranks = tuple(Stretch._rank_from_order(o) for o in orders)
-        self.ncoeffs = sum(self.ranks)
+        self.ranks = tuple(Stretch._rank_from_order(o) for o in self.orders)
+        self.ncoeffs = int(sum(self.ranks))
 
         self.coeffs = None
         if coeffs is not None:
@@ -177,10 +177,12 @@ class Stretch:
         if shape != self.shape:
             half_i = 0.5 * (shape[0] - 1)
             half_j = 0.5 * (shape[1] - 1)
-            i = (np.arange(shape[0]) - half_i)[:, np.newaxis] / half_i
-            j = (np.arange(shape[1]) - half_j) / half_j
+            # A singleton axis has half == 0; its lone pixel sits at the center, so
+            # normalize with 1 to map it to coordinate 0 rather than dividing 0 by 0.
+            i = (np.arange(shape[0]) - half_i)[:, np.newaxis] / (half_i or 1.)
+            j = (np.arange(shape[1]) - half_j)[np.newaxis, :] / (half_j or 1.)
             self._ij_powers = [i, j]
-            for expo in range(2, self._max_order+1):
+            for expo in range(2, self._max_order + 1):
                 for _terms in range(expo):
                     self._ij_powers.append(i * self._ij_powers[-expo])
                 self._ij_powers.append(j * self._ij_powers[-expo-1])

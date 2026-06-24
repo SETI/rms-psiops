@@ -25,6 +25,8 @@ class SmearedModel(ImageModel):
         self._model = model
 
         smear = np.asarray(smear, dtype=np.float64)
+        if smear.shape != (2,):
+            raise ValueError(f'invalid smear {smear.tolist()}; two values required')
         distance = np.sqrt(smear[0]**2 + smear[1]**2)
         nsteps = max(int(np.ceil(distance/maxstep)), 1)
 
@@ -58,9 +60,16 @@ class SmearedModel(ImageModel):
         """
 
         center = np.array(center)
+        cos = np.cos(rotate)
+        sin = np.sin(rotate)
         images = np.zeros(shape)
         for offset in self._offsets:
-            images += self._model.transform(shape, center + offset, expand, rotate)
+            # Rotate (counterclockwise) and scale each smear offset so the smear direction
+            # and extent respond to `rotate` and `expand`, then place the sub-model there.
+            di, dj = offset
+            rotated = np.array([cos * di - sin * dj, sin * di + cos * dj])
+            placed = center + expand * rotated
+            images += self._model.transform(shape, placed, expand, rotate)
 
         return images / self._nsteps
 

@@ -133,6 +133,11 @@ def _mean(image, mask, weights, info, axis, factors=None):
 
     weights = np.broadcast_to(weights, image.shape)
 
+    # Zero-weight elements (masked pixels, including NaNs folded into the mask by
+    # `nans=True`) must not contribute. Replace them with 0 so that `0 * NaN` cannot
+    # propagate NaN into the sum, matching the shortcut path which zeros masked pixels.
+    image = np.where(weights == 0, 0., image)
+
     # Calculate the mean and weights (fully masked pixels yield expected 0/0 NaNs)
     new_weights = np.sum(weights, axis=axis)
     with np.errstate(invalid='ignore', divide='ignore'):

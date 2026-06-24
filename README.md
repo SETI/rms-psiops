@@ -31,7 +31,7 @@ appearance.
 ## Installation
 
 ```bash
-pip install -e ".[dev]"
+pip install rms-psiops
 ```
 
 ## Quick example

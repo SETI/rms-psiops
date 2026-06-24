@@ -103,6 +103,7 @@ def zoom(
 # Stack operations and spatial filters
 ##########################################################################################
 
+def circle(radius: float) -> np.ndarray: ...
 def gaussian_filter(
     image: np.ndarray,
     sigma: float | tuple[float, float],
@@ -425,7 +426,7 @@ class Fitting:
     def remask(self, mask: np.ndarray) -> None: ...
     def fit(
         self,
-        params: npt.ArrayLike,
+        guesses: Sequence[float | Sequence[float]],
         flags: Sequence[bool] = ...,
         limits: Sequence[float] = ...,
         lsq_dict: dict | None = ...,
@@ -438,6 +439,8 @@ class Fitting:
     def scaling(self) -> np.ndarray: ...
     @property
     def residuals(self) -> np.ndarray: ...
+    @property
+    def median_abs_deviation(self) -> float: ...
     @property
     def m_sigma(self) -> np.ndarray: ...
     @property
@@ -465,5 +468,27 @@ def ialign(
     reference: np.ndarray,
     sigma: float,
 ) -> tuple[int, int]: ...
+def outliers(
+    image: np.ndarray,
+    footprint: float = ...,
+    *,
+    cutoff: float = ...,
+    quantile: float = ...,
+    axis: int | tuple[int, ...] | None = ...,
+    mask: np.ndarray | None = ...,
+    maskval: float | None = ...,
+    weights: np.ndarray | None = ...,
+    nans: bool = ...,
+) -> np.ndarray: ...
+def patch(
+    image: np.ndarray,
+    mask: np.ndarray | None = ...,
+    *,
+    maskval: float | None = ...,
+    weights: np.ndarray | None = ...,
+    nans: bool = ...,
+    size: float = ...,
+    returns: str = ...,
+) -> np.ndarray | list[np.ndarray]: ...
 
 ##########################################################################################
