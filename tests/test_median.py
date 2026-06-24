@@ -128,16 +128,16 @@ def test_median_masked_values(shortcuts: bool) -> None:
     assert np.all((a == ordered[2])[k==5])
 
 
-def test_median_dtypes() -> None:
+@pytest.mark.parametrize('dtype', ['bool', 'uint8', 'int8', 'uint16', 'int16',
+                                   'uint32', 'int32', 'int64', 'float32', 'float64'])
+def test_median_dtypes(dtype: str) -> None:
 
-    for dtype in ('bool', 'uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32',
-                  'int64', 'float32', 'float64'):
-        image = np.arange(10) + np.arange(10)[:,None] + np.arange(10)[:,None,None]
-        test = median(image.astype(dtype))
-        if dtype == 'float32':
-            assert test.dtype == np.float32
-        else:
-            assert test.dtype == np.float64
+    image = np.arange(10) + np.arange(10)[:,None] + np.arange(10)[:,None,None]
+    test = median(image.astype(dtype))
+    if dtype == 'float32':
+        assert test.dtype == np.float32
+    else:
+        assert test.dtype == np.float64
 
 
 def test_median_list_input() -> None:
@@ -172,6 +172,16 @@ def test_median_error() -> None:
     with pytest.raises(ValueError) as exc_info:
         _ = median(image)
     assert str(exc_info.value) == 'invalid image shape (4, 3); must be at least 3-D'
+
+
+def test_median_non_numeric_error() -> None:
+
+    # median() promises a TypeError on non-numeric input; the object dtype cannot be
+    # coerced to a float array.
+    image = np.array([np.dtype('float')] * 8, dtype=object).reshape(2,2,2)
+    with pytest.raises(TypeError) as exc_info:
+        _ = median(image)
+    assert 'float()' in str(exc_info.value)
 
 
 def test_median_factors() -> None:
@@ -294,6 +304,18 @@ def test_median_maskval(shortcuts: bool) -> None:
     assert a[0,0] == 5.       # median of [2, 8]
     assert np.all(amask[1:,1:])
     assert np.all(a[1:,1:] == 5.)   # fully masked -> filled with maskval
+
+
+def test_median_nans(shortcuts: bool) -> None:
+    # Regression: both the shortcut and general paths must drop NaN-masked pixels
+    # (`nans=True`) rather than letting the NaN propagate into the reduction.
+    rng = np.random.default_rng(5965)
+    image = rng.random((4,8,8))
+    image[1, 2, 2] = np.nan
+    a = median(image, nans=True)
+    assert not np.isnan(a).any()
+    b = median(image[np.array([0, 2, 3])][:, 2:3, 2:3])
+    assert abs(a[2, 2] - b[0, 0]) < 1.e-14
 
 
 def test_median_maskedarray(shortcuts: bool) -> None:

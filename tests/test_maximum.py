@@ -126,24 +126,26 @@ def test_maximum_axes_mask() -> None:
     assert np.all(a[~amask] == b[~amask])
 
 
-def test_maximum_dtypes() -> None:
+@pytest.mark.parametrize('dtype', ['bool', 'uint8', 'int8', 'uint16', 'int16',
+                                   'uint32', 'int32', 'int64', 'float32', 'float64'])
+def test_maximum_dtypes(dtype: str) -> None:
 
     image0 = (np.arange(10) + np.arange(10)[:,np.newaxis]
                             + np.arange(10)[:,np.newaxis,np.newaxis])
-    for dtype in ('bool', 'uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32',
-                  'int64', 'float32', 'float64'):
-        image = image0.astype(dtype)
-        test = maximum(image)
-        assert np.all(test == np.max(image,axis=0))
-        assert test.dtype == image.dtype
+    image = image0.astype(dtype)
+    test = maximum(image)
+    assert np.all(test == np.max(image,axis=0))
+    assert test.dtype == image.dtype
 
-        if image.dtype.kind == 'i' and dtype != 'int64':
-            minval = np.ma.maximum_fill_value(image)
-            image[0,0,0] = minval
-            assert np.all(maximum(image) == np.max(image,axis=0))
+    if image.dtype.kind == 'i' and dtype != 'int64':
+        minval = np.ma.maximum_fill_value(image)
+        image[0,0,0] = minval
+        assert np.all(maximum(image) == np.max(image,axis=0))
 
 
-def test_maximum_dtypes_masked() -> None:
+@pytest.mark.parametrize('dtype', ['bool', 'uint8', 'int8', 'int64',
+                                   'float32', 'float64'])
+def test_maximum_dtypes_masked(dtype: str) -> None:
 
     # Masked path across the special-case dtypes (bool, small/large ints, floats)
     rng = np.random.default_rng(5)
@@ -151,17 +153,16 @@ def test_maximum_dtypes_masked() -> None:
                             + np.arange(10)[:,np.newaxis,np.newaxis])
     mask = rng.random((10,10,10)) < 0.3
     mask[:, 0, 0] = True            # one fully masked pixel column
-    for dtype in ('bool', 'uint8', 'int8', 'int64', 'float32', 'float64'):
-        image = image0.astype(dtype)
-        a, amask = maximum(image, mask=mask)
-        assert a.dtype == image.dtype
+    image = image0.astype(dtype)
+    a, amask = maximum(image, mask=mask)
+    assert a.dtype == image.dtype
 
-        # Brute-force masked maximum along axis 0
-        floats = image.astype(np.float64)
-        floats[mask] = -np.inf
-        b = np.max(floats, axis=0)
-        assert np.all(amask == np.all(mask, axis=0))
-        assert np.all(a.astype(np.float64)[~amask] == b[~amask])
+    # Brute-force masked maximum along axis 0
+    floats = image.astype(np.float64)
+    floats[mask] = -np.inf
+    b = np.max(floats, axis=0)
+    assert np.all(amask == np.all(mask, axis=0))
+    assert np.all(a.astype(np.float64)[~amask] == b[~amask])
 
 
 def test_maximum_masked_list_input() -> None:
@@ -180,28 +181,34 @@ def test_maximum_masked_list_input() -> None:
     assert not np.any(amask)
 
 
-def test_maximum_masked_fill_value_int() -> None:
+@pytest.mark.parametrize('dtype', ['int8', 'int16', 'int32'])
+def test_maximum_masked_fill_value_promote(dtype: str) -> None:
 
     # Masked path where an unmasked value equals the type's fill value (its minimum),
-    # exercising both the promote-to-int64 branch (small ints) and the int64 fallback.
+    # exercising the promote-to-int64 branch (small ints).
     mask = np.zeros((3,4,4), dtype='bool')
     mask[0] = True                          # mask the first layer everywhere
 
-    for dtype in ('int8', 'int16', 'int32'):
-        info = np.iinfo(dtype)
-        image = np.zeros((3,4,4), dtype=dtype)
-        image[1] = info.min                 # unmasked value at the type minimum
-        image[2] = 7
-        a, amask = maximum(image, mask=mask)
-        assert a.dtype == np.dtype(dtype)
-        assert np.all(a == 7)               # max over unmasked layers 1 and 2
-        assert not np.any(amask)
+    info = np.iinfo(dtype)
+    image = np.zeros((3,4,4), dtype=dtype)
+    image[1] = info.min                 # unmasked value at the type minimum
+    image[2] = 7
+    a, amask = maximum(image, mask=mask)
+    assert a.dtype == np.dtype(dtype)
+    assert np.all(a == 7)               # max over unmasked layers 1 and 2
+    assert not np.any(amask)
+
+
+def test_maximum_masked_fill_value_int64() -> None:
 
     # int64: cannot promote further, so the fallback `ignore = minval` branch runs
+    mask = np.zeros((3,4,4), dtype='bool')
+    mask[0] = True                          # mask the first layer everywhere
+
     image = np.zeros((3,4,4), dtype='int64')
     image[1] = np.iinfo('int64').min
     image[2] = 7
-    a, amask = maximum(image, mask=mask)
+    a, _ = maximum(image, mask=mask)
     assert a.dtype == np.dtype('int64')
     assert np.all(a == 7)
 
@@ -232,6 +239,18 @@ def test_maximum_maskval() -> None:
     # Fully masked pixels are filled with the maskval
     assert np.all(a[1:,1:] == 5)
     assert np.all(amask[1:,1:])
+
+
+def test_maximum_nans(shortcuts: bool) -> None:
+    # A NaN pixel must be treated as masked (`nans=True`) rather than propagating
+    # into the reduction.
+    rng = np.random.default_rng(5)
+    image = rng.random((4,8,8))
+    image[1, 2, 2] = np.nan
+    a = maximum(image, nans=True)
+    assert not np.isnan(a).any()
+    b = maximum(image[np.array([0, 2, 3])][:, 2:3, 2:3])
+    assert a[2, 2] == b[0, 0]
 
 
 def test_maximum_maskedarray() -> None:

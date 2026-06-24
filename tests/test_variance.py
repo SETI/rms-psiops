@@ -263,6 +263,26 @@ def test_variance_too_few_dimensions() -> None:
     assert str(exc_info.value) == 'invalid image shape (4, 3); must be at least 3-D'
 
 
+def test_variance_non_numeric_dtype() -> None:
+    image = np.array(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']).reshape(2,2,2)
+    with pytest.raises((TypeError, ValueError)) as exc_info:
+        _ = variance(image)
+    assert 'convert string to float' in str(exc_info.value)
+
+
+def test_variance_returns_variants() -> None:
+    rng = np.random.default_rng(11)
+    image = rng.random((3,10,10))
+    mask = rng.random((10,10)) < 0.3
+
+    assert isinstance(variance(image), np.ndarray)
+    assert len(variance(image, mask=mask)) == 2
+    assert isinstance(variance(image, mask=mask, returns='i'), np.ndarray)
+    assert len(variance(image, mask=mask, returns='im')) == 2
+    assert len(variance(image, mask=mask, returns='iw')) == 2
+    assert len(variance(image, mask=mask, returns='imw')) == 3
+
+
 ##########################################################################################
 # variance_filter
 ##########################################################################################

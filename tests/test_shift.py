@@ -5,10 +5,18 @@
 import numbers
 
 import numpy as np
+import pytest
 
 from psiops.shift import shift
 
-PRINT_ANSWERS = False   # change to True to print out this value of `ANSWERS`
+# Golden-data regeneration: the `ANSWERS` table below is the expected output of
+# `test_shift_reference_answers`, which asserts against it when `PRINT_ANSWERS` is False.
+# To regenerate after an intended behavior change, set `PRINT_ANSWERS = True` and run
+#     python -m pytest tests/test_shift.py::test_shift_reference_answers -s
+# then copy the printed `ANSWERS = {...}` block over the literal below and restore
+# `PRINT_ANSWERS = False`. Review the diff: only the values you intended to change should
+# move.
+PRINT_ANSWERS = False
 
 ANSWERS = {
     (0,0,0,0): ([5.75, 2.5, 2.5, 6.75, 4.25, 3.75, 8.75, 8, 7.75], [0, 0, 0, 0, 0, 0, 0, 0, 0]),
@@ -140,29 +148,28 @@ def _diag_setup() -> tuple[np.ndarray, np.ndarray]:
     return image, mask
 
 
-def test_shift_small_shifts_all_modes(shortcuts: bool) -> None:
+@pytest.mark.parametrize('mode', ['constant', 'nearest', 'wrap', 'reflect', 'mirror'])
+def test_shift_small_shifts_all_modes(mode: str, shortcuts: bool) -> None:
 
     image, mask = _diag_setup()
 
-    # small shifts, all modes, masked and unmasked
-    for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
+    # small shifts, masked and unmasked; behavior is mode-independent away from the edge
+    shifted = shift(image, 0, mode=mode)
+    assert np.all(shifted == image)
 
-        shifted = shift(image, 0, mode=mode)
-        assert np.all(shifted == image)
+    shifted = shift(image, (0,0.5), mode=mode)
+    assert np.all(shifted[...,1:] == image[...,1:] - 0.5)
 
-        shifted = shift(image, (0,0.5), mode=mode)
-        assert np.all(shifted[...,1:] == image[...,1:] - 0.5)
+    shifted = shift(image, (0,-0.25), mode=mode)
+    assert np.all(shifted[...,:-1] == image[...,:-1] + 0.25)
 
-        shifted = shift(image, (0,-0.25), mode=mode)
-        assert np.all(shifted[...,:-1] == image[...,:-1] + 0.25)
+    shifted = shift(image, -0.75, mode=mode)
+    assert np.all(shifted[...,:-1,:-1] == image[...,:-1,:-1] + 1.5)
 
-        shifted = shift(image, -0.75, mode=mode)
-        assert np.all(shifted[...,:-1,:-1] == image[...,:-1,:-1] + 1.5)
-
-        # with diagonal mask
-        shifted, smask = shift(image, 0, mask, mode=mode, cval=0)
-        assert np.all(shifted[~mask] == image[~mask])
-        assert np.all(smask == mask)
+    # with diagonal mask
+    shifted, smask = shift(image, 0, mask, mode=mode, cval=0)
+    assert np.all(shifted[~mask] == image[~mask])
+    assert np.all(smask == mask)
 
 
 def test_shift_constant_cval_none(shortcuts: bool) -> None:

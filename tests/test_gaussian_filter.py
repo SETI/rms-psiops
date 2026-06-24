@@ -124,6 +124,24 @@ def test_gaussian_mask_3d() -> None:
     assert np.abs((a - expect)[good]).max() < 1.e-12
 
 
+def test_gaussian_masked_cval_none() -> None:
+    # With a mask and `cval=None` in a non-"masked" mode, the masked-normalization branch
+    # treats out-of-bounds image values as zero (ival = cval or 0.) and pads the weights
+    # with their maximum. The result is the weight-renormalized ratio and stays finite.
+    rng = np.random.default_rng(7)
+    image = rng.random((3, 20, 20))
+    mask = rng.random((20, 20)) < 0.3
+    a, amask = gaussian_filter(image, 1.5, mask=mask, mode='constant', cval=None)
+    assert a.shape == (3, 20, 20)
+    assert amask.shape == (3, 20, 20)
+    assert np.isfinite(a).all()
+
+    w = np.logical_not(mask).astype(float)
+    fw = _sgf(w, 1.5, mode='constant', cval=np.max(w))
+    fi = _scipy_ref(image * w, 1.5, mode='constant', cval=0.)
+    assert np.abs(a - fi / fw).max() < 1.e-12
+
+
 def test_gaussian_fully_masked() -> None:
     rng = np.random.default_rng(7)
     image = rng.random((3,20,20))

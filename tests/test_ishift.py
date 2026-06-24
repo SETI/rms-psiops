@@ -9,7 +9,14 @@ import pytest
 
 from psiops.ishift import ishift
 
-PRINT_ANSWERS = False   # change to True to print out this value of `ANSWERS`
+# Golden-data regeneration: the `ANSWERS` table below is the expected output of
+# `test_ishift_reference_answers`, which asserts against it when `PRINT_ANSWERS` is False.
+# To regenerate after an intended behavior change, set `PRINT_ANSWERS = True` and run
+#     python -m pytest tests/test_ishift.py::test_ishift_reference_answers -s
+# then copy the printed `ANSWERS = {...}` block over the literal below and restore
+# `PRINT_ANSWERS = False`. Review the diff: only the values you intended to change should
+# move.
+PRINT_ANSWERS = False
 
 ANSWERS = {
     (0,0,0,0): ([9, 4, 3, 9, 1, 2, 9, 8, 6], [0, 0, 0, 0, 0, 0, 0, 0, 0]),
@@ -54,48 +61,6 @@ ANSWERS = {
     (0,6,2,0): ([5, 4, 3, 0, 1, 2, 7, 8, 6], [0, 0, 0, 0, 0, 0, 0, 0, 0]),
     (0,6,3,0): ([2, 1, 2, 6, 8, 6, 2, 1, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0]),
     (0,6,4,0): ([8, 8, 6, 1, 1, 2, 4, 4, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0]),
-#     (1,0,0,0): ([9, 4, 3, 9, 1, 2, 9, 8, 6], [0, 1, 1, 0, 1, 1, 0, 1, 1]),
-#     (1,0,0,1): ([0, 4, 3, 0, 1, 2, 0, 8, 6], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,0,1,0): ([4, 4, 3, 1, 1, 2, 8, 8, 6], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,0,2,0): ([5, 4, 3, 0, 1, 2, 7, 8, 6], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,0,3,0): ([3, 4, 3, 2, 1, 2, 6, 8, 6], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,0,4,0): ([4, 4, 3, 1, 1, 2, 8, 8, 6], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,1,0,0): ([3, 5, 9, 2, 0, 9, 6, 7, 9], [1, 1, 0, 1, 1, 0, 1, 1, 0]),
-#     (1,1,0,1): ([3, 5, 0, 2, 0, 0, 6, 7, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,1,1,0): ([3, 5, 5, 2, 0, 0, 6, 7, 7], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,1,2,0): ([3, 5, 4, 2, 0, 1, 6, 7, 8], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,1,3,0): ([3, 5, 3, 2, 0, 2, 6, 7, 6], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,1,4,0): ([3, 5, 5, 2, 0, 0, 6, 7, 7], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,2,0,0): ([9, 9, 9, 4, 3, 5, 1, 2, 0], [0, 0, 0, 1, 1, 1, 1, 1, 1]),
-#     (1,2,0,1): ([0, 0, 0, 4, 3, 5, 1, 2, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,2,1,0): ([4, 3, 5, 4, 3, 5, 1, 2, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,2,2,0): ([8, 6, 7, 4, 3, 5, 1, 2, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,2,3,0): ([1, 2, 0, 4, 3, 5, 1, 2, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,2,4,0): ([4, 3, 5, 4, 3, 5, 1, 2, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,3,0,0): ([1, 2, 0, 8, 6, 7, 9, 9, 9], [1, 1, 1, 1, 1, 1, 0, 0, 0]),
-#     (1,3,0,1): ([1, 2, 0, 8, 6, 7, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,3,1,0): ([1, 2, 0, 8, 6, 7, 8, 6, 7], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,3,2,0): ([1, 2, 0, 8, 6, 7, 4, 3, 5], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,3,3,0): ([1, 2, 0, 8, 6, 7, 1, 2, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,3,4,0): ([1, 2, 0, 8, 6, 7, 8, 6, 7], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,4,0,0): ([9, 1, 2, 9, 8, 6, 9, 9, 9], [0, 1, 1, 0, 1, 1, 0, 0, 0]),
-#     (1,4,0,1): ([0, 1, 2, 0, 8, 6, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,4,1,0): ([1, 1, 2, 8, 8, 6, 8, 8, 6], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,4,2,0): ([0, 1, 2, 7, 8, 6, 5, 4, 3], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,4,3,0): ([2, 1, 2, 6, 8, 6, 2, 1, 2], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,4,4,0): ([1, 1, 2, 8, 8, 6, 8, 8, 6], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,5,0,0): ([9, 9, 9, 5, 9, 9, 0, 9, 9], [0, 0, 0, 1, 0, 0, 1, 0, 0]),
-#     (1,5,0,1): ([0, 0, 0, 5, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,5,1,0): ([5, 5, 5, 5, 5, 5, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,5,2,0): ([7, 8, 6, 5, 4, 3, 0, 1, 2], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,5,3,0): ([0, 2, 1, 5, 3, 4, 0, 2, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,5,4,0): ([5, 5, 3, 5, 5, 3, 0, 0, 2], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,6,0,0): ([9, 9, 9, 9, 9, 9, 9, 9, 9], [0, 0, 0, 0, 0, 0, 0, 0, 0]),
-#     (1,6,0,1): ([0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,6,1,0): ([4, 4, 3, 4, 4, 3, 4, 4, 3], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,6,2,0): ([5, 4, 3, 0, 1, 2, 7, 8, 6], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,6,3,0): ([2, 1, 2, 6, 8, 6, 2, 1, 2], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
-#     (1,6,4,0): ([8, 8, 6, 1, 1, 2, 4, 4, 3], [1, 1, 1, 1, 1, 1, 1, 1, 1]),
     (1,0,0,0): ([9, 4, 3, 9, 1, 2, 9, 8, 6], [0, 0, 0, 0, 1, 0, 0, 0, 1]),
     (1,0,0,1): ([0, 4, 3, 0, 1, 2, 0, 8, 6], [1, 0, 0, 1, 1, 0, 1, 0, 1]),
     (1,0,1,0): ([4, 4, 3, 1, 1, 2, 8, 8, 6], [0, 0, 0, 1, 1, 0, 0, 0, 1]),
@@ -295,45 +260,45 @@ def test_ishift_reflect_large_offset() -> None:
     assert np.all(shifted == image)
 
 
-def test_ishift_small_shifts_all_modes() -> None:
+@pytest.mark.parametrize('mode', ['constant', 'nearest', 'wrap', 'reflect', 'mirror'])
+def test_ishift_small_shifts_all_modes(mode: str) -> None:
 
     image = _ramp_stack()
     mask = _ramp_mask()
 
-    # small shifts, all modes, masked and unmasked
-    for mode in ('constant', 'nearest', 'wrap', 'reflect', 'mirror'):
+    # small integer shifts, masked and unmasked; behavior is mode-independent away from
+    # the edge
+    shifted = ishift(image, 0, mode=mode)
+    assert np.all(shifted == image)
 
-        shifted = ishift(image, 0, mode=mode)
-        assert np.all(shifted == image)
+    shifted = ishift(image, (0,1), mode=mode)
+    assert np.all(shifted[...,1:] == image[...,:-1])
 
-        shifted = ishift(image, (0,1), mode=mode)
-        assert np.all(shifted[...,1:] == image[...,:-1])
+    shifted = ishift(image, (0,-1), mode=mode)
+    assert np.all(shifted[...,:-1] == image[...,1:])
 
-        shifted = ishift(image, (0,-1), mode=mode)
-        assert np.all(shifted[...,:-1] == image[...,1:])
+    shifted = ishift(image, (1,0), mode=mode)
+    assert np.all(shifted[...,1:,:] == image[...,:-1,:])
 
-        shifted = ishift(image, (1,0), mode=mode)
-        assert np.all(shifted[...,1:,:] == image[...,:-1,:])
+    shifted = ishift(image, (-1,0), mode=mode)
+    assert np.all(shifted[...,:-1,:] == image[...,1:,:])
 
-        shifted = ishift(image, (-1,0), mode=mode)
-        assert np.all(shifted[...,:-1,:] == image[...,1:,:])
+    shifted = ishift(image, 1, mode=mode)
+    assert np.all(shifted[...,1:,1:] == image[...,:-1,:-1])
 
-        shifted = ishift(image, 1, mode=mode)
-        assert np.all(shifted[...,1:,1:] == image[...,:-1,:-1])
+    shifted = ishift(image, -1, mode=mode)
+    assert np.all(shifted[...,:-1,:-1] == image[...,1:,1:])
 
-        shifted = ishift(image, -1, mode=mode)
-        assert np.all(shifted[...,:-1,:-1] == image[...,1:,1:])
+    shifted = ishift(image, 3, mode=mode)
+    assert np.all(shifted[:,3:,3:] == image[:,:-3,:-3])
 
-        shifted = ishift(image, 3, mode=mode)
-        assert np.all(shifted[:,3:,3:] == image[:,:-3,:-3])
+    shifted = ishift(image, (-3,2), mode=mode)
+    assert np.all(shifted[:,:-3,2:] == image[:,3:,:-2])
 
-        shifted = ishift(image, (-3,2), mode=mode)
-        assert np.all(shifted[:,:-3,2:] == image[:,3:,:-2])
-
-        # with mask
-        shifted, smask = ishift(image, 0, mask, mode=mode)
-        assert np.all(shifted == image)
-        assert np.all(smask == mask)
+    # with mask
+    shifted, smask = ishift(image, 0, mask, mode=mode)
+    assert np.all(shifted == image)
+    assert np.all(smask == mask)
 
 def test_ishift_constant_cval_none() -> None:
 
@@ -528,31 +493,5 @@ def test_ishift_reference_answers() -> None:
     if PRINT_ANSWERS:
         print('}')
 
-#     image = np.array([4, 3, 5, 1, 2, 0, 8, 6, 7]).reshape(3,3)
-#     mask0 = None
-#     mask1 = True
-#     mask2 = np.array([0, 0, 0, 1, 0, 0, 0, 1, 0]).reshape(3,3).astype('bool')
-#     mask3 = np.array([1, 0, 1, 1, 1, 1, 0, 1, 1]).reshape(3,3).astype('bool')
-#     mask4 = 3
-#
-#     for m,mask in enumerate([mask0, mask1, mask2, mask3, mask4]):
-#       for o,offset in enumerate([(0,1), (0,-1), (1,0), (-1,0), (-1,1), (1,-2), (3,1)]):
-#         for k,mode in enumerate(['constant', 'nearest', 'wrap', 'mirror', 'reflect']):
-#           for c,cval in enumerate([9, None]):
-#             if mode != 'constant' and c > 0:
-#                 continue
-#             shifted, smask = ishift(image, offset=offset, mask=mask, mode=mode,
-#                                     cval=cval)
-#             if PRINT_ANSWERS:
-#                 vals = str(list(shifted.flatten()))
-#                 mask_ = str(list(smask.flatten().astype('int')))
-#                 print(f'    ({m},{o},{k},{c}): ({vals}, {mask_}),')
-#             else:
-#                 answer = ANSWERS[m,o,k,c]
-#                 assert np.all(shifted == np.array(answer[0]).reshape(3,3))
-#                 assert np.all(smask == np.array(answer[1]).reshape(3,3))
-#
-#     if PRINT_ANSWERS:
-#         print('}')
 
 ##########################################################################################

@@ -11,6 +11,7 @@ identity comparison so that the residuals equal target minus model.
 """
 
 import numpy as np
+import numpy.linalg
 import pytest
 
 from psiops.fitting import Fitting
@@ -42,6 +43,19 @@ class _BlobModel(ImageModel):
         di = i - center[0]
         dj = j - center[1]
         return np.exp(-(di**2 + dj**2) / (2. * s * s))
+
+
+class _ConstModel(ImageModel):
+    """A model independent of every transform parameter, giving a zero Jacobian."""
+
+    def transform(
+        self,
+        shape: tuple[int, int],
+        center: tuple[float, float],
+        expand: float = 1.,
+        rotate: float = 0.,
+    ) -> np.ndarray:
+        return np.ones(shape)
 
 
 class _IdentityStretch:
@@ -213,6 +227,12 @@ def test_set_target_passes_target_to_stretch() -> None:
 # remask
 ##########################################################################################
 
+def test_remask_before_target_raises() -> None:
+    f = _make_fitting()
+    with pytest.raises(ValueError, match='target must be defined before remask'):
+        f.remask(np.zeros((5, 5), dtype=bool))
+
+
 def test_remask_wrong_shape_raises() -> None:
     f = _make_fitting()
     f.set_target(np.ones((5, 5)))
@@ -375,6 +395,15 @@ def test_fit_transformed_attribute_set() -> None:
     f.fit([5.0, 5.0, 1.0, 0.0])
     assert f.transformed.shape == (10, 10)
     assert np.allclose(f.transformed, target, atol=1e-4)
+
+
+def test_fit_singular_jacobian_raises() -> None:
+    # A model independent of all parameters yields a zero Jacobian, so the curvature
+    # matrix J^T J is singular and its inversion raises LinAlgError (fitting.py ~397).
+    f = Fitting(_ConstModel(), _IdentityStretch())
+    f.set_target(np.ones((5, 5)))
+    with pytest.raises(numpy.linalg.LinAlgError):
+        f.fit([5.0, 6.0, 1.0, 0.0])
 
 
 def test_fill_stats_recomputes_when_x_changed() -> None:

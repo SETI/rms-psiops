@@ -9,9 +9,16 @@ full-suite coverage run and the active pytest configuration.
 > the cross-checks they motivated **uncovered and fixed 3 reduction-path bugs**. A subsequent
 > round of `Stretch`/`Fitting` modelling tests then **exposed and fixed several more source
 > bugs and added a grid-search capability** — see [Remediation status](#remediation-status-2026-06-22)
-> and [Follow-on work](#follow-on-work-2026-06-23) below. The original findings are preserved
-> unedited for context, with ✓ markers where resolved. Suite now: **833 passing, coverage
-> 98.21 %** (was 661 / 96.92 % at generation).
+> and [Follow-on work](#follow-on-work-2026-06-23) below. A third, review-driven round then
+> **added the model-constructor input validation that earlier rounds had deferred, fixed a
+> single-pixel `Stretch` division-by-zero, and removed a flaky uninitialized-memory cast in the
+> median tests** — see [Code-review remediation](#code-review-remediation-2026-06-23). A fourth
+> round then **worked the nice-to-have backlog: parametrized the loop-based cases (item 7), added
+> the missing failure-mode tests (item 8) and public-API smoke tests (item 9), and cleaned up the
+> golden tables and rotate flakiness (item 10)** — see
+> [Test-suite hardening](#test-suite-hardening-2026-06-24). The original findings
+> are preserved unedited for context, with ✓ markers where resolved. Suite now: **970 passing,
+> coverage 98.59 %** (was 661 / 96.92 % at generation).
 
 ## Executive summary
 
@@ -95,10 +102,12 @@ These three are now **regression-guarded under both flag settings** (`test_mean_
 - **Dead code (`_validation.py`):** the `'image dtype … is not numeric'` `TypeError` is
   unreachable on the `floats=True` path — `np.asarray(…, float64)` raises NumPy's generic
   `ValueError: could not convert …` first.
-- **Cryptic model errors:** malformed model inputs raise raw `IndexError` / `zip()` messages
-  rather than validated ones — `SummedModel` length mismatch (`zip(strict=True)`),
-  `SmearedModel` non-length-2 `smear`, `ArrayModel` non-2-D. Tests assert the real (cryptic)
-  messages; adding input validation would be a product improvement.
+- **Cryptic model errors:** ✓ **Resolved (2026-06-23)** — see
+  [Code-review remediation](#code-review-remediation-2026-06-23). *(Original note: malformed model
+  inputs raise raw `IndexError` / `zip()` messages rather than validated ones — `SummedModel`
+  length mismatch (`zip(strict=True)`), `SmearedModel` non-length-2 `smear`, `ArrayModel` non-2-D.
+  Tests assert the real (cryptic) messages; adding input validation would be a product
+  improvement.)*
 
 ### Still open (nice-to-have, §5/§9/§17/§23)
 
@@ -163,8 +172,8 @@ strict (`-W`) Sphinx docs build is clean.
 ### Partially addresses earlier observations
 
 The **cryptic model errors** noted above (§"Newly observed") are now at least *characterized* by
-tests; `SmearedModel`'s rotation gap is fixed. Adding explicit input validation to the model
-constructors remains a possible product improvement.
+tests; `SmearedModel`'s rotation gap is fixed. *(Explicit input validation for the model
+constructors was subsequently added — see [Code-review remediation](#code-review-remediation-2026-06-23).)*
 
 ### Documentation
 
@@ -172,6 +181,127 @@ The User's Guide was reorganized so the **Image models** discussion now lives as
 under **Fitting** (the model is the building block a `Fitting` operates on), with a `Stretch`
 example followed by a `Fitting` example; the latter dropped the manual `stretch.set_image()`
 workaround that the `set_target` fix made unnecessary.
+
+---
+
+## Code-review remediation (2026-06-23)
+
+A third round, driven by an inline review of the `claude2` branch diff, closed product gaps the
+earlier rounds had explicitly deferred and removed a latent test flake. Suite: 833 → **834
+passing**; coverage **98.21 % → 98.23 %** (the three `imagemodel` constructors and `stretch.py`
+are now at **100 %**); ruff + mypy clean.
+
+### Source bugs and gaps fixed
+
+- **Model-constructor input validation** (closes the "Cryptic model errors" item deferred under
+  [Remediation status → Newly observed](#newly-observed-during-remediation-not-fixed--out-of-scope)
+  and §2): `ArrayModel`, `SmearedModel`, and `SummedModel` now validate at construction and raise
+  clear `ValueError`s — non-2-D array, `smear` not exactly two elements, and `models`/`factors`
+  length mismatch — instead of leaking a raw `IndexError` or a Python-version-specific
+  `zip()` message. The previously cryptic-message tests in `test_imagemodel.py` were rewritten to
+  assert the new domain-level messages, and the `SummedModel` case now fails at construction
+  rather than later inside `transform()`.
+- **`stretch.py` — single-pixel axis** (addresses the untested "single-pixel arrays" gap in §2):
+  `set_image` divided the normalized index array by `half = 0.5 * (shape - 1)`, which is `0` when
+  a spatial axis has length 1, writing `NaN` (`0/0`) into `_ij_powers`. It now divides by
+  `half or 1.`, mapping the lone pixel to centre coordinate `0`; behavior is unchanged for every
+  multi-pixel shape.
+
+### Test flake fixed (§15/§16)
+
+- **`test_median.py` — uninitialized-memory cast**: `np.empty(shape).astype('int')` cast
+  uninitialized float64 memory to `int`, emitting `RuntimeWarning: invalid value encountered in
+  cast` whenever the buffer happened to hold a NaN/inf pattern — an intermittent failure under
+  `filterwarnings = ["error"]` (it surfaced on a contributor's Python 3.11 run, not in CI).
+  Replaced with direct `np.empty(shape, dtype=...)` allocation across all six occurrences, which
+  removes the float→int cast entirely so the warning is structurally impossible. This is a
+  concrete instance of the latent-warning flakiness flagged in §16.
+
+### Still open
+
+The validation-layer single-pixel/empty gaps remain only partially closed: `Stretch` is now
+guarded, but the **transform modules still have no empty/single-pixel tests** (§2), and the
+broader nice-to-have items (§5/§9/§17/§20/§23) are untouched.
+
+---
+
+## Test-suite hardening (2026-06-24)
+
+A fourth round worked the nice-to-have backlog from the [agent prompt](#prompt-for-an-ai-agent-to-fix-tests):
+**items 7, 8, and 9 are done, and item 10 is substantially done** (the `syrupy` migration was
+deliberately skipped). This was test-only work — no `src/` changes. Suite grew 834 → **970
+passing**; coverage 98.23 % → **98.59 %**; ruff + mypy clean.
+
+### Item 7 — loops → `@pytest.mark.parametrize`, monolithic tests split (§9/§17)
+
+- **dtype loops** in `test_median.py`, `test_minimum.py`, `test_maximum.py` lifted into
+  parametrized cases; the dual-purpose min/max `masked_fill_value` test split into a `_promote`
+  and an `_int64` test.
+- **`factors` families** in `test_mean.py` and `test_stdev.py` (three near-identical copies each)
+  collapsed into one parametrized test apiece.
+- **radius loops** (`test_circle.py`) and the **size loop** (`test_patch.py`) parametrized.
+- the per-mode loops in `test_shift.py`/`test_ishift.py` (`*_small_shifts_all_modes`) parametrized
+  over `mode`. (The 403-482 ishift per-mode blocks were already single-responsibility functions
+  with genuinely mode-specific assertions, so they were left as-is.)
+
+### Item 8 — missing failure-mode / behavior tests (§2/§11/§12)
+
+- **`nans=True`** added to median, stdev, minimum, maximum (mean/variance already had it).
+- **non-numeric rejection** added to mean, median, stdev, variance. Note: these reductions call
+  `_check_image(floats=True)`, so the pure dtype-check `TypeError` that minimum/maximum reach
+  (via `floats=False`) is not reachable identically — median/stdev assert a `TypeError` from an
+  uncoercible object array, mean/variance assert the `ValueError` raised when a string array
+  fails float conversion. Both verify non-numeric input is rejected; the exception type differs
+  by input.
+- **`returns=` arity** contracts added for mean, stdev, variance.
+- **`rotate` `ZeroDivisionError`** on an axis-aligning angle (forced with a small `eps`).
+- **`gaussian_filter` masked `cval=None`** normalization branch.
+- **`Fitting`** `remask`-before-`set_target` `ValueError` and singular-Jacobian `LinAlgError`
+  (via a new constant-model double). The non-convergence test was **deliberately skipped**: a bad
+  initial guess has no single guaranteed outcome (may converge, settle in a wrong local minimum
+  while still reporting success, or hit the already-covered singular-Jacobian path), so no
+  deterministic, non-brittle assertion is available.
+- The model-constructor error paths from item 8 were already done in the prior round.
+
+### Item 10 — golden tables and rotate flakiness (§15/§23)
+
+- **Removed the dead commented blocks** in `test_ishift.py` (the stale `(1,*)` answer block and
+  the commented duplicate driver) — the hand-edit evidence flagged in §23.
+- **Documented the `PRINT_ANSWERS` regeneration procedure** in both `test_shift.py` and
+  `test_ishift.py` (set the flag, run the reference test with `-s`, paste the printed block back,
+  restore the flag, review the diff).
+- **Tightened the loose rotate tolerances**: `test_rotate.py:112` `< 1` → `< 0.65` (observed max
+  ~0.61) and `:136` `< 2` → `< 1.6` (observed max ~1.48), each with a comment citing the measured
+  value.
+- **Removed both sources of rotate test randomness**: the 300 random angles in the area-conservation
+  test were replaced by a deterministic `np.linspace` sweep across the circle (reproducible,
+  reports the offending angle on failure, renamed `*_swept_angles_*`), and the throwaway
+  300-iteration RNG-advance in `test_rotate_many_masked_pixels_unweighted` was removed in favor of
+  an independent mask seed.
+- **Not done:** the `syrupy` snapshot-tool migration (item 10, intentionally skipped).
+
+### Item 9 — public-API smoke tests (§20)
+
+New `tests/test_public_api.py` imports from the top-level `psiops` package (the rest of the suite
+imports submodules), so it exercises the two things a submodule import never reaches:
+
+- **Re-export wiring** — every name in `psiops.__all__` is present and callable, the modeling
+  names resolve to the actual classes, and a package-level call (`psiops.mean`) forwards to and
+  matches the submodule implementation (`psiops.mean.__wrapped__ is` the real function).
+- **`_suppress_divide_warnings`** — derived-from-`__all__` parametrized checks assert every
+  re-exported function and each wrapped `(class, method)` pair carries `__wrapped__` (so the
+  wrapping loop cannot silently miss a name), plus a behavior test: `psiops.Gaussian(sigma=0)
+  .transform(...)` divides by zero yet does not raise under warnings-as-errors, while its
+  unwrapped `__wrapped__` original *does* — proving the wrapper is what suppresses it.
+
+`psiops.__all__`/`__wrapped__` are runtime attributes the `.pyi` stub does not declare, so the
+three accesses use a targeted `# type: ignore[attr-defined]`; this was kept test-only (the stub
+was not changed).
+
+### Still open (nice-to-have)
+
+Item **6** (extract shared image-builder fixtures, §5) is the only remaining backlog item, along
+with the transform-module empty/single-pixel tests (§2) and the `syrupy` migration (§23).
 
 ---
 
@@ -204,28 +334,38 @@ Happy paths and the `size cannot be zero` empty-array path are covered consisten
   incompatible mask/weights shapes (documented `shift.py:75-80`) are never driven through the
   public function, whereas `ishift` (`test_ishift.py:240`) and `rotate`
   (`test_rotate.py:292-301`) do test these.
-- **`nans=True` is barely tested.** Only `test_mean_nans:249` and `test_variance_nans:203`
-  exercise it; median/stdev/minimum/maximum and *all six* transform modules document `nans=`
-  but never test it.
-- **Non-numeric `TypeError`** (every reduction docstring promises it) is tested only in
-  `test_minimum.py:277` / `test_maximum.py:280`; mean/median/stdev/variance never hit it.
-- **Model constructors have no invalid-arg tests:** `SummedModel` uses `zip(..., strict=True)`
-  (`summedmodel.py:52`) → `ValueError` on length mismatch; `SmearedModel` indexes `smear[...]`
-  (`smearedmodel.py:28`) → `IndexError`; `ArrayModel` with non-2-D input — all untested
-  (`test_imagemodel.py`).
-- **Documented failure modes never asserted:** `rotate`'s `ZeroDivisionError` (`rotate.py:98`),
-  `fitting`'s `LinAlgError` on a singular Jacobian (`fitting.py:283-286,338`) and `remask`
-  "target must be defined" (`fitting.py:161`), and `Stretch`'s degenerate-`inv` path
-  (`stretch.py:326`).
-- **Empty / single-pixel arrays** are not tested in any transform module.
+- **`nans=True` is barely tested.** ✓ **Reductions resolved (2026-06-24, item 8)** — `nans=True`
+  added to median/stdev/minimum/maximum; the *transform* modules still document `nans=` without
+  testing it. *(Original: only `test_mean_nans:249` and `test_variance_nans:203` exercised it.)*
+- **Non-numeric `TypeError`** (every reduction docstring promises it) ✓ **Resolved (2026-06-24,
+  item 8)** — non-numeric rejection now tested for mean/median/stdev/variance (the exception type
+  differs by input; see [Test-suite hardening](#test-suite-hardening-2026-06-24)). *(Original:
+  tested only in `test_minimum.py:277` / `test_maximum.py:280`.)*
+- **Model constructors have no invalid-arg tests:** ✓ **Resolved (2026-06-23)** — the
+  constructors now validate up front and the tests assert the new domain messages; see
+  [Code-review remediation](#code-review-remediation-2026-06-23). *(Original: `SummedModel` uses
+  `zip(..., strict=True)` (`summedmodel.py:52`) → `ValueError` on length mismatch; `SmearedModel`
+  indexes `smear[...]` (`smearedmodel.py:28`) → `IndexError`; `ArrayModel` with non-2-D input —
+  all untested (`test_imagemodel.py`).)*
+- **Documented failure modes never asserted:** ✓ **Mostly resolved (2026-06-24, item 8)** —
+  `rotate`'s `ZeroDivisionError`, and `fitting`'s singular-Jacobian `LinAlgError` and
+  `remask`-before-target `ValueError` are now tested; `Stretch`'s degenerate-`inv` path
+  (`stretch.py:326`) remains untested. See
+  [Test-suite hardening](#test-suite-hardening-2026-06-24).
+- **Empty / single-pixel arrays** are not tested in any transform module. *(Note: `Stretch`'s
+  single-pixel axis is now guarded and the [Code-review remediation](#code-review-remediation-2026-06-23)
+  covered it; the transform modules remain untested.)*
 
 ## 3. Consistency
 
 - **The six statistics modules are structural clones but do not test the same matrix.**
   `maskval`, `MaskedArray` input, `nans`, reduction-level `weights=`, `returns=` arity, and
   non-numeric `TypeError` are each present in some files and silently absent in others —
-  **`stdev` is the most under-tested**, lacking `maskval`, `MaskedArray`, `nans`, and `weights=`
-  reduction tests entirely.
+  **`stdev` was the most under-tested**, lacking `maskval`, `MaskedArray`, `nans`, and `weights=`
+  reduction tests entirely. ✓ **Largely closed (2026-06-24, item 8)** — `stdev` gained `maskval`,
+  `MaskedArray`, `nans`, `returns=` arity, and non-numeric tests; the cross-module matrix is now
+  far more uniform (reduction-level `weights=` parity is the main remaining gap). See
+  [Test-suite hardening](#test-suite-hardening-2026-06-24).
 - **Naming diverges across parallel files:** mean/stdev/variance use `..._axis_variants`,
   `..._mask_2d/_3d`; median/minimum/maximum use `..._axes`, `..._2d_mask/_3d_mask`. Makes
   cross-file diffing of otherwise-identical modules harder than necessary.
@@ -264,10 +404,13 @@ Coverage is high (§18), but several documented behaviors are untested:
 - **`fitting` `zoom`/`rotate` fitting is never exercised** (flags only ever enable x/y), and the
   `corr`/`denom==0` branch is untested.
 - **`gaussian_filter` `cval=None` masked path** (`gaussian_filter.py:51-54`) untested.
-- **Public façade untested here:** model tests import `psiops.imagemodel.*` directly, so the
-  `__init__.py` re-export wiring and the `_suppress_divide_warnings` wrapper applied to
-  `Gaussian.transform` (`__init__.py:155-164`) are not exercised; fft/stretch/fitting tests
-  likewise import submodules rather than the public `psiops` package / `.pyi` surface.
+- **Public façade untested here:** ✓ **Resolved (2026-06-24, item 9)** — `tests/test_public_api.py`
+  now exercises the `__init__.py` re-export wiring and the `_suppress_divide_warnings` wrapper via
+  the public `psiops` package; see [Test-suite hardening](#test-suite-hardening-2026-06-24).
+  *(Original: model tests import `psiops.imagemodel.*` directly, so the `__init__.py` re-export
+  wiring and the `_suppress_divide_warnings` wrapper applied to `Gaussian.transform`
+  (`__init__.py:155-164`) are not exercised; fft/stretch/fitting tests likewise import submodules
+  rather than the public `psiops` package / `.pyi` surface.)*
 
 ## 5. Redundancy
 
@@ -356,6 +499,9 @@ This is the weakest area relative to its importance.
   `test_rotate.py:258` (`use_3d`), `test_validation.py:52,70,81` (`@parametrize('name',
   _REDUCTIONS)`).
 - **Loop-where-parametrize-belongs (loses per-case reporting, stops at first failure):**
+  ✓ **Mostly resolved (2026-06-24, item 7)** — see
+  [Test-suite hardening](#test-suite-hardening-2026-06-24); the `expand` loop
+  (`test_imagemodel.py:92`) is the remaining one. *(Original list:)*
   - dtype loops `test_median.py:131`, `test_minimum.py:129`, `test_maximum.py:133` (vs. the
     `@parametrize` form used in mean/stdev/variance for the same list);
   - radius loops `test_circle.py:33,69`; size loop `test_camouflage.py:156`; expand loop
@@ -437,15 +583,20 @@ Not applicable — the library is synchronous NumPy/SciPy compute. No async fixt
 
 - **Low overall risk:** all randomness is seeded, no wall-clock/`uuid` assertions, no order
   dependence given the autouse restore.
-- **Brittle RNG-sequence coupling:** `test_rotate.py:118-123`
+- **Brittle RNG-sequence coupling:** ✓ **Resolved (2026-06-24, item 10)** — the throwaway
+  300-iteration RNG-advance was removed in favor of an independent mask seed, and the sibling
+  area-conservation test's random angles were replaced by a deterministic sweep; see
+  [Test-suite hardening](#test-suite-hardening-2026-06-24). *(Original: `test_rotate.py:118-123`
   (`test_rotate_many_masked_pixels_unweighted`) advances the RNG with a throwaway 300-iteration
   loop "to match historical sequence" before generating its mask — any change to the loop count
-  silently changes the data and the golden tolerances. Use an independent seed.
+  silently changes the data and the golden tolerances. Use an independent seed.)*
 - **Seed-dependent magic threshold:** `test_outliers.py:104` asserts `result.sum() < 5` on
   seeded noise — robust for the fixed seed but brittle (and it tests the mock, not production —
   §7).
-- **Loose, unexplained magnitude tolerances:** `test_rotate.py:112` (`< 1`) and `:136` (`< 2`)
-  are large relative to pixel values; a regression shifting values by ~0.8 would pass.
+- **Loose, unexplained magnitude tolerances:** ✓ **Resolved (2026-06-24, item 10)** —
+  `test_rotate.py:112` tightened `< 1` → `< 0.65` and `:136` `< 2` → `< 1.6`, each commented with
+  the measured max (~0.61 and ~1.48). *(Original: these were large relative to pixel values; a
+  regression shifting values by ~0.8 would pass.)*
 
 ## 16. Regression and documentation
 
@@ -508,12 +659,17 @@ Not applicable — the library is synchronous NumPy/SciPy compute. No async fixt
   internal-by-design and the project explicitly tests them; `conftest.py:10` importing
   `_use_shortcuts` is justified white-box toggling. `_resize_reference.py` is a documented,
   `_`-prefixed test-only reference impl (header `:4-8`).
-- **But the public façade is under-tested.** fft/stretch/fitting tests import submodules
+- **But the public façade is under-tested.** ✓ **Resolved (2026-06-24, item 9)** —
+  `tests/test_public_api.py` now imports from the top-level `psiops` package and exercises both
+  the re-export wiring and the `_suppress_divide_warnings` wrapper (including a behavior test that
+  would catch a divide-warning regression in a wrapped entry point); see
+  [Test-suite hardening](#test-suite-hardening-2026-06-24). The per-function tests still
+  (appropriately) import submodules. *(Original: fft/stretch/fitting tests import submodules
   (`from psiops.fft import ...`) and model tests import `psiops.imagemodel.*` directly, rather
   than the public `psiops` package whose surface is pinned by `__init__.pyi` (the type authority
   CLAUDE.md flags as needing manual sync). Consequently the re-export wiring and the
   `_suppress_divide_warnings` wrapper applied in `__init__.py:155-164` are never exercised — a
-  divide-warning regression in a wrapped `transform` would not be caught.
+  divide-warning regression in a wrapped `transform` would not be caught.)*
 - **Tight coupling to private internals** in a few places couples tests to implementation:
   `rotate`'s `_debug=` dict (`test_rotate.py:39,55`), `Stretch._antimask`/`_ij_powers`/
   `_matrix3d` (`test_stretch.py:198,427,433`), `Fitting._fill_stats`/`_result`/`_params`
@@ -559,19 +715,25 @@ suite's only golden data.
 - **Regeneration is a manual source edit** via a `PRINT_ANSWERS = False` toggle
   (`test_shift.py:12`, `test_ishift.py:12`) — not a snapshot fixture, so there is no
   `--snapshot-update` audit trail.
-- **Evidence of drift / hand-editing:** `test_ishift.py:57-98` is a large commented-out block of
-  old `(1,*)` answers immediately followed by live replacements (`:99-140`), plus a commented
-  duplicate driver (`:531-556`) and inline "bug fix: was smask[...,:0,:] (empty, always True)"
-  notes (`:374-375`). This strongly indicates the golden data was hand-patched rather than
-  cleanly regenerated. Consider migrating to a real snapshot tool (e.g. `syrupy`) or at minimum
-  removing the dead commented blocks and documenting the regeneration procedure.
+- **Evidence of drift / hand-editing:** ✓ **Partially resolved (2026-06-24, item 10)** — the dead
+  commented `(1,*)` block and the commented duplicate driver were removed, and the regeneration
+  procedure is now documented at the `PRINT_ANSWERS` toggle in both files; see
+  [Test-suite hardening](#test-suite-hardening-2026-06-24). The `syrupy` migration was not done.
+  *(Original: `test_ishift.py:57-98` is a large commented-out block of old `(1,*)` answers
+  immediately followed by live replacements (`:99-140`), plus a commented duplicate driver
+  (`:531-556`) and inline "bug fix: was smask[...,:0,:] (empty, always True)" notes (`:374-375`).
+  This strongly indicates the golden data was hand-patched rather than cleanly regenerated.
+  Consider migrating to a real snapshot tool (e.g. `syrupy`) or at minimum removing the dead
+  commented blocks and documenting the regeneration procedure.)*
 
 ---
 
 ## Prompt for an AI agent to fix tests
 
-> **Note (2026-06-22):** High-priority items 1–5 below are **done** (see Remediation status);
-> only nice-to-have items 6–10 remain. The prompt is retained in full for context and reuse.
+> **Note (2026-06-24):** High-priority items 1–5 are **done** (see Remediation status). Of the
+> nice-to-have items, **7, 8, and 9 are done and 10 is substantially done** (`syrupy` migration
+> skipped) — see [Test-suite hardening](#test-suite-hardening-2026-06-24). Only item **6**
+> (shared fixtures) remains. The prompt is retained in full for context and reuse.
 
 > **Task:** Improve the `psiops` pytest suite per the critique below. **Do not change any
 > production code under `src/`** — only add or modify files under `tests/` (including

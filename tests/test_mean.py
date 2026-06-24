@@ -2,6 +2,8 @@
 # tests/test_mean.py
 ##########################################################################################
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -122,54 +124,42 @@ def test_mean_factors_duplication_equivalence() -> None:
     assert np.abs(a - b).max() < 1.e-15
 
 
-def test_mean_factors_2d_multi_axis() -> None:
+@pytest.mark.parametrize(('shape', 'dups', 'factors_shape', 'multi_axis',
+                          'trim', 'single_axis'),
+    [
+        # 2d_multi_axis
+        ((5,2,6,10,10),
+         [(np.s_[:,0,4], np.s_[:,0,3]), (np.s_[:,0,5], np.s_[:,0,3]),
+          (np.s_[:,1,4], np.s_[:,1,0]), (np.s_[:,1,5], np.s_[:,1,1])],
+         (2,4), (1,2), np.s_[:,:,:4], 2),
+        # 3d_axis_0_2
+        ((2,5,6,10,10),
+         [(np.s_[0,:,4], np.s_[0,:,3]), (np.s_[0,:,5], np.s_[0,:,3]),
+          (np.s_[1,:,4], np.s_[1,:,0]), (np.s_[1,:,5], np.s_[1,:,1])],
+         (2,1,4), (0,2), np.s_[:,:,:4], 2),
+        # 3d_axis_0_1
+        ((2,6,5,10,10),
+         [(np.s_[0,4], np.s_[0,3]), (np.s_[0,5], np.s_[0,3]),
+          (np.s_[1,4], np.s_[1,0]), (np.s_[1,5], np.s_[1,1])],
+         (2,4,1), (0,1), np.s_[:,:4], 1),
+    ])
+def test_mean_factors_axis_combinations(shape: tuple[int, ...],
+                                        dups: list[tuple[Any, Any]],
+                                        factors_shape: tuple[int, ...],
+                                        multi_axis: tuple[int, ...],
+                                        trim: Any, single_axis: int) -> None:
     rng = np.random.default_rng(5965)
-    image = rng.random((5,2,6,10,10))
-    image[:,0,4] = image[:,0,3]
-    image[:,0,5] = image[:,0,3]
-    image[:,1,4] = image[:,1,0]
-    image[:,1,5] = image[:,1,1]
-    factors = np.array([[1,1,1,3],[2,2,1,1]])
-    a = mean(image[:,:,:4], axis=(1,2), factors=factors)
-    b = mean(image, axis=(1,2))
+    image = rng.random(shape)
+    for dst, src in dups:
+        image[dst] = image[src]
+    factors = np.array([[1,1,1,3],[2,2,1,1]]).reshape(factors_shape)
+
+    a = mean(image[trim], axis=multi_axis, factors=factors)
+    b = mean(image, axis=multi_axis)
     assert np.abs(a - b).max() < 1.e-15
 
-    a = mean(image[:,:,:4], axis=2, factors=factors)
-    b = mean(image, axis=2)
-    assert np.abs(a - b).max() < 1.e-15
-
-
-def test_mean_factors_3d_axis_0_2() -> None:
-    rng = np.random.default_rng(5965)
-    image = rng.random((2,5,6,10,10))
-    image[0,:,4] = image[0,:,3]
-    image[0,:,5] = image[0,:,3]
-    image[1,:,4] = image[1,:,0]
-    image[1,:,5] = image[1,:,1]
-    factors = np.array([[1,1,1,3],[2,2,1,1]]).reshape(2,1,4)
-    a = mean(image[:,:,:4], axis=(0,2), factors=factors)
-    b = mean(image, axis=(0,2))
-    assert np.abs(a - b).max() < 1.e-15
-
-    a = mean(image[:,:,:4], axis=2, factors=factors.reshape(2,1,4))
-    b = mean(image, axis=2)
-    assert np.abs(a - b).max() < 1.e-15
-
-
-def test_mean_factors_3d_axis_0_1() -> None:
-    rng = np.random.default_rng(5965)
-    image = rng.random((2,6,5,10,10))
-    image[0,4] = image[0,3]
-    image[0,5] = image[0,3]
-    image[1,4] = image[1,0]
-    image[1,5] = image[1,1]
-    factors = np.array([[1,1,1,3],[2,2,1,1]]).reshape(2,4,1)
-    a = mean(image[:,:4], axis=(0,1), factors=factors)
-    b = mean(image, axis=(0,1))
-    assert np.abs(a - b).max() < 1.e-15
-
-    a = mean(image[:,:4], axis=1, factors=factors)
-    b = mean(image, axis=1)
+    a = mean(image[trim], axis=single_axis, factors=factors)
+    b = mean(image, axis=single_axis)
     assert np.abs(a - b).max() < 1.e-15
 
 
@@ -314,6 +304,26 @@ def test_mean_too_few_dimensions() -> None:
     with pytest.raises(ValueError) as exc_info:
         _ = mean(image)
     assert str(exc_info.value) == 'invalid image shape (4, 3); must be at least 3-D'
+
+
+def test_mean_non_numeric_dtype() -> None:
+    image = np.array(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']).reshape(2,2,2)
+    with pytest.raises((TypeError, ValueError)) as exc_info:
+        _ = mean(image)
+    assert 'convert string to float' in str(exc_info.value)
+
+
+def test_mean_returns_variants() -> None:
+    rng = np.random.default_rng(5965)
+    image = rng.random((3,10,10))
+    mask = rng.random((10,10)) < 0.3
+
+    assert isinstance(mean(image), np.ndarray)
+    assert len(mean(image, mask=mask)) == 2
+    assert isinstance(mean(image, mask=mask, returns='i'), np.ndarray)
+    assert len(mean(image, mask=mask, returns='im')) == 2
+    assert len(mean(image, mask=mask, returns='iw')) == 2
+    assert len(mean(image, mask=mask, returns='imw')) == 3
 
 
 ##########################################################################################

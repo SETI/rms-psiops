@@ -148,14 +148,14 @@ def test_large_hole_leaves_residual_mask() -> None:
     assert np.all(new_mask <= mask)
 
 
-def test_size_parameter_changes_footprint_count() -> None:
+@pytest.mark.parametrize('size', [3, 5, 30])
+def test_size_parameter_changes_footprint_count(size: int) -> None:
     # Both sizes should fill a single isolated pixel to the surround value.
     image = np.ones((12, 12), dtype=np.float64)
     mask = np.zeros((12, 12), dtype=bool)
     mask[6, 6] = True
-    for size in (3, 5, 30):
-        result = patch(image, mask, size=size)
-        assert result[6, 6] == pytest.approx(1.0)
+    result = patch(image, mask, size=size)
+    assert result[6, 6] == pytest.approx(1.0)
 
 
 def test_multiple_separate_holes_all_filled() -> None:
