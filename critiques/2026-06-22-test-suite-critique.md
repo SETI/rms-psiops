@@ -7,7 +7,7 @@ full-suite coverage run and the active pytest configuration.
 
 > **Status:** All 5 high-priority findings were addressed (branch `claude2` @ `83a098f`), and
 > the cross-checks they motivated **uncovered and fixed 3 reduction-path bugs**. A subsequent
-> round of `Stretch`/`Fitting` modelling tests then **exposed and fixed several more source
+> round of `Stretch`/`Fitting` modeling tests then **exposed and fixed several more source
 > bugs and added a grid-search capability** — see [Remediation status](#remediation-status-2026-06-22)
 > and [Follow-on work](#follow-on-work-2026-06-23) below. A third, review-driven round then
 > **added the model-constructor input validation that earlier rounds had deferred, fixed a
@@ -163,7 +163,7 @@ strict (`-W`) Sphinx docs build is clean.
   polynomial background and polynomial scaling (known coefficients) plus noise, is recovered by
   `Stretch.fit()` to < 5e-3; the reconstructed background/scaling/model arrays are checked too.
 - **`test_fitting.py`** (real `Gaussian`/`SmearedModel` + `Stretch`): a 2-D Gaussian (σ 2–6,
-  centre within 6 px of the middle) over a 2nd-order background recovers centre to < 0.2 px and
+  center within 6 px of the middle) over a 2nd-order background recovers center to < 0.2 px and
   conserves the integral; fitting `zoom` (guess 1.1) recovers `zoom` to ~0.003; fitting all four
   parameters recovers the smear-aligning rotation (target smear `(3,4)`, model `(0,5)`) to ~0.08
   rad worst case; plus grid-search, `zoom <= 0` rejection, central-grid recovery, and
@@ -204,7 +204,7 @@ are now at **100 %**); ruff + mypy clean.
 - **`stretch.py` — single-pixel axis** (addresses the untested "single-pixel arrays" gap in §2):
   `set_image` divided the normalized index array by `half = 0.5 * (shape - 1)`, which is `0` when
   a spatial axis has length 1, writing `NaN` (`0/0`) into `_ij_powers`. It now divides by
-  `half or 1.`, mapping the lone pixel to centre coordinate `0`; behavior is unchanged for every
+  `half or 1.`, mapping the lone pixel to center coordinate `0`; behavior is unchanged for every
   multi-pixel shape.
 
 ### Test flake fixed (§15/§16)

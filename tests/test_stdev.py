@@ -378,7 +378,8 @@ def test_stdev_non_numeric() -> None:
     image = np.array([np.dtype('float')] * 8, dtype=object).reshape(2,2,2)
     with pytest.raises(TypeError) as exc_info:
         _ = stdev(image)
-    assert 'not' in str(exc_info.value)
+    # Stable part of CPython's float() TypeError; the trailing dtype class name varies.
+    assert 'float() argument must be a string or a real number' in str(exc_info.value)
 
 
 ##########################################################################################

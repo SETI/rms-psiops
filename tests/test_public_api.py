@@ -20,9 +20,11 @@ _ALL: list[str] = psiops.__all__   # type: ignore[attr-defined]
 
 # Split `__all__` into the module-level functions (wrapped by rebinding the package name)
 # and the modeling classes (whose specific methods are wrapped on the class). Derived from
-# `__all__` so the lists cannot drift from the package.
-_FUNCTION_NAMES = [n for n in _ALL if not isinstance(getattr(psiops, n), type)]
-_CLASS_NAMES = [n for n in _ALL if isinstance(getattr(psiops, n), type)]
+# `__all__` so the lists cannot drift from the package. The `None` sentinel keeps a stale
+# `__all__` entry from crashing collection here; `test_public_api_all_names_importable`
+# reports it cleanly instead.
+_FUNCTION_NAMES = [n for n in _ALL if not isinstance(getattr(psiops, n, None), type)]
+_CLASS_NAMES = [n for n in _ALL if isinstance(getattr(psiops, n, None), type)]
 
 # (class, method) pairs wrapped in `psiops/__init__.py`; kept in sync with the loop there.
 _WRAPPED_METHODS = [
