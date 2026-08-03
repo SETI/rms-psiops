@@ -85,7 +85,7 @@ dev = [
   # "bandit[toml]>=1.8",
   "pyroma>=4.2",
   # "vulture>=2.14",
-  "psiops[docs]",
+  "rms-psiops[docs]",
 ]
 docs = [
   "myst-parser",
