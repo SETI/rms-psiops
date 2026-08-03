@@ -1,6 +1,6 @@
-# Contributing to rms-picmaker
+# Contributing to rms-psiops
 
-Thank you for your interest in contributing to rms-picmaker! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to rms-psiops! This document provides guidelines and instructions for contributing to the project.
 
 ## Code of Conduct
 
