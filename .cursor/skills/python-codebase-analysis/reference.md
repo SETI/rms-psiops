@@ -12,12 +12,12 @@ Use this when you need concrete examples for a dimension or wording guidance.
 
 **Best practices – library hygiene**
 - **Finding**: Library code uses `print()` for diagnostic output instead of logging. **Evidence**: `src/parser.py` lines 12, 78, 134. **Suggestion**: Replace with `logger.debug()`/`logger.info()` using a module-level `logger = logging.getLogger(__name__)`.
-- **Finding**: Top-level `__init__.py` configures the root logger with `logging.basicConfig()`. **Evidence**: `src/rms-picmaker/__init__.py` line 5. **Suggestion**: Remove; add `logging.getLogger(__name__).addHandler(logging.NullHandler())` instead. Libraries must not configure logging for their callers.
+- **Finding**: Top-level `__init__.py` configures the root logger with `logging.basicConfig()`. **Evidence**: `src/psiops/__init__.py` line 5. **Suggestion**: Remove; add `logging.getLogger(__name__).addHandler(logging.NullHandler())` instead. Libraries must not configure logging for their callers.
 - **Finding**: `sys.exit(1)` called in library function on validation failure. **Evidence**: `src/validator.py` line 42. **Suggestion**: Raise a `ValueError` (or a custom exception) and let the caller decide how to handle it.
 
 **Best practices – error messages**
 - **Finding**: Exceptions raised with no context: `raise ValueError("invalid input")`. **Evidence**: `src/converter.py` lines 30, 55. **Suggestion**: Include the actual value and constraint: `raise ValueError(f"scale must be positive, got {scale}")`.
-- **Finding**: No custom exception hierarchy; all errors are bare `ValueError`/`TypeError`. **Evidence**: Grep for `raise ValueError` across `src/`. **Suggestion**: Define a `ReponameError` base class and specific subclasses so callers can catch library errors without catching unrelated `ValueError`s.
+- **Finding**: No custom exception hierarchy; all errors are bare `ValueError`/`TypeError`. **Evidence**: Grep for `raise ValueError` across `src/`. **Suggestion**: Define a `PsiopsError` base class and specific subclasses so callers can catch library errors without catching unrelated `ValueError`s.
 
 **Best practices – encoding and I/O**
 - **Finding**: `open()` calls omit `encoding`; relies on platform default. **Evidence**: `src/reader.py` lines 18, 42. **Suggestion**: Add `encoding='utf-8'` (or the appropriate encoding) to all `open()` calls in library code.
@@ -40,8 +40,8 @@ Use this when you need concrete examples for a dimension or wording guidance.
 - **Finding**: Feature flags and environment checks are scattered across 12 files. **Evidence**: Grep for `os.getenv("FEATURE_")`. **Suggestion**: Centralize in a `config` or `features` module and inject into call sites.
 
 **Maintainability – documentation quality**
-- **Finding**: README usage example calls `rms-picmaker.process(data)` but the function was renamed to `rms-picmaker.transform(data)` in v2.0. **Evidence**: `README.md` line 34 vs `src/rms-picmaker/__init__.py`. **Suggestion**: Update README examples to match the current API; consider a CI check that runs README code blocks.
-- **Finding**: Three public modules (`analysis`, `export`, `utils`) have no corresponding Sphinx `automodule` directive. **Evidence**: Compare `src/rms-picmaker/__init__.py` `__all__` against `docs/module.rst`. **Suggestion**: Add `.. automodule::` entries for each public module.
+- **Finding**: README usage example calls `psiops.process(data)` but the function was renamed to `psiops.transform(data)` in v2.0. **Evidence**: `README.md` line 34 vs `src/psiops/__init__.py`. **Suggestion**: Update README examples to match the current API; consider a CI check that runs README code blocks.
+- **Finding**: Three public modules (`analysis`, `export`, `utils`) have no corresponding Sphinx `automodule` directive. **Evidence**: Compare `src/psiops/__init__.py` `__all__` against `docs/module.rst`. **Suggestion**: Add `.. automodule::` entries for each public module.
 
 **Security**
 - **Finding**: Subprocess is invoked with `shell=True` and user-controlled input. **Evidence**: `src/runner.py` line 67. **Suggestion**: Use list form of arguments and avoid `shell=True`; validate/sanitize input.
@@ -62,9 +62,9 @@ Use this when you need concrete examples for a dimension or wording guidance.
 
 **Packaging and distribution**
 - **Finding**: `pyproject.toml` is missing `project.urls` (no Homepage, Repository, or Documentation links). **Evidence**: `pyproject.toml` `[project]` section. **Suggestion**: Add `[project.urls]` with links to GitHub, ReadTheDocs, and changelog so they appear on PyPI.
-- **Finding**: `__version__` is hard-coded in both `__init__.py` and `pyproject.toml`; they disagree after the last release. **Evidence**: `src/rms-picmaker/__init__.py` line 3 says `1.2.0`, `pyproject.toml` says `1.3.0`. **Suggestion**: Use a single source of truth (e.g. `importlib.metadata.version("rms-picmaker")` in `__init__.py` reading from the installed package metadata).
-- **Finding**: `py.typed` marker file is missing; downstream users get no type-checking benefit. **Evidence**: `src/rms-picmaker/` has no `py.typed` file. **Suggestion**: Add an empty `src/rms-picmaker/py.typed` and ensure it is included in the package via `[tool.setuptools.package-data]`.
-- **Finding**: `tests/` directory and test fixtures are included in the sdist/wheel. **Evidence**: `pip show -f rms-picmaker` lists `tests/`. **Suggestion**: Exclude `tests` from the package via `[tool.setuptools.packages.find]` `exclude = ["tests*"]` or equivalent.
+- **Finding**: `__version__` is hard-coded in both `__init__.py` and `pyproject.toml`; they disagree after the last release. **Evidence**: `src/psiops/__init__.py` line 3 says `1.2.0`, `pyproject.toml` says `1.3.0`. **Suggestion**: Use a single source of truth (e.g. `importlib.metadata.version("rms-psiops")` in `__init__.py` reading from the installed package metadata).
+- **Finding**: `py.typed` marker file is missing; downstream users get no type-checking benefit. **Evidence**: `src/psiops/` has no `py.typed` file. **Suggestion**: Add an empty `src/psiops/py.typed` and ensure it is included in the package via `[tool.setuptools.package-data]`.
+- **Finding**: `tests/` directory and test fixtures are included in the sdist/wheel. **Evidence**: `pip show -f rms-psiops` lists `tests/`. **Suggestion**: Exclude `tests` from the package via `[tool.setuptools.packages.find]` `exclude = ["tests*"]` or equivalent.
 
 ## Severity phrasing
 

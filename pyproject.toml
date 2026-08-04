@@ -3,7 +3,7 @@ requires = ["setuptools>=77", "setuptools_scm[toml]"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "PSIops"
+name = "rms-psiops"
 dynamic = ["version"]
 description = "Photometrically accurate Science Image Operations: shift, rotate, zoom, resample, and filter scientific images while conserving total signal, built on NumPy and SciPy."
 readme = "README.md"
@@ -85,7 +85,7 @@ dev = [
   # "bandit[toml]>=1.8",
   "pyroma>=4.2",
   # "vulture>=2.14",
-  "psiops[docs]",
+  "rms-psiops[docs]",
 ]
 docs = [
   "myst-parser",

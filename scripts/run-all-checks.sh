@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# rms-picmaker - Run All Checks Script
+# rms-psiops - Run All Checks Script
 #
 # This script runs linting, type checking, tests, Sphinx build, and
 # Markdown lint as separate checks. In parallel mode all requested
@@ -288,7 +288,7 @@ fi
 
 START_TIME=$(date +%s)
 
-print_header "rms-picmaker - Running All Checks"
+print_header "rms-psiops - Running All Checks"
 
 if [ "$PARALLEL" = true ]; then
     print_info "Running checks in PARALLEL mode"
