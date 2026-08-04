@@ -2,7 +2,8 @@
 
 <!-- Why is this change needed? What problem does it solve? -->
 
-Closes #<!-- issue number -->
+<!-- Replace NNN with the issue number, or delete this line if no issue is linked. -->
+Closes #NNN
 
 ## Changes/Implementation Details
 

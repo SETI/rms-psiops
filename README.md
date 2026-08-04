@@ -97,7 +97,7 @@ Information on contributing to this package can be found in the
 - [Documentation](https://rms-psiops.readthedocs.io)
 - [Repository](https://github.com/SETI/rms-psiops)
 - [Issue tracker](https://github.com/SETI/rms-psiops/issues)
-- [PyPi](https://pypi.org/project/rms-psiops)
+- [PyPI](https://pypi.org/project/rms-psiops)
 
 ## Licensing
 

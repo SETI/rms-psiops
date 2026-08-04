@@ -17,7 +17,7 @@ Use this when you need concrete examples for a dimension or wording guidance.
 
 **Best practices – error messages**
 - **Finding**: Exceptions raised with no context: `raise ValueError("invalid input")`. **Evidence**: `src/converter.py` lines 30, 55. **Suggestion**: Include the actual value and constraint: `raise ValueError(f"scale must be positive, got {scale}")`.
-- **Finding**: No custom exception hierarchy; all errors are bare `ValueError`/`TypeError`. **Evidence**: Grep for `raise ValueError` across `src/`. **Suggestion**: Define a `ReponameError` base class and specific subclasses so callers can catch library errors without catching unrelated `ValueError`s.
+- **Finding**: No custom exception hierarchy; all errors are bare `ValueError`/`TypeError`. **Evidence**: Grep for `raise ValueError` across `src/`. **Suggestion**: Define a `PsiopsError` base class and specific subclasses so callers can catch library errors without catching unrelated `ValueError`s.
 
 **Best practices – encoding and I/O**
 - **Finding**: `open()` calls omit `encoding`; relies on platform default. **Evidence**: `src/reader.py` lines 18, 42. **Suggestion**: Add `encoding='utf-8'` (or the appropriate encoding) to all `open()` calls in library code.
@@ -40,7 +40,7 @@ Use this when you need concrete examples for a dimension or wording guidance.
 - **Finding**: Feature flags and environment checks are scattered across 12 files. **Evidence**: Grep for `os.getenv("FEATURE_")`. **Suggestion**: Centralize in a `config` or `features` module and inject into call sites.
 
 **Maintainability – documentation quality**
-- **Finding**: README usage example calls `rms-psiops.process(data)` but the function was renamed to `rms-psiops.transform(data)` in v2.0. **Evidence**: `README.md` line 34 vs `src/psiops/__init__.py`. **Suggestion**: Update README examples to match the current API; consider a CI check that runs README code blocks.
+- **Finding**: README usage example calls `psiops.process(data)` but the function was renamed to `psiops.transform(data)` in v2.0. **Evidence**: `README.md` line 34 vs `src/psiops/__init__.py`. **Suggestion**: Update README examples to match the current API; consider a CI check that runs README code blocks.
 - **Finding**: Three public modules (`analysis`, `export`, `utils`) have no corresponding Sphinx `automodule` directive. **Evidence**: Compare `src/psiops/__init__.py` `__all__` against `docs/module.rst`. **Suggestion**: Add `.. automodule::` entries for each public module.
 
 **Security**
