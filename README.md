@@ -27,7 +27,7 @@
 [![DOI](https://zenodo.org/badge/rms-psiops.svg)](https://zenodo.org/badge/latestdoi/rms-psiops)
 <!-- start-after-point -->
 
-Photometrically accurate Science Image Operations.
+# Photometric Science Image Operations (psiops)
 
 ## Overview
 
