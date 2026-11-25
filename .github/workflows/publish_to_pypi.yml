@@ -5,22 +5,16 @@ on:
   release:
     types: [published]
 
-permissions:
-  contents: read
-
 jobs:
   upload_pypi:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Required for PyPI Trusted Publishing (OIDC); no API token is used.
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v7
@@ -39,3 +33,5 @@ jobs:
 
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
